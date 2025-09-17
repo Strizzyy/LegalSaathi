@@ -4,11 +4,13 @@
 
 {% block content %}
 <div class="row">
-    <div class="col-md-12">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2>📋 Document Analysis Results</h2>
+    <div class="col-12">
+        <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center mb-4">
+            <h2 class="mb-2 mb-sm-0">📋 Document Analysis Results</h2>
             <a href="/" class="btn btn-outline-primary">
-                <i class="bi bi-arrow-left"></i> Analyze Another Document
+                <i class="bi bi-arrow-left"></i> 
+                <span class="d-none d-sm-inline">Analyze Another Document</span>
+                <span class="d-inline d-sm-none">New Analysis</span>
             </a>
         </div>
 
@@ -36,8 +38,8 @@
             </div>
             <div class="card-body">
                 <div class="row">
-                    <div class="col-md-8">
-                        <div class="d-flex align-items-center mb-3">
+                    <div class="col-12 col-lg-8">
+                        <div class="d-flex flex-column flex-sm-row align-items-start align-items-sm-center mb-3"></div>
                             <h4 class="mb-0 risk-{{ analysis.overall_risk.level.lower() }}">
                                 {% if analysis.overall_risk.level == 'RED' %}
                                 🚨 HIGH RISK DOCUMENT
@@ -70,7 +72,7 @@
                         </div>
                         {% endif %}
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-12 col-lg-4 mt-3 mt-lg-0"></div>
                         <div class="text-center">
                             <div class="risk-meter mb-3">
                                 <div class="risk-meter-bg">
@@ -166,7 +168,7 @@
                     <div class="row">
                         <!-- Legal Implications -->
                         {% if result.legal_implications %}
-                        <div class="col-md-6 mb-3">
+                        <div class="col-12 col-lg-6 mb-3"></div>
                             <div class="implications-section">
                                 <h6 class="text-{{ clause_risk_class }}">
                                     <i class="bi bi-info-circle"></i> Legal Implications:
@@ -185,7 +187,7 @@
 
                         <!-- Actionable Recommendations -->
                         {% if result.recommendations %}
-                        <div class="col-md-6 mb-3">
+                        <div class="col-12 col-lg-6 mb-3">
                             <div class="recommendations-section">
                                 <h6 class="text-{{ clause_risk_class }}">
                                     <i class="bi bi-lightbulb"></i> Recommended Actions:
@@ -245,7 +247,7 @@
             </div>
             <div class="card-body">
                 <div class="row">
-                    <div class="col-md-8">
+                    <div class="col-12 col-lg-8"></div>
                         <h6>Analysis Summary:</h6>
                         <ul class="list-unstyled">
                             <li><i class="bi bi-file-text"></i> <strong>Total Clauses Analyzed:</strong> {{
@@ -293,7 +295,7 @@
                             {% endif %}
                         </div>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-12 col-lg-4 mt-4 mt-lg-0"></div>
                         <div class="text-center">
                             <div class="mb-3">
                                 <h6>Need Help?</h6>

@@ -4,7 +4,7 @@
 
 {% block content %}
 <div class="row justify-content-center">
-    <div class="col-md-8">
+    <div class="col-12 col-md-10 col-lg-8">
         <div class="card">
             <div class="card-header">
                 <h2 class="mb-0">Rental Agreement Analysis</h2>
@@ -28,10 +28,9 @@
                             placeholder="Paste your rental agreement text here..." required minlength="100"
                             maxlength="50000">{{ document_text or '' }}</textarea>
                         <div class="form-text">
-                            <div class="d-flex justify-content-between">
-                                <span>Please ensure you paste the complete rental agreement text for accurate
-                                    analysis.</span>
-                                <span id="charCount" class="text-muted">0 / 50,000 characters</span>
+                            <div class="d-flex flex-column flex-sm-row justify-content-between">
+                                <span class="mb-1 mb-sm-0">Please ensure you paste the complete rental agreement text for accurate analysis.</span>
+                                <span id="charCount" class="text-muted char-counter">0 / 50,000 characters</span>
                             </div>
                         </div>
                         <div id="validationFeedback" class="invalid-feedback"></div>
@@ -49,13 +48,31 @@
         <div class="mt-4">
             <div class="card">
                 <div class="card-body">
-                    <h5 class="card-title">How it works:</h5>
-                    <ol>
-                        <li>Paste your rental agreement text in the box above</li>
-                        <li>Click "Analyze Document" to start the AI analysis</li>
-                        <li>Review the risk assessment with our traffic light system</li>
-                        <li>Read plain-language explanations of complex clauses</li>
-                        <li>Get actionable recommendations for your situation</li>
+                    <h5 class="card-title">
+                        <i class="bi bi-info-circle text-primary me-2"></i>
+                        How it works:
+                    </h5>
+                    <ol class="list-group list-group-flush">
+                        <li class="list-group-item d-flex align-items-center border-0 px-0">
+                            <span class="badge bg-primary rounded-pill me-3">1</span>
+                            <span>Paste your rental agreement text in the box above</span>
+                        </li>
+                        <li class="list-group-item d-flex align-items-center border-0 px-0">
+                            <span class="badge bg-primary rounded-pill me-3">2</span>
+                            <span>Click "Analyze Document" to start the AI analysis</span>
+                        </li>
+                        <li class="list-group-item d-flex align-items-center border-0 px-0">
+                            <span class="badge bg-primary rounded-pill me-3">3</span>
+                            <span>Review the risk assessment with our traffic light system</span>
+                        </li>
+                        <li class="list-group-item d-flex align-items-center border-0 px-0">
+                            <span class="badge bg-primary rounded-pill me-3">4</span>
+                            <span>Read plain-language explanations of complex clauses</span>
+                        </li>
+                        <li class="list-group-item d-flex align-items-center border-0 px-0">
+                            <span class="badge bg-primary rounded-pill me-3">5</span>
+                            <span>Get actionable recommendations for your situation</span>
+                        </li>
                     </ol>
                 </div>
             </div>
@@ -79,12 +96,14 @@
             charCount.textContent = `${length.toLocaleString()} / 50,000 characters`;
 
             // Update character count color based on length
-            if (length > 45000) {
-                charCount.className = 'text-warning';
-            } else if (length > 50000) {
-                charCount.className = 'text-danger';
+            charCount.classList.remove('text-muted', 'text-warning', 'text-danger', 'char-counter', 'warning', 'danger');
+            
+            if (length > 50000) {
+                charCount.classList.add('text-danger', 'char-counter', 'danger');
+            } else if (length > 45000) {
+                charCount.classList.add('text-warning', 'char-counter', 'warning');
             } else {
-                charCount.className = 'text-muted';
+                charCount.classList.add('text-muted', 'char-counter');
             }
         }
 
@@ -146,12 +165,20 @@
             }, 100);
         });
 
-        // Form submission validation
+        // Form submission validation and loading
         form.addEventListener('submit', function (e) {
             if (!validateDocument()) {
                 e.preventDefault();
                 documentText.focus();
+                return;
             }
+            
+            // Show loading overlay
+            showLoading();
+            
+            // Disable the submit button to prevent double submission
+            analyzeBtn.disabled = true;
+            analyzeBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Analyzing...';
         });
 
         // Initial setup

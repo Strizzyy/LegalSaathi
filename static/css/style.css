@@ -1,0 +1,548 @@
+/* LegalSaathi Document Advisor - Enhanced Styles */
+
+/* Global Styles */
+:root {
+    --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --primary-color: #667eea;
+    --secondary-color: #764ba2;
+    --success-color: #198754;
+    --warning-color: #ffc107;
+    --danger-color: #dc3545;
+    --light-bg: rgba(255, 255, 255, 0.95);
+    --card-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    --card-shadow-hover: 0 12px 40px rgba(0, 0, 0, 0.15);
+    --border-radius: 16px;
+    --border-radius-sm: 12px;
+}
+
+body {
+    background: var(--primary-gradient);
+    min-height: 100vh;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.container {
+    position: relative;
+    z-index: 1;
+}
+
+/* Enhanced Navbar */
+.navbar {
+    background: var(--light-bg) !important;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.navbar-brand {
+    color: #2c3e50 !important;
+    font-weight: 600;
+    font-size: 1.5rem;
+    transition: color 0.3s ease;
+}
+
+.navbar-brand:hover {
+    color: var(--primary-color) !important;
+}
+
+/* Card Enhancements */
+.card {
+    background: var(--light-bg);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: var(--card-shadow);
+    border-radius: var(--border-radius);
+    transition: all 0.3s ease;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--card-shadow-hover);
+}
+
+.card-header {
+    background: rgba(255, 255, 255, 0.8);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: var(--border-radius) var(--border-radius) 0 0 !important;
+}
+
+/* Button Enhancements */
+.btn {
+    border-radius: var(--border-radius-sm);
+    font-weight: 500;
+    transition: all 0.3s ease;
+    border: none;
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-primary {
+    background: var(--primary-gradient);
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+    background: var(--primary-gradient);
+}
+
+.btn-primary:disabled {
+    transform: none;
+    opacity: 0.7;
+}
+
+.btn-outline-primary {
+    border: 2px solid var(--primary-color);
+    color: var(--primary-color);
+    background: transparent;
+}
+
+.btn-outline-primary:hover {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+/* Form Enhancements */
+.form-control {
+    border-radius: var(--border-radius-sm);
+    border: 2px solid rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    background: rgba(255, 255, 255, 0.9);
+}
+
+.form-control:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+    background: rgba(255, 255, 255, 1);
+}
+
+/* Loading Overlay */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    backdrop-filter: blur(5px);
+}
+
+.loading-content {
+    text-align: center;
+    color: white;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 2rem;
+    border-radius: var(--border-radius);
+    backdrop-filter: blur(10px);
+    max-width: 90%;
+}
+
+.spinner {
+    width: 60px;
+    height: 60px;
+    border: 4px solid rgba(255, 255, 255, 0.3);
+    border-top: 4px solid #fff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 1rem;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.loading-text {
+    font-size: 1.2rem;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+}
+
+.loading-subtext {
+    font-size: 0.9rem;
+    opacity: 0.8;
+    margin-bottom: 1rem;
+}
+
+/* Progress Bar for Analysis */
+.analysis-progress {
+    height: 6px;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 1rem;
+}
+
+.analysis-progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #667eea, #764ba2);
+    border-radius: 3px;
+    transition: width 0.3s ease;
+    animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+    0% { background-position: -200px 0; }
+    100% { background-position: 200px 0; }
+}
+
+/* Character Counter */
+.char-counter {
+    transition: color 0.3s ease;
+    font-weight: 500;
+}
+
+.char-counter.warning {
+    color: var(--warning-color) !important;
+    font-weight: 600;
+}
+
+.char-counter.danger {
+    color: var(--danger-color) !important;
+    font-weight: 600;
+}
+
+/* Enhanced Alert Styling */
+.alert {
+    border-left: 4px solid;
+    border-radius: var(--border-radius-sm);
+    backdrop-filter: blur(10px);
+}
+
+.alert-danger { 
+    border-left-color: var(--danger-color);
+    background: rgba(220, 53, 69, 0.1);
+}
+
+.alert-warning { 
+    border-left-color: var(--warning-color);
+    background: rgba(255, 193, 7, 0.1);
+}
+
+.alert-success { 
+    border-left-color: var(--success-color);
+    background: rgba(25, 135, 84, 0.1);
+}
+
+/* Traffic Light System */
+.traffic-light, .traffic-light-medium, .traffic-light-large {
+    position: relative;
+    display: inline-block;
+    border-radius: 50%;
+    transition: all 0.3s ease;
+}
+
+.traffic-light::after, 
+.traffic-light-medium::after, 
+.traffic-light-large::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(255, 255, 255, 0.8);
+    border-radius: 50%;
+}
+
+.traffic-light {
+    width: 20px;
+    height: 20px;
+    margin-right: 10px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.traffic-light::after {
+    width: 8px;
+    height: 8px;
+}
+
+.traffic-light-medium {
+    width: 30px;
+    height: 30px;
+    margin-right: 10px;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.3);
+}
+
+.traffic-light-medium::after {
+    width: 12px;
+    height: 12px;
+}
+
+.traffic-light-large {
+    width: 40px;
+    height: 40px;
+    margin-right: 15px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+}
+
+.traffic-light-large::after {
+    width: 16px;
+    height: 16px;
+}
+
+/* Traffic Light Colors */
+.traffic-light.red, .traffic-light-medium.red, .traffic-light-large.red { 
+    background-color: var(--danger-color);
+    box-shadow: 0 0 15px rgba(220, 53, 69, 0.6);
+}
+
+.traffic-light.yellow, .traffic-light-medium.yellow, .traffic-light-large.yellow { 
+    background-color: var(--warning-color);
+    box-shadow: 0 0 15px rgba(255, 193, 7, 0.6);
+}
+
+.traffic-light.green, .traffic-light-medium.green, .traffic-light-large.green { 
+    background-color: var(--success-color);
+    box-shadow: 0 0 15px rgba(25, 135, 84, 0.6);
+}
+
+/* Risk Colors */
+.risk-red { color: var(--danger-color); }
+.risk-yellow { color: var(--warning-color); }
+.risk-green { color: var(--success-color); }
+
+/* Risk Meter */
+.risk-meter {
+    position: relative;
+    width: 60px;
+    height: 200px;
+    margin: 0 auto;
+}
+
+.risk-meter-bg {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(to top, var(--success-color) 0%, var(--warning-color) 50%, var(--danger-color) 100%);
+    border-radius: 30px;
+    position: relative;
+    overflow: hidden;
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.risk-meter-fill {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    transition: height 0.5s ease-in-out;
+    border-radius: 0 0 27px 27px;
+}
+
+.risk-meter-red { background-color: rgba(220, 53, 69, 0.8); }
+.risk-meter-yellow { background-color: rgba(255, 193, 7, 0.8); }
+.risk-meter-green { background-color: rgba(25, 135, 84, 0.8); }
+
+/* Clause Analysis Items */
+.clause-analysis-item {
+    transition: all 0.3s ease;
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(10px);
+    border-radius: var(--border-radius-sm);
+}
+
+.clause-analysis-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+
+/* List Group Enhancements */
+.list-group-item {
+    background: transparent;
+    border: none;
+    padding: 0.75rem 0;
+}
+
+.badge {
+    font-weight: 600;
+}
+
+/* Print Styles */
+@media print {
+    body { 
+        background: white !important; 
+        -webkit-print-color-adjust: exact;
+    }
+    
+    .btn, .navbar, .loading-overlay { 
+        display: none !important; 
+    }
+    
+    .card { 
+        border: 1px solid #000 !important;
+        background: white !important;
+        box-shadow: none !important;
+        break-inside: avoid;
+    }
+    
+    .traffic-light, .traffic-light-medium, .traffic-light-large {
+        border: 2px solid #000;
+        -webkit-print-color-adjust: exact;
+    }
+    
+    .clause-analysis-item {
+        break-inside: avoid;
+        margin-bottom: 1rem;
+    }
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+    .container { 
+        padding: 0 15px; 
+    }
+    
+    .navbar-brand {
+        font-size: 1.2rem;
+    }
+    
+    .traffic-light-large { 
+        width: 30px; 
+        height: 30px; 
+        margin-right: 10px;
+    }
+    
+    .traffic-light-large::after { 
+        width: 12px; 
+        height: 12px; 
+    }
+    
+    .traffic-light-medium { 
+        width: 25px; 
+        height: 25px; 
+        margin-right: 8px;
+    }
+    
+    .traffic-light-medium::after { 
+        width: 10px; 
+        height: 10px; 
+    }
+    
+    .risk-meter { 
+        width: 40px; 
+        height: 150px; 
+    }
+    
+    .clause-analysis-item { 
+        margin-bottom: 1rem;
+        padding: 1rem !important;
+    }
+    
+    .card {
+        margin-bottom: 1rem;
+        border-radius: var(--border-radius-sm);
+    }
+    
+    .btn-lg {
+        padding: 0.75rem 1.5rem;
+        font-size: 1.1rem;
+    }
+    
+    .loading-content {
+        margin: 0 1rem;
+        padding: 1.5rem;
+    }
+    
+    .loading-text {
+        font-size: 1.1rem;
+    }
+    
+    .spinner {
+        width: 50px;
+        height: 50px;
+    }
+    
+    h2 {
+        font-size: 1.5rem;
+    }
+    
+    h4 {
+        font-size: 1.2rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .risk-meter { 
+        width: 35px; 
+        height: 120px; 
+    }
+    
+    .card-body {
+        padding: 1rem;
+    }
+    
+    .loading-content {
+        padding: 1rem;
+    }
+    
+    .spinner {
+        width: 40px;
+        height: 40px;
+    }
+    
+    .loading-text {
+        font-size: 1rem;
+    }
+    
+    .loading-subtext {
+        font-size: 0.8rem;
+    }
+    
+    .btn {
+        font-size: 0.9rem;
+    }
+    
+    .navbar-brand {
+        font-size: 1.1rem;
+    }
+    
+    .traffic-light-large { 
+        width: 25px; 
+        height: 25px; 
+    }
+    
+    .traffic-light-large::after { 
+        width: 10px; 
+        height: 10px; 
+    }
+}
+
+/* Accessibility Improvements */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+    
+    .spinner {
+        animation: none;
+        border: 4px solid #ccc;
+        border-top: 4px solid var(--primary-color);
+    }
+}
+
+/* Focus Styles for Accessibility */
+.btn:focus,
+.form-control:focus {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
+/* High Contrast Mode Support */
+@media (prefers-contrast: high) {
+    .card {
+        border: 2px solid #000;
+    }
+    
+    .traffic-light, .traffic-light-medium, .traffic-light-large {
+        border: 2px solid #000;
+    }
+}

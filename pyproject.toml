@@ -21,4 +21,6 @@ dev-dependencies = [
     "pytest>=7.0.0",
     "black>=23.0.0",
     "flake8>=6.0.0",
+    "requests>=2.31.0",
+    "beautifulsoup4>=4.12.0",
 ]

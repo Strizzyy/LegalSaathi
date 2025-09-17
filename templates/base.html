@@ -6,154 +6,38 @@
     <title>{% block title %}LegalSaathi Document Advisor{% endblock %}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
-    <style>
-        /* Risk Level Colors */
-        .risk-red { color: #dc3545; }
-        .risk-yellow { color: #ffc107; }
-        .risk-green { color: #198754; }
-        
-        /* Traffic Light Indicators */
-        .traffic-light {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            margin-right: 10px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-        }
-        .traffic-light.red { 
-            background-color: #dc3545; 
-            box-shadow: 0 0 10px rgba(220, 53, 69, 0.5);
-        }
-        .traffic-light.yellow { 
-            background-color: #ffc107; 
-            box-shadow: 0 0 10px rgba(255, 193, 7, 0.5);
-        }
-        .traffic-light.green { 
-            background-color: #198754; 
-            box-shadow: 0 0 10px rgba(25, 135, 84, 0.5);
-        }
-        
-        /* Medium Traffic Lights */
-        .traffic-light-medium {
-            display: inline-block;
-            width: 30px;
-            height: 30px;
-            border-radius: 50%;
-            margin-right: 10px;
-            box-shadow: 0 3px 6px rgba(0,0,0,0.3);
-        }
-        .traffic-light-medium.red { 
-            background-color: #dc3545; 
-            box-shadow: 0 0 15px rgba(220, 53, 69, 0.6);
-        }
-        .traffic-light-medium.yellow { 
-            background-color: #ffc107; 
-            box-shadow: 0 0 15px rgba(255, 193, 7, 0.6);
-        }
-        .traffic-light-medium.green { 
-            background-color: #198754; 
-            box-shadow: 0 0 15px rgba(25, 135, 84, 0.6);
-        }
-        
-        /* Large Traffic Lights */
-        .traffic-light-large {
-            display: inline-block;
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            margin-right: 15px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-        }
-        .traffic-light-large.red { 
-            background-color: #dc3545; 
-            box-shadow: 0 0 20px rgba(220, 53, 69, 0.7);
-        }
-        .traffic-light-large.yellow { 
-            background-color: #ffc107; 
-            box-shadow: 0 0 20px rgba(255, 193, 7, 0.7);
-        }
-        .traffic-light-large.green { 
-            background-color: #198754; 
-            box-shadow: 0 0 20px rgba(25, 135, 84, 0.7);
-        }
-        
-        /* Risk Meter */
-        .risk-meter {
-            position: relative;
-            width: 60px;
-            height: 200px;
-            margin: 0 auto;
-        }
-        .risk-meter-bg {
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(to top, #198754 0%, #ffc107 50%, #dc3545 100%);
-            border-radius: 30px;
-            position: relative;
-            overflow: hidden;
-            border: 3px solid #dee2e6;
-        }
-        .risk-meter-fill {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            transition: height 0.5s ease-in-out;
-            border-radius: 0 0 27px 27px;
-        }
-        .risk-meter-red { background-color: rgba(220, 53, 69, 0.8); }
-        .risk-meter-yellow { background-color: rgba(255, 193, 7, 0.8); }
-        .risk-meter-green { background-color: rgba(25, 135, 84, 0.8); }
-        
-        /* Clause Analysis Items */
-        .clause-analysis-item {
-            transition: all 0.3s ease;
-            background: rgba(255, 255, 255, 0.8);
-        }
-        .clause-analysis-item:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
-        
-        /* Enhanced Alert Styling */
-        .alert {
-            border-left: 4px solid;
-        }
-        .alert-danger { border-left-color: #dc3545; }
-        .alert-warning { border-left-color: #ffc107; }
-        .alert-success { border-left-color: #198754; }
-        
-        /* Print Styles */
-        @media print {
-            .btn, .navbar { display: none !important; }
-            .card { border: 1px solid #000 !important; }
-            .traffic-light, .traffic-light-medium, .traffic-light-large {
-                border: 2px solid #000;
-            }
-        }
-        
-        /* Mobile Responsiveness */
-        @media (max-width: 768px) {
-            .traffic-light-large { width: 30px; height: 30px; }
-            .traffic-light-medium { width: 25px; height: 25px; }
-            .risk-meter { width: 40px; height: 150px; }
-            .clause-analysis-item { margin-bottom: 1rem; }
-        }
-    </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+    <nav class="navbar navbar-expand-lg">
         <div class="container">
-            <a class="navbar-brand" href="/">LegalSaathi Document Advisor</a>
+            <a class="navbar-brand" href="/">
+                <i class="bi bi-shield-check me-2"></i>
+                LegalSaathi Document Advisor
+            </a>
         </div>
     </nav>
     
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-content">
+            <div class="spinner"></div>
+            <div class="loading-text">Analyzing Your Document</div>
+            <div class="loading-subtext">Our AI is carefully reviewing your rental agreement...</div>
+            <div class="analysis-progress">
+                <div class="analysis-progress-bar" style="width: 0%"></div>
+            </div>
+        </div>
+    </div>
+
     <div class="container mt-4">
         {% block content %}{% endblock %}
     </div>
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    
     {% block scripts %}{% endblock %}
 </body>
 </html>
