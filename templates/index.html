@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+
+{% block title %}Document Input - LegalSaathi{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h2 class="mb-0">Rental Agreement Analysis</h2>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">
+                    Paste your rental agreement text below to get an AI-powered analysis with risk assessment and
+                    plain-language explanations.
+                </p>
+
+                {% if error %}
+                <div class="alert alert-danger" role="alert">
+                    <strong>Validation Error:</strong> {{ error }}
+                </div>
+                {% endif %}
+
+                <form method="POST" action="/analyze" id="documentForm">
+                    <div class="mb-3">
+                        <label for="document_text" class="form-label">Rental Agreement Text</label>
+                        <textarea class="form-control" id="document_text" name="document_text" rows="15"
+                            placeholder="Paste your rental agreement text here..." required minlength="100"
+                            maxlength="50000">{{ document_text or '' }}</textarea>
+                        <div class="form-text">
+                            <div class="d-flex justify-content-between">
+                                <span>Please ensure you paste the complete rental agreement text for accurate
+                                    analysis.</span>
+                                <span id="charCount" class="text-muted">0 / 50,000 characters</span>
+                            </div>
+                        </div>
+                        <div id="validationFeedback" class="invalid-feedback"></div>
+                    </div>
+
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary btn-lg" id="analyzeBtn">
+                            Analyze Document
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="mt-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">How it works:</h5>
+                    <ol>
+                        <li>Paste your rental agreement text in the box above</li>
+                        <li>Click "Analyze Document" to start the AI analysis</li>
+                        <li>Review the risk assessment with our traffic light system</li>
+                        <li>Read plain-language explanations of complex clauses</li>
+                        <li>Get actionable recommendations for your situation</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const documentText = document.getElementById('document_text');
+        const charCount = document.getElementById('charCount');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const validationFeedback = document.getElementById('validationFeedback');
+        const form = document.getElementById('documentForm');
+
+        // Character count and validation
+        function updateCharCount() {
+            const length = documentText.value.length;
+            charCount.textContent = `${length.toLocaleString()} / 50,000 characters`;
+
+            // Update character count color based on length
+            if (length > 45000) {
+                charCount.className = 'text-warning';
+            } else if (length > 50000) {
+                charCount.className = 'text-danger';
+            } else {
+                charCount.className = 'text-muted';
+            }
+        }
+
+        // Real-time validation
+        function validateDocument() {
+            const text = documentText.value.trim();
+            const length = text.length;
+
+            // Clear previous validation
+            documentText.classList.remove('is-invalid', 'is-valid');
+            validationFeedback.textContent = '';
+
+            if (length === 0) {
+                return false;
+            }
+
+            if (length < 100) {
+                documentText.classList.add('is-invalid');
+                validationFeedback.textContent = 'Document text must be at least 100 characters long for meaningful analysis.';
+                return false;
+            }
+
+            if (length > 50000) {
+                documentText.classList.add('is-invalid');
+                validationFeedback.textContent = 'Document text exceeds maximum length of 50,000 characters. Please shorten your document.';
+                return false;
+            }
+
+            // Basic content validation - check for rental agreement keywords
+            const legalKeywords = [
+                'rent', 'lease', 'tenant', 'landlord', 'property', 'agreement',
+                'deposit', 'term', 'month', 'payment', 'premises', 'rental'
+            ];
+
+            const textLower = text.toLowerCase();
+            const foundKeywords = legalKeywords.filter(keyword => textLower.includes(keyword));
+
+            if (foundKeywords.length < 3) {
+                documentText.classList.add('is-invalid');
+                validationFeedback.textContent = 'This doesn\'t appear to be a rental agreement. Please ensure you\'ve pasted the correct legal document.';
+                return false;
+            }
+
+            documentText.classList.add('is-valid');
+            return true;
+        }
+
+        // Event listeners
+        documentText.addEventListener('input', function () {
+            updateCharCount();
+            validateDocument();
+        });
+
+        documentText.addEventListener('paste', function () {
+            // Delay validation to allow paste content to be processed
+            setTimeout(function () {
+                updateCharCount();
+                validateDocument();
+            }, 100);
+        });
+
+        // Form submission validation
+        form.addEventListener('submit', function (e) {
+            if (!validateDocument()) {
+                e.preventDefault();
+                documentText.focus();
+            }
+        });
+
+        // Initial setup
+        updateCharCount();
+    });
+</script>
+{% endblock %}
