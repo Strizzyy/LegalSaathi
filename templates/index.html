@@ -25,28 +25,44 @@
 
                 <form method="POST" action="/analyze" id="documentForm" enctype="multipart/form-data">
                     <div class="mb-4">
-                        <label class="form-label">Upload Document (Optional)</label>
-                        <div class="file-upload-area" id="fileUploadArea">
+                        <label class="form-label" for="fileUploadArea">
+                            <i class="bi bi-cloud-upload me-2"></i>Upload Document (Optional)
+                        </label>
+                        <div class="file-upload-area" id="fileUploadArea" 
+                             role="button" 
+                             tabindex="0"
+                             aria-label="Upload document by clicking or dragging and dropping"
+                             aria-describedby="fileUploadHelp">
                             <div class="file-upload-content" id="fileUploadContent">
-                                <i class="bi bi-cloud-upload fs-1 text-muted mb-3"></i>
+                                <i class="bi bi-cloud-upload fs-1 text-muted mb-3" aria-hidden="true"></i>
                                 <h5>Drag & Drop Your Document Here</h5>
                                 <p class="text-muted mb-3">or click to browse files</p>
-                                <input type="file" class="form-control" id="document_file" name="document_file"
-                                    accept=".pdf,.txt" style="display: none;">
-                                <button type="button" class="btn btn-outline-primary"
-                                    onclick="document.getElementById('document_file').click()">
-                                    <i class="bi bi-folder2-open"></i> Choose File
+                                <input type="file" 
+                                       class="form-control" 
+                                       id="document_file" 
+                                       name="document_file"
+                                       accept=".pdf,.txt" 
+                                       style="display: none;"
+                                       aria-describedby="fileUploadHelp">
+                                <button type="button" 
+                                        class="btn btn-outline-primary"
+                                        onclick="document.getElementById('document_file').click()"
+                                        aria-label="Choose file to upload">
+                                    <i class="bi bi-folder2-open" aria-hidden="true"></i> Choose File
                                 </button>
-                                <div class="mt-2">
+                                <div class="mt-2" id="fileUploadHelp">
                                     <small class="text-muted">Supported formats: PDF, TXT (Max 10MB)</small>
                                 </div>
                             </div>
-                            <div class="file-upload-success" id="fileUploadSuccess" style="display: none;">
-                                <i class="bi bi-check-circle-fill text-success fs-1 mb-3"></i>
+                            <div class="file-upload-success" id="fileUploadSuccess" style="display: none;" role="status" aria-live="polite">
+                                <i class="bi bi-check-circle-fill text-success fs-1 mb-3" aria-hidden="true"></i>
                                 <h5 id="uploadedFileName">File uploaded successfully</h5>
                                 <p class="text-muted" id="uploadedFileInfo">Ready for analysis</p>
-                                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="clearFile()">
-                                    <i class="bi bi-x-circle"></i> Remove File
+                                <button type="button" 
+                                        class="btn btn-outline-secondary btn-sm" 
+                                        onclick="clearFile()"
+                                        aria-label="Remove uploaded file">
+                                    <i class="bi bi-x-circle" aria-hidden="true"></i> Remove File
                                 </button>
                             </div>
                         </div>
@@ -57,9 +73,15 @@
                             <label for="document_text" class="form-label">Or Paste Document Text</label>
                             <small class="text-muted">Alternative to file upload</small>
                         </div>
-                        <textarea class="form-control" id="document_text" name="document_text" rows="15"
-                            placeholder="Paste your legal document text here (rental agreement, employment contract, NDA, etc.)..." minlength="100"
-                            maxlength="50000">{{ document_text or '' }}</textarea>
+                        <textarea class="form-control" 
+                                  id="document_text" 
+                                  name="document_text" 
+                                  rows="15"
+                                  placeholder="Paste your legal document text here (rental agreement, employment contract, NDA, etc.)..." 
+                                  minlength="100"
+                                  maxlength="50000"
+                                  aria-describedby="charCount validationFeedback"
+                                  aria-label="Legal document text input">{{ document_text or '' }}</textarea>
                         <div class="form-text">
                             <div class="d-flex flex-column flex-sm-row justify-content-between">
                                 <span class="mb-1 mb-sm-0">Please ensure you provide the complete legal document for
@@ -129,8 +151,13 @@
                     </div>
 
                     <div class="d-grid">
-                        <button type="submit" class="btn btn-primary btn-lg" id="analyzeBtn">
-                            <i class="bi bi-search"></i> Analyze Document
+                        <button type="submit" 
+                                class="btn btn-primary btn-lg" 
+                                id="analyzeBtn"
+                                aria-describedby="analyzeHelp">
+                            <i class="bi bi-search" aria-hidden="true"></i> 
+                            <span>Analyze Document</span>
+                            <span class="sr-only" id="analyzeHelp">Start AI-powered analysis of your legal document</span>
                         </button>
                     </div>
                 </form>

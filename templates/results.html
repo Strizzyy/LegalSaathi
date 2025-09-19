@@ -166,8 +166,8 @@
                             {% endif %}
                             <br>
                             <small class="text-muted">
-                                Score: {{ "%.0f"|format(result.risk_level.score * 100) }}% |
-                                Confidence: {{ result.risk_level.confidence_percentage }}%
+                                Score: {{ "%.0f"|format(result.risk_level.score * 100) }}% | Confidence: {{
+                                result.risk_level.confidence_percentage }}%
                             </small>
                         </div>
                     </div>
@@ -301,152 +301,466 @@
 <script>
     // --- AI FEATURES SCRIPT ---
 
-    // Function to safely display errors
+    // Enhanced error display with better UX
     function showAIError(message) {
-        const errorAlert = document.getElementById('jsErrorAlert');
-        errorAlert.textContent = message;
-        errorAlert.style.display = 'block';
-        setTimeout(() => { errorAlert.style.display = 'none'; }, 5000);
+        // Use the notification system if available, otherwise fallback to alert
+        if (typeof showNotification === 'function') {
+            showNotification(message, 'warning', 7000);
+        } else {
+            const errorAlert = document.getElementById('jsErrorAlert');
+            if (errorAlert) {
+                errorAlert.innerHTML = `<i class="bi bi-exclamation-triangle me-2"></i>${message}`;
+                errorAlert.style.display = 'block';
+                errorAlert.classList.add('slide-in-up');
+                setTimeout(() => {
+                    errorAlert.style.display = 'none';
+                    errorAlert.classList.remove('slide-in-up');
+                }, 7000);
+            }
+        }
     }
 
+    // Enhanced translation function with better error handling
     async function translateSummary() {
         const translateBtn = document.getElementById('translateBtn');
         const targetLanguage = document.getElementById('targetLanguage').value;
-        // --- FIX: Safely get text from the DOM, don't inject with Jinja ---
-        const summaryText = document.getElementById('analysisSummary').textContent;
+        const summaryElement = document.getElementById('analysisSummary');
 
-        // --- UX: Show loading state on button ---
+        if (!summaryElement) {
+            showAIError('Unable to find summary text to translate.');
+            return;
+        }
+
+        const summaryText = summaryElement.textContent.trim();
+
+        if (!summaryText) {
+            showAIError('No summary text available to translate.');
+            return;
+        }
+
+        // Enhanced loading state
         const originalBtnHtml = translateBtn.innerHTML;
         translateBtn.disabled = true;
-        translateBtn.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Translating...`;
+        translateBtn.classList.add('btn-loading');
+        translateBtn.setAttribute('aria-label', 'Translating summary');
 
         try {
             const response = await fetch('/api/translate', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
                 body: JSON.stringify({
                     text: summaryText,
                     target_language: targetLanguage
                 })
             });
 
-            if (!response.ok) throw new Error(`Server error: ${response.statusText}`);
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Server error (${response.status}): ${errorText}`);
+            }
 
             const data = await response.json();
-            if (data.success) {
+
+            if (data.success && data.translated_text) {
                 const resultDiv = document.getElementById('translationResult');
-                resultDiv.innerHTML = `<div class="alert alert-info py-2"><small><strong>${data.language_name}:</strong> ${data.translated_text}</small></div>`;
+                const languageName = data.language_name || 'Translated';
+
+                resultDiv.innerHTML = `
+                    <div class="alert alert-info py-2 slide-in-up">
+                        <div class="d-flex align-items-start">
+                            <i class="bi bi-translate me-2 mt-1"></i>
+                            <div>
+                                <strong>${languageName}:</strong><br>
+                                <span class="text-break">${data.translated_text}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
                 resultDiv.style.display = 'block';
+
+                // Announce success to screen readers
+                if (typeof announceToScreenReader === 'function') {
+                    announceToScreenReader(`Translation completed to ${languageName}`);
+                }
+
+                // Show success notification
+                if (typeof showNotification === 'function') {
+                    showNotification(`Successfully translated to ${languageName}`, 'success');
+                }
             } else {
-                throw new Error(data.error || 'Translation failed.');
+                throw new Error(data.error || 'Translation failed - no translated text received.');
             }
         } catch (error) {
             console.error('Translation error:', error);
-            showAIError('Translation service is currently unavailable. Please try again later.');
+            let errorMessage = 'Translation service is currently unavailable. Please try again later.';
+
+            if (error.message.includes('404')) {
+                errorMessage = 'Translation service not found. Please contact support.';
+            } else if (error.message.includes('timeout')) {
+                errorMessage = 'Translation request timed out. Please try again.';
+            } else if (error.message.includes('network')) {
+                errorMessage = 'Network error. Please check your connection and try again.';
+            }
+
+            showAIError(errorMessage);
         } finally {
-            // --- UX: Restore button state ---
+            // Restore button state
             translateBtn.disabled = false;
+            translateBtn.classList.remove('btn-loading');
             translateBtn.innerHTML = originalBtnHtml;
+            translateBtn.removeAttribute('aria-label');
         }
     }
 
+    // Enhanced AI clarification function with better error handling and context
     async function askClarification() {
         const clarifyBtn = document.getElementById('clarifyBtn');
         const questionInput = document.getElementById('clarificationQuestion');
-        const question = questionInput.value;
+        const question = questionInput.value.trim();
 
-        if (!question.trim()) {
-            showAIError('Please enter a question.');
+        if (!question) {
+            showAIError('Please enter a question before asking for clarification.');
+            questionInput.focus();
+            questionInput.classList.add('error-shake');
+            setTimeout(() => questionInput.classList.remove('error-shake'), 500);
             return;
         }
 
-        // --- UX: Show loading state ---
+        // Enhanced loading state
         const originalBtnHtml = clarifyBtn.innerHTML;
         clarifyBtn.disabled = true;
-        clarifyBtn.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Asking...`;
+        clarifyBtn.classList.add('btn-loading');
+        clarifyBtn.setAttribute('aria-label', 'Getting AI clarification');
 
         try {
+            // Get context from the current page safely
+            const riskLevelElement = document.querySelector('.card-header h3');
+            const summaryElement = document.getElementById('analysisSummary');
+
+            const context = {
+                risk_level: riskLevelElement ? riskLevelElement.textContent.trim() : 'unknown',
+                summary: summaryElement ? summaryElement.textContent.trim().substring(0, 200) : '',
+                document_type: 'legal document',
+                user_question: question
+            };
+
             const response = await fetch('/api/clarify', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
                 body: JSON.stringify({
                     question: question,
-                    context: { // Context can be sent for more specific answers
-                        risk_level: '{{ analysis.overall_risk.level }}',
-                        summary: '{{ analysis.summary | truncate(200) }}'
-                    }
+                    context: context
                 })
             });
 
-            if (!response.ok) throw new Error(`Server error: ${response.statusText}`);
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Server error (${response.status}): ${errorText}`);
+            }
 
             const data = await response.json();
-            if (data.success) {
+
+            if (data.success && data.response) {
                 const resultDiv = document.getElementById('clarificationResult');
-                resultDiv.innerHTML = `<div class="alert alert-success py-2"><small>${data.response}</small></div>`;
+
+                resultDiv.innerHTML = `
+                    <div class="alert alert-success py-3 slide-in-up">
+                        <div class="d-flex align-items-start">
+                            <i class="bi bi-robot me-2 mt-1 text-success"></i>
+                            <div>
+                                <strong>AI Response:</strong><br>
+                                <span class="text-break">${data.response}</span>
+                                ${data.fallback ? '<br><small class="text-muted mt-2 d-block"><i class="bi bi-info-circle me-1"></i>This is a basic response due to service limitations.</small>' : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
                 resultDiv.style.display = 'block';
+
+                // Clear the question input on success
+                questionInput.value = '';
+                questionInput.classList.add('success-bounce');
+                setTimeout(() => questionInput.classList.remove('success-bounce'), 600);
+
+                // Announce success to screen readers
+                if (typeof announceToScreenReader === 'function') {
+                    announceToScreenReader('AI clarification received');
+                }
+
+                // Show success notification
+                if (typeof showNotification === 'function') {
+                    showNotification('AI clarification completed', 'success');
+                }
             } else {
-                throw new Error(data.error || 'Clarification failed.');
+                throw new Error(data.error || 'No response received from AI clarification service.');
             }
         } catch (error) {
             console.error('Clarification error:', error);
-            showAIError('AI clarification service is unavailable. Please try again later.');
+            let errorMessage = 'AI clarification service is currently unavailable. Please try again later.';
+
+            if (error.message.includes('404')) {
+                errorMessage = 'AI clarification service not found. Please contact support.';
+            } else if (error.message.includes('timeout')) {
+                errorMessage = 'AI clarification request timed out. Please try a shorter question.';
+            } else if (error.message.includes('network')) {
+                errorMessage = 'Network error. Please check your connection and try again.';
+            } else if (error.message.includes('500')) {
+                errorMessage = 'AI service is temporarily overloaded. Please try again in a few moments.';
+            }
+
+            showAIError(errorMessage);
         } finally {
-            // --- UX: Restore button state ---
+            // Restore button state
             clarifyBtn.disabled = false;
+            clarifyBtn.classList.remove('btn-loading');
             clarifyBtn.innerHTML = originalBtnHtml;
+            clarifyBtn.removeAttribute('aria-label');
         }
     }
 
-    // Function to copy analysis to clipboard
+    // Enhanced copy to clipboard function with better accessibility
     async function copyAnalysisToClipboard(event) {
+        const btn = event.currentTarget;
+        const originalText = btn.innerHTML;
+
         try {
             const analysisText = extractAnalysisText();
+
+            // Show loading state
+            btn.disabled = true;
+            btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Copying...';
+
             await navigator.clipboard.writeText(analysisText);
 
             // Show success feedback
-            const btn = event.currentTarget;
-            const originalText = btn.innerHTML;
-            btn.innerHTML = '<i class="bi bi-check"></i> Copied!';
-            btn.classList.add('btn-success');
+            btn.innerHTML = '<i class="bi bi-check-circle-fill"></i> Copied!';
+            btn.classList.add('btn-success', 'success-bounce');
             btn.classList.remove('btn-outline-secondary');
+
+            // Announce to screen readers
+            if (typeof announceToScreenReader === 'function') {
+                announceToScreenReader('Analysis results copied to clipboard');
+            }
+
+            // Show success notification
+            if (typeof showNotification === 'function') {
+                showNotification('Analysis copied to clipboard', 'success');
+            }
 
             setTimeout(() => {
                 btn.innerHTML = originalText;
-                btn.classList.remove('btn-success');
+                btn.classList.remove('btn-success', 'success-bounce');
                 btn.classList.add('btn-outline-secondary');
-            }, 2000);
+                btn.disabled = false;
+            }, 2500);
         } catch (err) {
             console.error('Failed to copy text: ', err);
-            showAIError('Failed to copy to clipboard. Please try selecting and copying manually.');
+
+            // Fallback for older browsers
+            try {
+                const analysisText = extractAnalysisText();
+                fallbackCopyTextToClipboard(analysisText);
+
+                btn.innerHTML = '<i class="bi bi-check-circle-fill"></i> Copied!';
+                btn.classList.add('btn-success');
+                btn.classList.remove('btn-outline-secondary');
+
+                if (typeof showNotification === 'function') {
+                    showNotification('Analysis copied to clipboard (fallback method)', 'success');
+                }
+
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.classList.remove('btn-success');
+                    btn.classList.add('btn-outline-secondary');
+                    btn.disabled = false;
+                }, 2500);
+            } catch (fallbackErr) {
+                console.error('Fallback copy also failed:', fallbackErr);
+                showAIError('Failed to copy to clipboard. Please try selecting the text manually and using Ctrl+C.');
+
+                // Restore button
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
         }
     }
 
-    // Extract analysis text for copying
+    // Fallback copy function for older browsers
+    function fallbackCopyTextToClipboard(text) {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 2em;
+            height: 2em;
+            padding: 0;
+            border: none;
+            outline: none;
+            box-shadow: none;
+            background: transparent;
+        `;
+
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+
+        try {
+            const successful = document.execCommand('copy');
+            if (!successful) {
+                throw new Error('Copy command failed');
+            }
+        } finally {
+            document.body.removeChild(textArea);
+        }
+    }
+
+    // Enhanced analysis text extraction with better formatting
     function extractAnalysisText() {
         const title = document.querySelector('h2')?.textContent.trim() || 'Document Analysis Results';
         const overallRisk = document.querySelector('.card-header h3')?.textContent.trim() || '';
         const summary = document.querySelector('#analysisSummary')?.textContent.trim() || '';
+        const timestamp = new Date().toLocaleString();
 
-        let text = `${title}\n${'='.repeat(title.length)}\n\n`;
-        text += `OVERALL RISK\n${'-'.repeat(12)}\n${summary}\n\n`;
+        let text = `${title}\n${'='.repeat(title.length)}\n`;
+        text += `Generated: ${timestamp}\n\n`;
 
-        // Add clause analysis
-        text += `DETAILED CLAUSE ANALYSIS\n${'='.repeat(24)}\n\n`;
+        // Document information
+        const fileInfo = document.querySelector('.card-body p strong');
+        if (fileInfo && fileInfo.textContent.includes('Filename:')) {
+            const filename = fileInfo.parentElement.textContent.replace('Filename:', '').trim();
+            text += `Document: ${filename}\n`;
+        }
+
+        // Classification info
+        const classification = document.querySelector('.badge.bg-primary');
+        if (classification) {
+            text += `Document Type: ${classification.textContent.trim()}\n`;
+        }
+
+        text += `\nOVERALL RISK ASSESSMENT\n${'-'.repeat(25)}\n`;
+        text += `Risk Level: ${overallRisk}\n`;
+        text += `Summary: ${summary}\n\n`;
+
+        // Risk categories if available
+        const riskCategories = document.querySelectorAll('.progress-bar');
+        if (riskCategories.length > 0) {
+            text += `RISK CATEGORY BREAKDOWN\n${'-'.repeat(24)}\n`;
+            riskCategories.forEach(bar => {
+                const category = bar.closest('.col-6, .col-md-3')?.querySelector('strong')?.textContent;
+                const percentage = bar.style.width || bar.getAttribute('style')?.match(/width:\s*(\d+%)/)?.[1];
+                if (category && percentage) {
+                    text += `${category}: ${percentage}\n`;
+                }
+            });
+            text += '\n';
+        }
+
+        // Detailed clause analysis
+        text += `DETAILED CLAUSE ANALYSIS\n${'='.repeat(26)}\n\n`;
         const clauses = document.querySelectorAll('.clause-analysis-item');
-        clauses.forEach((clause, index) => {
-            const clauseTitle = clause.querySelector('h5')?.textContent.trim() || `Clause ${index + 1}`;
-            const explanation = clause.querySelector('.alert p')?.textContent.trim() || '';
-            const riskLevel = clause.querySelector('.badge.fs-6')?.textContent.trim() || '';
 
-            text += `${clauseTitle} (${riskLevel})\n`;
-            text += `Explanation: ${explanation}\n\n`;
-        });
+        if (clauses.length === 0) {
+            text += 'No detailed clause analysis available.\n\n';
+        } else {
+            clauses.forEach((clause, index) => {
+                const clauseTitle = clause.querySelector('h5')?.textContent.trim() || `Clause ${index + 1}`;
+                const riskBadge = clause.querySelector('.badge.fs-6')?.textContent.trim() || '';
+                const explanation = clause.querySelector('.alert p')?.textContent.trim() || '';
 
-        text += '\n--- Generated by LegalSaathi Universal Document Advisor ---\n';
-        text += 'Disclaimer: This analysis is for informational purposes only and does not constitute legal advice.';
+                // Legal implications
+                const implications = Array.from(clause.querySelectorAll('.col-12.col-lg-6:first-child li'))
+                    .map(li => li.textContent.trim().replace(/^[•\-\*]\s*/, ''));
+
+                // Recommendations
+                const recommendations = Array.from(clause.querySelectorAll('.col-12.col-lg-6:last-child li'))
+                    .map(li => li.textContent.trim().replace(/^[•\-\*]\s*/, ''));
+
+                text += `${index + 1}. ${clauseTitle}\n`;
+                text += `   Risk Level: ${riskBadge}\n`;
+                text += `   Explanation: ${explanation}\n`;
+
+                if (implications.length > 0) {
+                    text += `   Legal Implications:\n`;
+                    implications.forEach(imp => text += `   • ${imp}\n`);
+                }
+
+                if (recommendations.length > 0) {
+                    text += `   Recommendations:\n`;
+                    recommendations.forEach(rec => text += `   • ${rec}\n`);
+                }
+
+                text += '\n';
+            });
+        }
+
+        // Footer
+        text += `${'-'.repeat(50)}\n`;
+        text += 'Generated by LegalSaathi Universal Document Advisor\n';
+        text += 'https://legalsaathi.com\n\n';
+        text += 'IMPORTANT DISCLAIMER:\n';
+        text += 'This analysis is for informational purposes only and does not\n';
+        text += 'constitute legal advice. Please consult with a qualified legal\n';
+        text += 'professional for specific legal matters.\n';
 
         return text;
     }
+
+    // Add keyboard shortcuts for better accessibility
+    document.addEventListener('keydown', function (e) {
+        // Ctrl/Cmd + K for AI clarification focus
+        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+            e.preventDefault();
+            const questionInput = document.getElementById('clarificationQuestion');
+            if (questionInput) {
+                questionInput.focus();
+                if (typeof announceToScreenReader === 'function') {
+                    announceToScreenReader('AI clarification input focused');
+                }
+            }
+        }
+
+        // Ctrl/Cmd + T for translation focus
+        if ((e.ctrlKey || e.metaKey) && e.key === 't') {
+            e.preventDefault();
+            const translateSelect = document.getElementById('targetLanguage');
+            if (translateSelect) {
+                translateSelect.focus();
+                if (typeof announceToScreenReader === 'function') {
+                    announceToScreenReader('Translation language selector focused');
+                }
+            }
+        }
+
+        // Ctrl/Cmd + C when focused on results to copy
+        if ((e.ctrlKey || e.metaKey) && e.key === 'c' && e.target.closest('.clause-analysis-item')) {
+            e.preventDefault();
+            const copyBtn = document.querySelector('[onclick*="copyAnalysisToClipboard"]');
+            if (copyBtn) {
+                copyBtn.click();
+            }
+        }
+    });
+
+    // Add Enter key support for AI clarification
+    document.addEventListener('DOMContentLoaded', function () {
+        const questionInput = document.getElementById('clarificationQuestion');
+        if (questionInput) {
+            questionInput.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    askClarification();
+                }
+            });
+        }
+    });
 </script>
 {% endblock %}
