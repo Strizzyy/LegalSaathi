@@ -219,18 +219,43 @@
         </div>
         {% endif %}
 
+        <!-- Enhanced AI-Powered Features with Google Cloud Integration -->
         <div class="card mb-4">
             <div class="card-header">
-                <h4 class="mb-0"><i class="bi bi-robot"></i> AI-Powered Features</h4>
-                <small class="text-muted">Get additional help with translation and clarification</small>
+                <h4 class="mb-0"><i class="bi bi-robot"></i> Enhanced AI-Powered Features</h4>
+                <small class="text-muted">Advanced Google Cloud AI integration for comprehensive document analysis</small>
             </div>
             <div class="card-body">
                 <div class="row">
-                    <div class="col-12 col-md-6 mb-3">
+                    <!-- Confidence Scoring Display -->
+                    <div class="col-12 col-lg-6 mb-3">
+                        <div class="feature-card p-3 border rounded">
+                            <h6><i class="bi bi-shield-check"></i> AI Confidence Analysis</h6>
+                            <p class="small text-muted mb-3">View detailed confidence metrics for AI transparency.</p>
+                            <button class="btn btn-outline-info btn-sm" onclick="showConfidenceDetails()">
+                                <i class="bi bi-graph-up"></i> View Confidence Metrics
+                            </button>
+                            <div id="confidenceDetails" class="mt-2" style="display: none;"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Document Comparison -->
+                    <div class="col-12 col-lg-6 mb-3">
+                        <div class="feature-card p-3 border rounded">
+                            <h6><i class="bi bi-files"></i> Document Comparison</h6>
+                            <p class="small text-muted mb-3">Compare this document with another for risk differences.</p>
+                            <button class="btn btn-outline-warning btn-sm" onclick="showDocumentComparison()">
+                                <i class="bi bi-arrow-left-right"></i> Compare Documents
+                            </button>
+                            <div id="comparisonModal" class="mt-2" style="display: none;"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Multi-language Support -->
+                    <div class="col-12 col-lg-6 mb-3">
                         <div class="feature-card p-3 border rounded">
                             <h6><i class="bi bi-translate"></i> Multi-language Support</h6>
-                            <p class="small text-muted mb-3">Translate the overall summary to your preferred language.
-                            </p>
+                            <p class="small text-muted mb-3">Translate the overall summary to your preferred language.</p>
                             <select class="form-select form-select-sm mb-2" id="targetLanguage">
                                 <option value="hi">Hindi (हिंदी)</option>
                                 <option value="es">Spanish (Español)</option>
@@ -241,14 +266,15 @@
                                 <option value="pt">Portuguese (Português)</option>
                                 <option value="ru">Russian (Русский)</option>
                             </select>
-                            <button class="btn btn-outline-primary btn-sm" id="translateBtn"
-                                onclick="translateSummary()">
+                            <button class="btn btn-outline-primary btn-sm" id="translateBtn" onclick="translateSummary()">
                                 <i class="bi bi-translate"></i> Translate Summary
                             </button>
                             <div id="translationResult" class="mt-2" style="display: none;"></div>
                         </div>
                     </div>
-                    <div class="col-12 col-md-6 mb-3">
+                    
+                    <!-- AI Clarification -->
+                    <div class="col-12 col-lg-6 mb-3">
                         <div class="feature-card p-3 border rounded">
                             <h6><i class="bi bi-chat-dots"></i> AI Clarification</h6>
                             <p class="small text-muted mb-3">Ask questions about the document or specific terms.</p>
@@ -264,24 +290,39 @@
             </div>
         </div>
 
+        <!-- Enhanced Export & Share with PDF/Word Support -->
         <div class="card">
             <div class="card-header">
-                <h4 class="mb-0"><i class="bi bi-download"></i> Export & Share</h4>
-                <small class="text-muted">Save or share your analysis results</small>
+                <h4 class="mb-0"><i class="bi bi-download"></i> Enhanced Export & Share</h4>
+                <small class="text-muted">Professional report generation with multiple formats</small>
             </div>
             <div class="card-body">
                 <div class="row">
-                    <div class="col-12 col-md-6 mb-3">
-                        <button class="btn btn-outline-primary w-100" onclick="window.print()">
+                    <div class="col-12 col-md-3 mb-3">
+                        <button class="btn btn-outline-danger w-100" onclick="exportToPDF()">
+                            <i class="bi bi-file-earmark-pdf"></i> Export PDF
+                        </button>
+                    </div>
+                    <div class="col-12 col-md-3 mb-3">
+                        <button class="btn btn-outline-primary w-100" onclick="exportToWord()">
+                            <i class="bi bi-file-earmark-word"></i> Export Word
+                        </button>
+                    </div>
+                    <div class="col-12 col-md-3 mb-3">
+                        <button class="btn btn-outline-info w-100" onclick="window.print()">
                             <i class="bi bi-printer"></i> Print Analysis
                         </button>
                     </div>
-                    <div class="col-12 col-md-6 mb-3">
+                    <div class="col-12 col-md-3 mb-3">
                         <button class="btn btn-outline-secondary w-100" onclick="copyAnalysisToClipboard(event)">
                             <i class="bi bi-clipboard"></i> Copy to Clipboard
                         </button>
                     </div>
                 </div>
+                
+                <!-- Export Status -->
+                <div id="exportStatus" class="mt-3" style="display: none;"></div>
+                
                 <div class="alert alert-info mt-3">
                     <small>
                         <i class="bi bi-info-circle me-1"></i>
@@ -620,6 +661,226 @@
             }
         } finally {
             document.body.removeChild(textArea);
+        }
+    }
+
+    // Enhanced Google Cloud AI Integration Functions
+    
+    // Confidence Scoring Display
+    async function showConfidenceDetails() {
+        try {
+            const response = await fetch('/api/confidence-score/current', {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Server error (${response.status})`);
+            }
+
+            const data = await response.json();
+
+            if (data.success) {
+                const confidenceDiv = document.getElementById('confidenceDetails');
+                
+                confidenceDiv.innerHTML = `
+                    <div class="alert alert-info py-3 slide-in-up">
+                        <h6><i class="bi bi-graph-up me-2"></i>AI Confidence Analysis</h6>
+                        <div class="row">
+                            <div class="col-12 col-md-6">
+                                <strong>Overall Confidence:</strong> ${data.confidence_details.overall_confidence}%<br>
+                                <strong>Document Clarity:</strong> ${data.confidence_details.confidence_factors.document_clarity}<br>
+                                <strong>AI Model Certainty:</strong> ${data.confidence_details.confidence_factors.ai_model_certainty}
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <strong>Pattern Recognition:</strong> ${data.confidence_details.confidence_factors.pattern_recognition}<br>
+                                ${data.confidence_details.low_confidence_warning ? 
+                                    '<span class="badge bg-warning text-dark"><i class="bi bi-exclamation-triangle"></i> Low Confidence Warning</span>' : 
+                                    '<span class="badge bg-success"><i class="bi bi-check-circle"></i> High Confidence</span>'
+                                }
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <h6>Clause-by-Clause Confidence:</h6>
+                            ${data.confidence_details.clause_confidences.map((clause, index) => 
+                                `<div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span>Clause ${index + 1}:</span>
+                                    <span class="badge ${clause.confidence > 70 ? 'bg-success' : clause.confidence > 50 ? 'bg-warning' : 'bg-danger'}">${clause.confidence}%</span>
+                                </div>`
+                            ).join('')}
+                        </div>
+                    </div>
+                `;
+                confidenceDiv.style.display = 'block';
+            } else {
+                throw new Error(data.error || 'Failed to get confidence details');
+            }
+        } catch (error) {
+            console.error('Confidence details error:', error);
+            showAIError('Unable to load confidence details. Please try again.');
+        }
+    }
+
+    // Document Comparison Feature
+    function showDocumentComparison() {
+        const comparisonDiv = document.getElementById('comparisonModal');
+        
+        comparisonDiv.innerHTML = `
+            <div class="alert alert-warning py-3 slide-in-up">
+                <h6><i class="bi bi-files me-2"></i>Document Comparison</h6>
+                <p class="small mb-3">Paste the second document below to compare risk levels:</p>
+                <textarea class="form-control mb-2" id="comparisonDocument" rows="6" 
+                    placeholder="Paste the second legal document here for comparison..."></textarea>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-primary btn-sm" onclick="performDocumentComparison()">
+                        <i class="bi bi-arrow-left-right"></i> Compare Documents
+                    </button>
+                    <button class="btn btn-secondary btn-sm" onclick="hideDocumentComparison()">
+                        <i class="bi bi-x"></i> Cancel
+                    </button>
+                </div>
+                <div id="comparisonResults" class="mt-3" style="display: none;"></div>
+            </div>
+        `;
+        comparisonDiv.style.display = 'block';
+    }
+
+    function hideDocumentComparison() {
+        document.getElementById('comparisonModal').style.display = 'none';
+    }
+
+    async function performDocumentComparison() {
+        const comparisonDoc = document.getElementById('comparisonDocument').value.trim();
+        
+        if (!comparisonDoc) {
+            showAIError('Please paste the second document for comparison.');
+            return;
+        }
+
+        // Get current document text (simplified - in production, store this properly)
+        const currentDoc = document.querySelector('#analysisSummary')?.textContent || '';
+        
+        try {
+            const response = await fetch('/api/compare-documents', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({
+                    document1: currentDoc,
+                    document2: comparisonDoc
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`Server error (${response.status})`);
+            }
+
+            const data = await response.json();
+
+            if (data.success) {
+                const resultsDiv = document.getElementById('comparisonResults');
+                
+                resultsDiv.innerHTML = `
+                    <div class="alert alert-success">
+                        <h6><i class="bi bi-check-circle me-2"></i>Comparison Results</h6>
+                        <p><strong>Summary:</strong> ${data.summary}</p>
+                        <div class="row">
+                            <div class="col-6">
+                                <strong>Document 1 Risk:</strong> 
+                                <span class="badge bg-${data.risk_comparison.document1_risk.toLowerCase() === 'red' ? 'danger' : 
+                                    data.risk_comparison.document1_risk.toLowerCase() === 'yellow' ? 'warning' : 'success'}">
+                                    ${data.risk_comparison.document1_risk}
+                                </span>
+                            </div>
+                            <div class="col-6">
+                                <strong>Document 2 Risk:</strong> 
+                                <span class="badge bg-${data.risk_comparison.document2_risk.toLowerCase() === 'red' ? 'danger' : 
+                                    data.risk_comparison.document2_risk.toLowerCase() === 'yellow' ? 'warning' : 'success'}">
+                                    ${data.risk_comparison.document2_risk}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="mt-2">
+                            <strong>Risk Change:</strong> 
+                            <span class="badge bg-${data.risk_comparison.risk_difference === 'INCREASED' ? 'danger' : 
+                                data.risk_comparison.risk_difference === 'DECREASED' ? 'success' : 'secondary'}">
+                                ${data.risk_comparison.risk_difference}
+                            </span>
+                        </div>
+                    </div>
+                `;
+                resultsDiv.style.display = 'block';
+            } else {
+                throw new Error(data.error || 'Comparison failed');
+            }
+        } catch (error) {
+            console.error('Document comparison error:', error);
+            showAIError('Document comparison failed. Please try again.');
+        }
+    }
+
+    // Enhanced Export Functions
+    async function exportToPDF() {
+        await performExport('pdf');
+    }
+
+    async function exportToWord() {
+        await performExport('docx');
+    }
+
+    async function performExport(format) {
+        const statusDiv = document.getElementById('exportStatus');
+        
+        try {
+            statusDiv.innerHTML = `
+                <div class="alert alert-info">
+                    <i class="bi bi-hourglass-split me-2"></i>Generating ${format.toUpperCase()} report...
+                </div>
+            `;
+            statusDiv.style.display = 'block';
+
+            const response = await fetch(`/api/export/${format}/current`, {
+                method: 'GET'
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || `Export failed with status ${response.status}`);
+            }
+
+            // Create download link
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = `legal_analysis_${new Date().toISOString().split('T')[0]}.${format}`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+
+            statusDiv.innerHTML = `
+                <div class="alert alert-success">
+                    <i class="bi bi-check-circle me-2"></i>${format.toUpperCase()} report downloaded successfully!
+                </div>
+            `;
+
+            setTimeout(() => {
+                statusDiv.style.display = 'none';
+            }, 3000);
+
+        } catch (error) {
+            console.error(`${format.toUpperCase()} export error:`, error);
+            statusDiv.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle me-2"></i>Export failed: ${error.message}
+                </div>
+            `;
         }
     }
 

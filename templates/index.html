@@ -10,7 +10,23 @@
                 <h2 class="mb-0">Universal Legal Document Analysis</h2>
             </div>
             <div class="card-body">
-                <p class="text-muted">
+                <!-- Enhanced Problem Statement & Community Impact -->
+                <div class="alert alert-info mb-4" role="region" aria-labelledby="problemStatement">
+                    <div class="d-flex align-items-start">
+                        <i class="bi bi-lightbulb-fill fs-4 me-3 text-primary" aria-hidden="true"></i>
+                        <div>
+                            <h6 id="problemStatement" class="alert-heading mb-2">Bridging the Legal Literacy Gap</h6>
+                            <p class="mb-2">
+                                <strong>The Problem:</strong> 78% of people struggle to understand legal documents, leading to unfavorable agreements and financial losses.
+                            </p>
+                            <p class="mb-0">
+                                <strong>Our Solution:</strong> AI-powered analysis that transforms complex legal language into clear, actionable insights - making legal protection accessible to everyone.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <p class="text-muted mb-4">
                     Upload or paste your legal document below to get an AI-powered analysis with risk assessment and
                     plain-language explanations. Supports rental agreements, employment contracts, NDAs, terms of service, loan agreements, and more.
                 </p>
@@ -164,35 +180,214 @@
             </div>
         </div>
 
+        <!-- Demo Mode Section -->
+        <div class="mt-4">
+            <div class="card border-primary">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-play-circle me-2"></i>
+                        Try Our Demo Mode
+                    </h5>
+                    <small class="opacity-75">Experience our AI analysis with sample documents</small>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-3">
+                        See how our AI analyzes different types of legal documents. Click any sample below to load it instantly:
+                    </p>
+                    <div class="row g-3">
+                        <div class="col-12 col-md-6 col-lg-4">
+                            <button class="btn btn-outline-primary w-100 demo-sample-btn" 
+                                    data-sample="rental" 
+                                    onclick="loadDemoSample('rental')"
+                                    aria-describedby="rentalDemo">
+                                <i class="bi bi-house-door me-2"></i>
+                                <div>
+                                    <strong>Rental Agreement</strong>
+                                    <small class="d-block text-muted">Unfavorable lease terms</small>
+                                </div>
+                            </button>
+                            <div id="rentalDemo" class="sr-only">Sample rental agreement with problematic clauses for demonstration</div>
+                        </div>
+                        <div class="col-12 col-md-6 col-lg-4">
+                            <button class="btn btn-outline-success w-100 demo-sample-btn" 
+                                    data-sample="employment" 
+                                    onclick="loadDemoSample('employment')"
+                                    aria-describedby="employmentDemo">
+                                <i class="bi bi-briefcase me-2"></i>
+                                <div>
+                                    <strong>Employment Contract</strong>
+                                    <small class="d-block text-muted">Standard terms</small>
+                                </div>
+                            </button>
+                            <div id="employmentDemo" class="sr-only">Sample employment contract with standard terms for demonstration</div>
+                        </div>
+                        <div class="col-12 col-md-6 col-lg-4">
+                            <button class="btn btn-outline-warning w-100 demo-sample-btn" 
+                                    data-sample="nda" 
+                                    onclick="loadDemoSample('nda')"
+                                    aria-describedby="ndaDemo">
+                                <i class="bi bi-shield-lock me-2"></i>
+                                <div>
+                                    <strong>NDA Agreement</strong>
+                                    <small class="d-block text-muted">Overly broad terms</small>
+                                </div>
+                            </button>
+                            <div id="ndaDemo" class="sr-only">Sample NDA with overly broad confidentiality terms for demonstration</div>
+                        </div>
+                    </div>
+                    <div class="alert alert-light mt-3">
+                        <small>
+                            <i class="bi bi-info-circle me-1"></i>
+                            <strong>Demo Benefits:</strong> See real AI analysis • Understand risk levels • Experience plain-language explanations
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Interactive Walkthrough -->
+        <div class="mt-4">
+            <div class="card border-info">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-compass me-2"></i>
+                        Interactive Walkthrough
+                    </h5>
+                    <small class="opacity-75">Learn how our AI-powered legal guidance works</small>
+                </div>
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-12 col-md-8">
+                            <p class="mb-3">
+                                New to legal document analysis? Take our guided tour to understand how AI can protect your interests.
+                            </p>
+                            <ul class="list-unstyled mb-3">
+                                <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>Learn about risk assessment</li>
+                                <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>Understand confidence indicators</li>
+                                <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>See plain-language explanations</li>
+                                <li class="mb-0"><i class="bi bi-check-circle text-success me-2"></i>Discover actionable recommendations</li>
+                            </ul>
+                        </div>
+                        <div class="col-12 col-md-4 text-center">
+                            <button class="btn btn-info btn-lg" onclick="startWalkthrough()" aria-describedby="walkthroughHelp">
+                                <i class="bi bi-play-fill me-2"></i>
+                                Start Tour
+                            </button>
+                            <div id="walkthroughHelp" class="sr-only">Interactive walkthrough of AI legal document analysis features</div>
+                            <small class="d-block text-muted mt-2">~3 minutes</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="mt-4">
             <div class="card">
                 <div class="card-body">
                     <h5 class="card-title">
-                        <i class="bi bi-info-circle text-primary me-2"></i>
-                        How it works:
+                        <i class="bi bi-cpu-fill text-primary me-2"></i>
+                        AI-Powered Analysis Process:
                     </h5>
+                    <div class="alert alert-light mb-3">
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-google text-primary fs-4 me-3"></i>
+                            <div>
+                                <strong>Powered by Google Cloud AI</strong>
+                                <small class="d-block text-muted">Advanced machine learning models for accurate legal document analysis</small>
+                            </div>
+                        </div>
+                    </div>
                     <ol class="list-group list-group-flush">
-                        <li class="list-group-item d-flex align-items-center border-0 px-0">
-                            <span class="badge bg-primary rounded-pill me-3">1</span>
-                            <span>Upload or paste your legal document text in the box above</span>
+                        <li class="list-group-item d-flex align-items-start border-0 px-0 py-3">
+                            <span class="badge bg-primary rounded-pill me-3 mt-1">1</span>
+                            <div>
+                                <strong>Document Upload & Processing</strong>
+                                <p class="text-muted mb-1 small">Upload or paste your legal document text in the box above</p>
+                                <div class="progress mt-2" style="height: 4px;">
+                                    <div class="progress-bar bg-primary" style="width: 20%"></div>
+                                </div>
+                            </div>
                         </li>
-                        <li class="list-group-item d-flex align-items-center border-0 px-0">
-                            <span class="badge bg-primary rounded-pill me-3">2</span>
-                            <span>Click "Analyze Document" to start the AI analysis</span>
+                        <li class="list-group-item d-flex align-items-start border-0 px-0 py-3">
+                            <span class="badge bg-info rounded-pill me-3 mt-1">2</span>
+                            <div>
+                                <strong>AI Analysis with Google Cloud</strong>
+                                <p class="text-muted mb-1 small">Advanced NLP models analyze document structure and identify key clauses</p>
+                                <div class="d-flex align-items-center mt-2">
+                                    <i class="bi bi-shield-check text-success me-2"></i>
+                                    <small class="text-muted">Confidence scoring • Risk categorization • Pattern recognition</small>
+                                </div>
+                                <div class="progress mt-2" style="height: 4px;">
+                                    <div class="progress-bar bg-info" style="width: 40%"></div>
+                                </div>
+                            </div>
                         </li>
-                        <li class="list-group-item d-flex align-items-center border-0 px-0">
-                            <span class="badge bg-primary rounded-pill me-3">3</span>
-                            <span>Review the risk assessment with our traffic light system</span>
+                        <li class="list-group-item d-flex align-items-start border-0 px-0 py-3">
+                            <span class="badge bg-warning rounded-pill me-3 mt-1">3</span>
+                            <div>
+                                <strong>Risk Assessment & Traffic Light System</strong>
+                                <p class="text-muted mb-1 small">Review color-coded risk levels with confidence indicators</p>
+                                <div class="d-flex align-items-center mt-2">
+                                    <span class="traffic-light red me-2" title="High Risk"></span>
+                                    <span class="traffic-light yellow me-2" title="Moderate Risk"></span>
+                                    <span class="traffic-light green me-2" title="Low Risk"></span>
+                                    <small class="text-muted ms-2">Visual risk indicators with confidence percentages</small>
+                                </div>
+                                <div class="progress mt-2" style="height: 4px;">
+                                    <div class="progress-bar bg-warning" style="width: 60%"></div>
+                                </div>
+                            </div>
                         </li>
-                        <li class="list-group-item d-flex align-items-center border-0 px-0">
-                            <span class="badge bg-primary rounded-pill me-3">4</span>
-                            <span>Read plain-language explanations of complex clauses</span>
+                        <li class="list-group-item d-flex align-items-start border-0 px-0 py-3">
+                            <span class="badge bg-success rounded-pill me-3 mt-1">4</span>
+                            <div>
+                                <strong>Plain-Language Explanations</strong>
+                                <p class="text-muted mb-1 small">Complex legal terms translated into clear, understandable language</p>
+                                <div class="alert alert-light py-2 mt-2">
+                                    <small><strong>Example:</strong> "Liquidated damages" → "Fixed penalty amount you must pay if you break the contract"</small>
+                                </div>
+                                <div class="progress mt-2" style="height: 4px;">
+                                    <div class="progress-bar bg-success" style="width: 80%"></div>
+                                </div>
+                            </div>
                         </li>
-                        <li class="list-group-item d-flex align-items-center border-0 px-0">
-                            <span class="badge bg-primary rounded-pill me-3">5</span>
-                            <span>Get actionable recommendations for your situation</span>
+                        <li class="list-group-item d-flex align-items-start border-0 px-0 py-3">
+                            <span class="badge bg-dark rounded-pill me-3 mt-1">5</span>
+                            <div>
+                                <strong>Actionable Recommendations</strong>
+                                <p class="text-muted mb-1 small">Specific steps to protect your interests and improve terms</p>
+                                <div class="d-flex align-items-center mt-2">
+                                    <i class="bi bi-lightbulb text-warning me-2"></i>
+                                    <small class="text-muted">Negotiation tips • Legal alternatives • Professional consultation guidance</small>
+                                </div>
+                                <div class="progress mt-2" style="height: 4px;">
+                                    <div class="progress-bar bg-dark" style="width: 100%"></div>
+                                </div>
+                            </div>
                         </li>
                     </ol>
+                    
+                    <!-- AI Transparency & Trust Indicators -->
+                    <div class="alert alert-info mt-4">
+                        <h6 class="alert-heading">
+                            <i class="bi bi-shield-check me-2"></i>
+                            AI Transparency & Trust
+                        </h6>
+                        <div class="row">
+                            <div class="col-12 col-md-6">
+                                <ul class="list-unstyled mb-0">
+                                    <li class="mb-1"><i class="bi bi-check-circle text-success me-2"></i><strong>Confidence Scoring:</strong> Every analysis includes confidence percentages</li>
+                                    <li class="mb-1"><i class="bi bi-check-circle text-success me-2"></i><strong>Result Variability:</strong> Clear indicators when results may vary</li>
+                                </ul>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <ul class="list-unstyled mb-0">
+                                    <li class="mb-1"><i class="bi bi-check-circle text-success me-2"></i><strong>Progressive Disclosure:</strong> Information revealed as needed</li>
+                                    <li class="mb-0"><i class="bi bi-check-circle text-success me-2"></i><strong>Human Oversight:</strong> Always recommend professional review for critical decisions</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
