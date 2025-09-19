@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, send_file, make_response
+from flask import Flask, render_template, request, jsonify, send_file, make_response, g
 from dataclasses import dataclass
 from typing import List, Dict, Any, Optional
 import time
@@ -12,6 +12,10 @@ from functools import wraps
 from io import BytesIO
 import threading
 from openai import OpenAI
+
+# Import production modules
+from monitoring import production_monitor, health_check_decorator
+from performance_optimizer import performance_optimizer, performance_monitor, compress_json_response, setup_performance_monitoring
 from risk_classifier import RiskClassifier, classify_document_risk, RiskLevel as ClassifierRiskLevel, UserExpertiseDetector, EnhancedRiskCategories
 from google_translate_service import GoogleTranslateService
 from google_document_ai_service import document_ai_service
@@ -43,6 +47,9 @@ app = Flask(__name__)
 
 # Configure file upload settings
 app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024  # 10MB max file size
+
+# Set up performance monitoring
+app = setup_performance_monitoring(app)
 
 # Configure logging for production monitoring
 logging.basicConfig(
@@ -387,6 +394,49 @@ class DocumentAnalysis:
 def home():
     """Home page with document input interface"""
     return render_template('index.html')
+
+@app.route('/health')
+@performance_monitor
+def health_check():
+    """Production health check endpoint for monitoring"""
+    try:
+        # Basic health check for core services
+        health_status = {
+            'status': 'healthy',
+            'timestamp': datetime.now().isoformat(),
+            'services': {
+                'ai_clarification': True,
+                'translation': translation_service.enabled if hasattr(translation_service, 'enabled') else True,
+                'risk_classification': True,
+                'file_processing': True,
+                'google_document_ai': google_document_ai.enabled,
+                'google_natural_language': google_natural_language.enabled,
+                'google_speech': google_speech.enabled
+            },
+            'cache': {
+                'size': len(analysis_cache),
+                'status': 'operational'
+            }
+        }
+        
+        # Determine overall health
+        critical_services = ['ai_clarification', 'risk_classification', 'file_processing']
+        if not all(health_status['services'][service] for service in critical_services):
+            health_status['status'] = 'degraded'
+        
+        return jsonify(health_status)
+        
+    except Exception as e:
+        logger.error(f"Health check failed: {e}")
+        return jsonify({
+            'status': 'unhealthy',
+            'error': str(e),
+            'timestamp': datetime.now().isoformat()
+        }), 503
+
+
+
+
 
 def validate_document_input(document_text):
     """
@@ -1403,7 +1453,7 @@ def export_analysis(format_type, document_id):
                 'error': f'{format_type.upper()} export not available. Missing required libraries.'
             }), 503
         
-        # Get analysis from cache or session (simplified for demo)
+        # Get analysis from cache or session
         # In production, you'd retrieve from database using document_id
         cache_keys = [key for key in analysis_cache.keys() if key.startswith('analysis:')]
         
@@ -1712,52 +1762,7 @@ def ai_services_status():
             'error': str(e)
         }), 500
 
-@app.route('/health')
-def health_check():
-    """Enhanced health check endpoint with Google Cloud AI services monitoring"""
-    try:
-        # Enhanced health checks including Google Cloud AI services
-        health_status = {
-            'status': 'healthy',
-            'timestamp': datetime.now().isoformat(),
-            'services': {
-                'ai_clarification': True,
-                'translation': translation_service.enabled if hasattr(translation_service, 'enabled') else True,
-                'risk_classification': True,
-                'file_processing': True,
-                'google_document_ai': google_document_ai.enabled,
-                'google_natural_language': google_natural_language.enabled,
-                'google_speech': google_speech.enabled
-            },
-            'cache': {
-                'size': len(analysis_cache),
-                'status': 'operational'
-            },
-            'google_cloud_integration': {
-                'active_services': sum(1 for service in [
-                    google_document_ai.enabled,
-                    google_natural_language.enabled,
-                    google_speech.enabled,
-                    True  # Google Translate (always enabled)
-                ] if service),
-                'total_services': 4
-            }
-        }
-        
-        # Determine overall health
-        critical_services = ['ai_clarification', 'risk_classification', 'file_processing']
-        if not all(health_status['services'][service] for service in critical_services):
-            health_status['status'] = 'degraded'
-        
-        return jsonify(health_status)
-        
-    except Exception as e:
-        logger.error(f"Health check error: {str(e)}")
-        return jsonify({
-            'status': 'unhealthy',
-            'error': str(e),
-            'timestamp': datetime.now().isoformat()
-        }), 503
+
 
 # Initialize application
 def initialize_app():
