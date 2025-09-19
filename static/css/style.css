@@ -536,6 +536,98 @@ body {
     outline-offset: 2px;
 }
 
+/* File Upload Styles */
+.file-upload-area {
+    border: 2px dashed rgba(102, 126, 234, 0.3);
+    border-radius: var(--border-radius);
+    padding: 2rem;
+    text-align: center;
+    transition: all 0.3s ease;
+    background: rgba(255, 255, 255, 0.5);
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+}
+
+.file-upload-area:hover {
+    border-color: var(--primary-color);
+    background: rgba(255, 255, 255, 0.7);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.2);
+}
+
+.file-upload-area.dragover {
+    border-color: var(--primary-color);
+    background: rgba(102, 126, 234, 0.1);
+    transform: scale(1.02);
+}
+
+.file-upload-content {
+    transition: all 0.3s ease;
+}
+
+.file-upload-success {
+    color: var(--success-color);
+}
+
+.file-upload-success i {
+    animation: bounceIn 0.6s ease-out;
+}
+
+@keyframes bounceIn {
+    0% { transform: scale(0.3); opacity: 0; }
+    50% { transform: scale(1.05); }
+    70% { transform: scale(0.9); }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+.file-upload-area input[type="file"] {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+}
+
+/* File Upload Error States */
+.file-upload-area.error {
+    border-color: var(--danger-color);
+    background: rgba(220, 53, 69, 0.1);
+}
+
+.file-upload-area.error:hover {
+    border-color: var(--danger-color);
+    background: rgba(220, 53, 69, 0.15);
+}
+
+/* File Upload Progress */
+.file-upload-progress {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 4px;
+    background: var(--primary-gradient);
+    transition: width 0.3s ease;
+    border-radius: 0 0 var(--border-radius) var(--border-radius);
+}
+
+/* Mobile File Upload */
+@media (max-width: 768px) {
+    .file-upload-area {
+        padding: 1.5rem 1rem;
+    }
+    
+    .file-upload-area h5 {
+        font-size: 1.1rem;
+    }
+    
+    .file-upload-area .fs-1 {
+        font-size: 2rem !important;
+    }
+}
+
 /* High Contrast Mode Support */
 @media (prefers-contrast: high) {
     .card {
@@ -543,6 +635,10 @@ body {
     }
     
     .traffic-light, .traffic-light-medium, .traffic-light-large {
+        border: 2px solid #000;
+    }
+    
+    .file-upload-area {
         border: 2px solid #000;
     }
 }

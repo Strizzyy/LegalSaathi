@@ -17,19 +17,53 @@
 
                 {% if error %}
                 <div class="alert alert-danger" role="alert">
-                    <strong>Validation Error:</strong> {{ error }}
+                    <strong>Error:</strong> {{ error }}
                 </div>
                 {% endif %}
 
-                <form method="POST" action="/analyze" id="documentForm">
+                <div id="jsErrorAlert" class="alert alert-danger" role="alert" style="display: none;"></div>
+
+                <form method="POST" action="/analyze" id="documentForm" enctype="multipart/form-data">
+                    <div class="mb-4">
+                        <label class="form-label">Upload Document (Optional)</label>
+                        <div class="file-upload-area" id="fileUploadArea">
+                            <div class="file-upload-content" id="fileUploadContent">
+                                <i class="bi bi-cloud-upload fs-1 text-muted mb-3"></i>
+                                <h5>Drag & Drop Your Document Here</h5>
+                                <p class="text-muted mb-3">or click to browse files</p>
+                                <input type="file" class="form-control" id="document_file" name="document_file"
+                                    accept=".pdf,.txt" style="display: none;">
+                                <button type="button" class="btn btn-outline-primary"
+                                    onclick="document.getElementById('document_file').click()">
+                                    <i class="bi bi-folder2-open"></i> Choose File
+                                </button>
+                                <div class="mt-2">
+                                    <small class="text-muted">Supported formats: PDF, TXT (Max 10MB)</small>
+                                </div>
+                            </div>
+                            <div class="file-upload-success" id="fileUploadSuccess" style="display: none;">
+                                <i class="bi bi-check-circle-fill text-success fs-1 mb-3"></i>
+                                <h5 id="uploadedFileName">File uploaded successfully</h5>
+                                <p class="text-muted" id="uploadedFileInfo">Ready for analysis</p>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="clearFile()">
+                                    <i class="bi bi-x-circle"></i> Remove File
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="mb-3">
-                        <label for="document_text" class="form-label">Rental Agreement Text</label>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <label for="document_text" class="form-label">Or Paste Document Text</label>
+                            <small class="text-muted">Alternative to file upload</small>
+                        </div>
                         <textarea class="form-control" id="document_text" name="document_text" rows="15"
-                            placeholder="Paste your rental agreement text here..." required minlength="100"
+                            placeholder="Paste your rental agreement text here..." minlength="100"
                             maxlength="50000">{{ document_text or '' }}</textarea>
                         <div class="form-text">
                             <div class="d-flex flex-column flex-sm-row justify-content-between">
-                                <span class="mb-1 mb-sm-0">Please ensure you paste the complete rental agreement text for accurate analysis.</span>
+                                <span class="mb-1 mb-sm-0">Please ensure you provide the complete rental agreement for
+                                    accurate analysis.</span>
                                 <span id="charCount" class="text-muted char-counter">0 / 50,000 characters</span>
                             </div>
                         </div>
@@ -38,7 +72,7 @@
 
                     <div class="d-grid">
                         <button type="submit" class="btn btn-primary btn-lg" id="analyzeBtn">
-                            Analyze Document
+                            <i class="bi bi-search"></i> Analyze Document
                         </button>
                     </div>
                 </form>
@@ -84,104 +118,173 @@
 {% block scripts %}
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-        const documentText = document.getElementById('document_text');
-        const charCount = document.getElementById('charCount');
-        const analyzeBtn = document.getElementById('analyzeBtn');
-        const validationFeedback = document.getElementById('validationFeedback');
+        // --- DOM ELEMENT SELECTORS ---
         const form = document.getElementById('documentForm');
+        const documentText = document.getElementById('document_text');
+        const fileInput = document.getElementById('document_file');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const charCount = document.getElementById('charCount');
+        const validationFeedback = document.getElementById('validationFeedback');
+        const fileUploadArea = document.getElementById('fileUploadArea');
+        const fileUploadContent = document.getElementById('fileUploadContent');
+        const fileUploadSuccess = document.getElementById('fileUploadSuccess');
+        const uploadedFileName = document.getElementById('uploadedFileName');
+        const uploadedFileInfo = document.getElementById('uploadedFileInfo');
+        const jsErrorAlert = document.getElementById('jsErrorAlert');
 
-        // Character count and validation
+        // --- HELPER FUNCTIONS (PRESERVED FROM YOUR CODE) ---
         function updateCharCount() {
             const length = documentText.value.length;
             charCount.textContent = `${length.toLocaleString()} / 50,000 characters`;
-
-            // Update character count color based on length
-            charCount.classList.remove('text-muted', 'text-warning', 'text-danger', 'char-counter', 'warning', 'danger');
-            
-            if (length > 50000) {
-                charCount.classList.add('text-danger', 'char-counter', 'danger');
-            } else if (length > 45000) {
-                charCount.classList.add('text-warning', 'char-counter', 'warning');
-            } else {
-                charCount.classList.add('text-muted', 'char-counter');
-            }
+            charCount.classList.remove('text-muted', 'text-warning', 'text-danger');
+            if (length > 50000) charCount.classList.add('text-danger');
+            else if (length > 45000) charCount.classList.add('text-warning');
+            else charCount.classList.add('text-muted');
         }
 
-        // Real-time validation
-        function validateDocument() {
+        function validateDocumentText() {
             const text = documentText.value.trim();
-            const length = text.length;
-
-            // Clear previous validation
             documentText.classList.remove('is-invalid', 'is-valid');
             validationFeedback.textContent = '';
-
-            if (length === 0) {
-                return false;
-            }
-
-            if (length < 100) {
+            if (text.length === 0) return false;
+            if (text.length < 100) {
                 documentText.classList.add('is-invalid');
-                validationFeedback.textContent = 'Document text must be at least 100 characters long for meaningful analysis.';
+                validationFeedback.textContent = 'Document text must be at least 100 characters.';
                 return false;
             }
-
-            if (length > 50000) {
+            if (text.length > 50000) {
                 documentText.classList.add('is-invalid');
-                validationFeedback.textContent = 'Document text exceeds maximum length of 50,000 characters. Please shorten your document.';
+                validationFeedback.textContent = 'Document text exceeds 50,000 characters.';
                 return false;
             }
-
-            // Basic content validation - check for rental agreement keywords
-            const legalKeywords = [
-                'rent', 'lease', 'tenant', 'landlord', 'property', 'agreement',
-                'deposit', 'term', 'month', 'payment', 'premises', 'rental'
-            ];
-
-            const textLower = text.toLowerCase();
-            const foundKeywords = legalKeywords.filter(keyword => textLower.includes(keyword));
-
-            if (foundKeywords.length < 3) {
+            const keywords = ['rent', 'lease', 'tenant', 'landlord', 'property', 'agreement'];
+            const found = keywords.filter(k => text.toLowerCase().includes(k));
+            if (found.length < 3) {
                 documentText.classList.add('is-invalid');
-                validationFeedback.textContent = 'This doesn\'t appear to be a rental agreement. Please ensure you\'ve pasted the correct legal document.';
+                validationFeedback.textContent = 'This doesn\'t appear to be a rental agreement.';
                 return false;
             }
-
             documentText.classList.add('is-valid');
             return true;
         }
 
-        // Event listeners
-        documentText.addEventListener('input', function () {
+        function handleFileSelection(file) {
+            const maxSize = 10 * 1024 * 1024;
+            const allowedExtensions = ['.pdf', '.txt'];
+            const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
+            if (!allowedExtensions.includes(fileExtension)) {
+                showFileError('Please select a PDF or TXT file.');
+                return;
+            }
+            if (file.size > maxSize) {
+                showFileError('File size must be less than 10MB.');
+                return;
+            }
+            if (file.size === 0) {
+                showFileError('File appears to be empty.');
+                return;
+            }
+            showFileSuccess(file);
+            documentText.value = '';
             updateCharCount();
-            validateDocument();
-        });
+            documentText.classList.remove('is-invalid', 'is-valid');
+        }
 
-        documentText.addEventListener('paste', function () {
-            // Delay validation to allow paste content to be processed
-            setTimeout(function () {
-                updateCharCount();
-                validateDocument();
-            }, 100);
-        });
+        function showFileSuccess(file) {
+            fileUploadContent.style.display = 'none';
+            fileUploadSuccess.style.display = 'block';
+            uploadedFileName.textContent = file.name;
+            const sizeText = (file.size / (1024 * 1024)).toFixed(1) + 'MB';
+            uploadedFileInfo.textContent = `${sizeText} • Ready for analysis`;
+            fileUploadArea.classList.remove('error');
+        }
 
-        // Form submission validation and loading
-        form.addEventListener('submit', function (e) {
-            if (!validateDocument()) {
-                e.preventDefault();
+        function showFileError(message) {
+            alert(message); // Simple alert for errors
+            clearFile();
+        }
+
+        window.clearFile = function () {
+            fileInput.value = '';
+            fileUploadContent.style.display = 'block';
+            fileUploadSuccess.style.display = 'none';
+        };
+
+        // --- EVENT LISTENERS (PRESERVED FROM YOUR CODE) ---
+        documentText.addEventListener('input', () => { updateCharCount(); validateDocumentText(); });
+        fileUploadArea.addEventListener('dragover', (e) => { e.preventDefault(); fileUploadArea.classList.add('dragover'); });
+        fileUploadArea.addEventListener('dragleave', (e) => { e.preventDefault(); fileUploadArea.classList.remove('dragover'); });
+        fileUploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            fileUploadArea.classList.remove('dragover');
+            if (e.dataTransfer.files.length > 0) handleFileSelection(e.dataTransfer.files[0]);
+        });
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) handleFileSelection(e.target.files[0]);
+        });
+        
+        // --- *** KEY CHANGE: CONSOLIDATED ASYNC FORM SUBMISSION *** ---
+        form.addEventListener('submit', async function (e) {
+            // 1. ALWAYS prevent the default browser submission
+            e.preventDefault();
+            jsErrorAlert.style.display = 'none';
+
+            // 2. Perform final validation check
+            const hasFile = fileInput.files.length > 0;
+            const hasText = documentText.value.trim().length > 0;
+            
+            if (!hasFile && !hasText) {
+                documentText.classList.add('is-invalid');
+                validationFeedback.textContent = 'Please either upload a file or paste document text.';
+                documentText.focus();
+                return;
+            }
+            if (hasText && !validateDocumentText()) {
                 documentText.focus();
                 return;
             }
             
-            // Show loading overlay
+            // 3. Show loading state (assumes showLoading() is in a global script like app.js)
             showLoading();
-            
-            // Disable the submit button to prevent double submission
             analyzeBtn.disabled = true;
-            analyzeBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Analyzing...';
+            analyzeBtn.innerHTML = `<i class="bi bi-hourglass-split"></i> Analyzing...`;
+
+            // 4. Create FormData and send the request via fetch
+            const formData = new FormData(form);
+            
+            try {
+                const response = await fetch('/analyze', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    // 5. Success: The backend sent the results page. Replace current page content.
+                    const resultHtml = await response.text();
+                    document.open();
+                    document.write(resultHtml);
+                    document.close();
+                } else {
+                    // 6. Server Error: Display the error from the server.
+                    const errorText = await response.text();
+                    jsErrorAlert.textContent = `Analysis failed: ${errorText}`;
+                    jsErrorAlert.style.display = 'block';
+                    hideLoading(); // Hide spinner on error
+                    analyzeBtn.disabled = false;
+                    analyzeBtn.innerHTML = '<i class="bi bi-search"></i> Analyze Document';
+                }
+            } catch (error) {
+                // 7. Network Error: Handle cases where the server can't be reached.
+                console.error('Submission Fetch Error:', error);
+                jsErrorAlert.textContent = 'A network error occurred. Please check your connection and try again.';
+                jsErrorAlert.style.display = 'block';
+                hideLoading(); // Hide spinner on error
+                analyzeBtn.disabled = false;
+                analyzeBtn.innerHTML = '<i class="bi bi-search"></i> Analyze Document';
+            }
         });
 
-        // Initial setup
+        // Initial state setup
         updateCharCount();
     });
 </script>

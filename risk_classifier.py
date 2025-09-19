@@ -22,6 +22,11 @@ class RiskLevel(Enum):
     YELLOW = "YELLOW"
     GREEN = "GREEN"
 
+class RiskCategory(Enum):
+    FINANCIAL = "financial"
+    LEGAL = "legal"
+    OPERATIONAL = "operational"
+
 @dataclass
 class RiskAssessment:
     level: RiskLevel
@@ -29,6 +34,9 @@ class RiskAssessment:
     reasons: List[str]
     severity: str
     confidence: float
+    confidence_percentage: int  # 0-100%
+    risk_categories: Dict[str, float]  # financial, legal, operational
+    low_confidence_warning: bool
 
 @dataclass
 class RedFlag:
@@ -36,6 +44,8 @@ class RedFlag:
     description: str
     risk_level: RiskLevel
     weight: float
+    category: RiskCategory
+    severity_indicator: str
 
 class RiskClassifier:
     """
@@ -58,38 +68,48 @@ class RiskClassifier:
         self.red_flag_patterns = self._load_red_flag_patterns()
         
     def _load_red_flag_patterns(self) -> List[RedFlag]:
-        """Load predefined red flag patterns for keyword-based detection"""
+        """Load predefined red flag patterns for keyword-based detection with categories"""
         return [
             # High-risk patterns (RED)
             RedFlag(
                 pattern=r"non-refundable.*deposit|deposit.*non-refundable",
                 description="Non-refundable security deposit",
                 risk_level=RiskLevel.RED,
-                weight=0.9
+                weight=0.9,
+                category=RiskCategory.FINANCIAL,
+                severity_indicator="Critical financial risk"
             ),
             RedFlag(
                 pattern=r"unlimited.*liability|liability.*unlimited",
                 description="Unlimited liability clause",
                 risk_level=RiskLevel.RED,
-                weight=0.95
+                weight=0.95,
+                category=RiskCategory.LEGAL,
+                severity_indicator="Severe legal exposure"
             ),
             RedFlag(
                 pattern=r"waive.*right|forfeit.*right|surrender.*right",
                 description="Rights waiver clause",
                 risk_level=RiskLevel.RED,
-                weight=0.85
+                weight=0.85,
+                category=RiskCategory.LEGAL,
+                severity_indicator="Major rights violation"
             ),
             RedFlag(
                 pattern=r"no.*notice.*entry|entry.*without.*notice",
                 description="No notice entry clause",
                 risk_level=RiskLevel.RED,
-                weight=0.8
+                weight=0.8,
+                category=RiskCategory.OPERATIONAL,
+                severity_indicator="Privacy violation risk"
             ),
             RedFlag(
                 pattern=r"automatic.*renewal|auto.*renew",
                 description="Automatic renewal without consent",
                 risk_level=RiskLevel.RED,
-                weight=0.7
+                weight=0.7,
+                category=RiskCategory.LEGAL,
+                severity_indicator="Contract trap mechanism"
             ),
             
             # Medium-risk patterns (YELLOW)
@@ -97,31 +117,41 @@ class RiskClassifier:
                 pattern=r"late.*fee.*\$[0-9]{3,}|penalty.*\$[0-9]{3,}",
                 description="Excessive late fees",
                 risk_level=RiskLevel.YELLOW,
-                weight=0.6
+                weight=0.6,
+                category=RiskCategory.FINANCIAL,
+                severity_indicator="High penalty costs"
             ),
             RedFlag(
                 pattern=r"inspection.*daily|daily.*inspection",
                 description="Excessive inspection frequency",
                 risk_level=RiskLevel.YELLOW,
-                weight=0.5
+                weight=0.5,
+                category=RiskCategory.OPERATIONAL,
+                severity_indicator="Privacy intrusion"
             ),
             RedFlag(
                 pattern=r"no.*pets.*allowed|pets.*prohibited",
                 description="Strict pet policy",
                 risk_level=RiskLevel.YELLOW,
-                weight=0.3
+                weight=0.3,
+                category=RiskCategory.OPERATIONAL,
+                severity_indicator="Lifestyle restriction"
             ),
             RedFlag(
                 pattern=r"subletting.*prohibited|no.*subletting",
                 description="Subletting restrictions",
                 risk_level=RiskLevel.YELLOW,
-                weight=0.4
+                weight=0.4,
+                category=RiskCategory.OPERATIONAL,
+                severity_indicator="Flexibility limitation"
             ),
             RedFlag(
                 pattern=r"rent.*increase.*[0-9]{2,}%",
                 description="High rent increase percentage",
                 risk_level=RiskLevel.YELLOW,
-                weight=0.6
+                weight=0.6,
+                category=RiskCategory.FINANCIAL,
+                severity_indicator="Affordability risk"
             )
         ]
     
@@ -146,17 +176,33 @@ class RiskClassifier:
     
     def _detect_keyword_red_flags(self, text: str) -> RiskAssessment:
         """
-        Detect red flags using keyword-based pattern matching
+        Detect red flags using keyword-based pattern matching with multi-dimensional analysis
         """
         text_lower = text.lower()
         detected_flags = []
         total_weight = 0.0
         max_risk_level = RiskLevel.GREEN
         
+        # Initialize category scores
+        category_scores = {
+            RiskCategory.FINANCIAL: 0.0,
+            RiskCategory.LEGAL: 0.0,
+            RiskCategory.OPERATIONAL: 0.0
+        }
+        category_counts = {
+            RiskCategory.FINANCIAL: 0,
+            RiskCategory.LEGAL: 0,
+            RiskCategory.OPERATIONAL: 0
+        }
+        
         for flag in self.red_flag_patterns:
             if re.search(flag.pattern, text_lower, re.IGNORECASE):
-                detected_flags.append(flag.description)
+                detected_flags.append(f"{flag.description} ({flag.severity_indicator})")
                 total_weight += flag.weight
+                
+                # Update category scores
+                category_scores[flag.category] += flag.weight
+                category_counts[flag.category] += 1
                 
                 # Update max risk level
                 if flag.risk_level == RiskLevel.RED:
@@ -166,6 +212,14 @@ class RiskClassifier:
         
         # Calculate risk score
         risk_score = min(total_weight, 1.0)
+        
+        # Normalize category scores
+        risk_categories = {}
+        for category, score in category_scores.items():
+            if category_counts[category] > 0:
+                risk_categories[category.value] = min(score / category_counts[category], 1.0)
+            else:
+                risk_categories[category.value] = 0.0
         
         # Determine final risk level
         if max_risk_level == RiskLevel.RED or risk_score > 0.7:
@@ -180,12 +234,20 @@ class RiskClassifier:
         
         reasons = detected_flags if detected_flags else ["No red flags detected in keyword analysis"]
         
+        # Calculate confidence percentage and low confidence warning
+        confidence = 0.8  # High confidence for keyword matching
+        confidence_percentage = int(confidence * 100)
+        low_confidence_warning = confidence_percentage < 70
+        
         return RiskAssessment(
             level=final_level,
             score=risk_score,
             reasons=reasons,
             severity=severity,
-            confidence=0.8  # High confidence for keyword matching
+            confidence=confidence,
+            confidence_percentage=confidence_percentage,
+            risk_categories=risk_categories,
+            low_confidence_warning=low_confidence_warning
         )
     
     def _get_ai_risk_assessment(self, clause_text: str) -> RiskAssessment:
@@ -193,9 +255,13 @@ class RiskClassifier:
         Get AI-based risk assessment using Groq for simple analysis
         """
         try:
-            # Use Groq for quick risk assessment
+            # Check if Groq client is available
+            if not self.groq_client:
+                return self._get_gemini_risk_assessment(clause_text)
+            
+            # Enhanced prompt with confidence levels and multi-dimensional analysis
             prompt = f"""
-            Analyze this rental agreement clause for risk level. Respond with JSON only:
+            Analyze this rental agreement clause for risk level with detailed confidence assessment. Respond with JSON only:
             
             Clause: "{clause_text}"
             
@@ -205,24 +271,50 @@ class RiskClassifier:
                 "risk_score": 0.0-1.0,
                 "reasons": ["reason1", "reason2"],
                 "severity": "High|Medium|Low",
-                "confidence": 0.0-1.0
+                "confidence": 0.0-1.0,
+                "confidence_percentage": 0-100,
+                "risk_categories": {{
+                    "financial": 0.0-1.0,
+                    "legal": 0.0-1.0,
+                    "operational": 0.0-1.0
+                }},
+                "low_confidence_warning": true/false
             }}
             
             Risk Guidelines:
             - RED: Unfair, illegal, or heavily biased against tenant
-            - YELLOW: Concerning terms that could be improved
+            - YELLOW: Concerning terms that could be improved  
             - GREEN: Fair and standard terms
+            
+            Risk Categories:
+            - Financial: Money-related risks (deposits, fees, rent increases)
+            - Legal: Rights violations, liability issues, legal compliance
+            - Operational: Day-to-day living restrictions, privacy, flexibility
+            
+            Confidence Guidelines:
+            - High confidence (80-100%): Clear legal language, well-defined terms
+            - Medium confidence (50-79%): Some ambiguity but analyzable
+            - Low confidence (0-49%): Unclear language, insufficient context
             """
             
+            
+            
+            def timeout_handler(signum, frame):
+                raise TimeoutError("Groq API call timed out")
+            
+           
+            
             response = self.groq_client.chat.completions.create(
-                model="llama-3.1-8b-instant",
-                messages=[
-                    {"role": "system", "content": "You are a legal expert. Respond only with valid JSON."},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.1,
-                max_tokens=500
-            )
+            model="llama-3.1-8b-instant",
+            messages=[
+                {"role": "system", "content": "You are a legal expert. Respond only with valid JSON."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.1,
+            max_tokens=500,
+            timeout=10.0 # Use the library's built-in timeout
+        )
+            
             
             # Parse AI response
             ai_response = response.choices[0].message.content.strip()
@@ -232,13 +324,20 @@ class RiskClassifier:
             if json_match:
                 ai_data = json.loads(json_match.group(0))
                 
+                confidence = float(ai_data.get('confidence', 0.7))
+                confidence_percentage = ai_data.get('confidence_percentage', int(confidence * 100))
+                
                 return RiskAssessment(
                     level=RiskLevel(ai_data.get('risk_level', 'YELLOW')),
                     score=float(ai_data.get('risk_score', 0.5)),
                     reasons=ai_data.get('reasons', ['AI analysis completed']),
                     severity=ai_data.get('severity', 'Medium'),
-                    confidence=float(ai_data.get('confidence', 0.7))
+                    confidence=confidence,
+                    confidence_percentage=confidence_percentage,
+                    risk_categories=ai_data.get('risk_categories', {'financial': 0.5, 'legal': 0.5, 'operational': 0.5}),
+                    low_confidence_warning=ai_data.get('low_confidence_warning', confidence_percentage < 70)
                 )
+            pass
             
         except Exception as e:
             print(f"Groq API error: {e}")
@@ -251,7 +350,10 @@ class RiskClassifier:
             score=0.5,
             reasons=["AI analysis unavailable"],
             severity="Medium",
-            confidence=0.3
+            confidence=0.3,
+            confidence_percentage=30,
+            risk_categories={'financial': 0.5, 'legal': 0.5, 'operational': 0.5},
+            low_confidence_warning=True
         )
     
     def _get_gemini_risk_assessment(self, clause_text: str) -> RiskAssessment:
@@ -281,12 +383,18 @@ class RiskClassifier:
             if json_match:
                 ai_data = json.loads(json_match.group(0))
                 
+                confidence = float(ai_data.get('confidence', 0.8))
+                confidence_percentage = ai_data.get('confidence_percentage', int(confidence * 100))
+                
                 return RiskAssessment(
                     level=RiskLevel(ai_data.get('risk_level', 'YELLOW')),
                     score=float(ai_data.get('risk_score', 0.5)),
                     reasons=ai_data.get('reasons', ['Gemini analysis completed']),
                     severity=ai_data.get('severity', 'Medium'),
-                    confidence=float(ai_data.get('confidence', 0.8))
+                    confidence=confidence,
+                    confidence_percentage=confidence_percentage,
+                    risk_categories=ai_data.get('risk_categories', {'financial': 0.5, 'legal': 0.5, 'operational': 0.5}),
+                    low_confidence_warning=ai_data.get('low_confidence_warning', confidence_percentage < 70)
                 )
                 
         except Exception as e:
@@ -298,12 +406,15 @@ class RiskClassifier:
             score=0.5,
             reasons=["AI services unavailable - manual review recommended"],
             severity="Medium",
-            confidence=0.2
+            confidence=0.2,
+            confidence_percentage=20,
+            risk_categories={'financial': 0.5, 'legal': 0.5, 'operational': 0.5},
+            low_confidence_warning=True
         )
     
     def _combine_risk_assessments(self, keyword_risk: RiskAssessment, ai_risk: RiskAssessment) -> RiskAssessment:
         """
-        Combine keyword-based and AI-based risk assessments
+        Combine keyword-based and AI-based risk assessments with multi-dimensional analysis
         """
         # Weight the assessments (keyword matching is more reliable for known patterns)
         keyword_weight = 0.6
@@ -323,8 +434,8 @@ class RiskClassifier:
         # Combine reasons
         combined_reasons = []
         if keyword_risk.reasons != ["No red flags detected in keyword analysis"]:
-            combined_reasons.extend([f"Keyword: {reason}" for reason in keyword_risk.reasons])
-        combined_reasons.extend([f"AI: {reason}" for reason in ai_risk.reasons])
+            combined_reasons.extend([f"Pattern Match: {reason}" for reason in keyword_risk.reasons])
+        combined_reasons.extend([f"AI Analysis: {reason}" for reason in ai_risk.reasons])
         
         # Determine severity
         if final_level == RiskLevel.RED:
@@ -336,13 +447,29 @@ class RiskClassifier:
         
         # Combine confidence
         combined_confidence = (keyword_risk.confidence * keyword_weight) + (ai_risk.confidence * ai_weight)
+        combined_confidence_percentage = int(combined_confidence * 100)
+        
+        # Combine risk categories
+        combined_categories = {}
+        for category in ['financial', 'legal', 'operational']:
+            keyword_cat_score = keyword_risk.risk_categories.get(category, 0.0)
+            ai_cat_score = ai_risk.risk_categories.get(category, 0.0)
+            combined_categories[category] = (keyword_cat_score * keyword_weight) + (ai_cat_score * ai_weight)
+        
+        # Determine low confidence warning
+        low_confidence_warning = (combined_confidence_percentage < 70 or 
+                                keyword_risk.low_confidence_warning or 
+                                ai_risk.low_confidence_warning)
         
         return RiskAssessment(
             level=final_level,
             score=combined_score,
             reasons=combined_reasons,
             severity=severity,
-            confidence=combined_confidence
+            confidence=combined_confidence,
+            confidence_percentage=combined_confidence_percentage,
+            risk_categories=combined_categories,
+            low_confidence_warning=low_confidence_warning
         )
     
     def _store_risk_assessment(self, clause_text: str, risk_assessment: RiskAssessment):
@@ -398,6 +525,147 @@ class RiskClassifier:
         if self.neo4j_driver:
             self.neo4j_driver.close()
 
+class MockTranslationService:
+    """
+    Mock Google Translate API integration for multilingual support
+    Requirements: Add mock Google Translate API integration for multilingual support
+    """
+    
+    def __init__(self):
+        # Mock supported languages
+        self.supported_languages = {
+            'en': 'English',
+            'es': 'Spanish', 
+            'fr': 'French',
+            'de': 'German',
+            'hi': 'Hindi',
+            'zh': 'Chinese'
+        }
+        
+        # Mock translations for common legal terms
+        self.mock_translations = {
+            'es': {
+                'rental agreement': 'contrato de alquiler',
+                'security deposit': 'depósito de seguridad',
+                'tenant': 'inquilino',
+                'landlord': 'propietario',
+                'high risk': 'alto riesgo',
+                'medium risk': 'riesgo medio',
+                'low risk': 'bajo riesgo'
+            },
+            'fr': {
+                'rental agreement': 'contrat de location',
+                'security deposit': 'dépôt de garantie',
+                'tenant': 'locataire',
+                'landlord': 'propriétaire',
+                'high risk': 'risque élevé',
+                'medium risk': 'risque moyen',
+                'low risk': 'faible risque'
+            }
+        }
+    
+    def translate_text(self, text: str, target_language: str) -> Dict[str, str]:
+        """Mock translation of text to target language"""
+        if target_language not in self.supported_languages:
+            return {
+                'success': False,
+                'error': f'Language {target_language} not supported',
+                'translated_text': text
+            }
+        
+        # Mock translation using predefined mappings
+        translated_text = text.lower()
+        if target_language in self.mock_translations:
+            for english_term, translated_term in self.mock_translations[target_language].items():
+                translated_text = translated_text.replace(english_term, translated_term)
+        
+        return {
+            'success': True,
+            'original_text': text,
+            'translated_text': translated_text,
+            'target_language': target_language,
+            'language_name': self.supported_languages[target_language]
+        }
+    
+    def detect_language(self, text: str) -> Dict[str, str]:
+        """Mock language detection"""
+        # Simple mock detection based on common words
+        spanish_indicators = ['contrato', 'alquiler', 'inquilino', 'propietario']
+        french_indicators = ['contrat', 'location', 'locataire', 'propriétaire']
+        
+        text_lower = text.lower()
+        
+        if any(word in text_lower for word in spanish_indicators):
+            return {'language': 'es', 'confidence': 0.85}
+        elif any(word in text_lower for word in french_indicators):
+            return {'language': 'fr', 'confidence': 0.85}
+        else:
+            return {'language': 'en', 'confidence': 0.90}
+
+class MockVertexAIService:
+    """
+    Mock Vertex AI Generative AI integration for conversational clarification
+    Requirements: Add mock Vertex AI Generative AI integration for conversational clarification
+    """
+    
+    def __init__(self):
+        self.conversation_history = []
+        
+        # Mock responses for common questions
+        self.mock_responses = {
+            'what does this mean': 'This clause means that the landlord has specific rights or the tenant has certain obligations. Let me break it down in simpler terms.',
+            'is this fair': 'Based on standard rental practices, this clause appears to be [fair/unfair/concerning]. Here\'s why:',
+            'should i sign': 'Before signing, consider these factors: 1) Your comfort with the terms, 2) Local rental laws, 3) Alternative options available.',
+            'can i negotiate': 'Yes, many rental terms are negotiable. Focus on the high-risk items we identified, especially around deposits, fees, and tenant rights.',
+            'what are my rights': 'As a tenant, you typically have rights to: privacy, habitability, fair treatment, and proper notice for changes or entry.'
+        }
+    
+    def ask_clarification(self, question: str, context: Dict = None) -> Dict[str, str]:
+        """Mock conversational AI for document clarification"""
+        question_lower = question.lower()
+        
+        # Find best matching response
+        best_response = "I understand you're asking about your rental agreement. Could you be more specific about which clause or term you'd like me to explain?"
+        
+        for trigger, response in self.mock_responses.items():
+            if trigger in question_lower:
+                best_response = response
+                break
+        
+        # Add context-aware information if available
+        if context and 'risk_level' in context:
+            risk_level = context['risk_level']
+            if risk_level == 'RED':
+                best_response += f"\n\n⚠️ This is particularly important because we identified this as a HIGH RISK clause."
+            elif risk_level == 'YELLOW':
+                best_response += f"\n\n⚠️ This clause has MEDIUM RISK - worth discussing with the landlord."
+        
+        # Store in conversation history
+        self.conversation_history.append({
+            'question': question,
+            'response': best_response,
+            'timestamp': 'mock_timestamp'
+        })
+        
+        return {
+            'success': True,
+            'response': best_response,
+            'confidence': 0.75,
+            'follow_up_suggestions': [
+                'Can you explain this in simpler terms?',
+                'What should I do about this clause?',
+                'Is this legal in my area?'
+            ]
+        }
+    
+    def get_conversation_summary(self) -> Dict[str, any]:
+        """Get summary of conversation for context"""
+        return {
+            'total_questions': len(self.conversation_history),
+            'recent_topics': [item['question'][:50] + '...' for item in self.conversation_history[-3:]],
+            'conversation_history': self.conversation_history
+        }
+
 # Utility function for easy integration
 def classify_document_risk(document_text: str) -> Dict:
     """
@@ -444,14 +712,43 @@ def classify_document_risk(document_text: str) -> Dict:
             overall_severity = "Medium"
             overall_score = 0.5
         
+        # Calculate overall confidence and categories
+        if clause_assessments:
+            overall_confidence = sum(assessment['assessment'].confidence for assessment in clause_assessments) / len(clause_assessments)
+            overall_confidence_percentage = int(overall_confidence * 100)
+            
+            # Aggregate category scores
+            overall_categories = {'financial': 0.0, 'legal': 0.0, 'operational': 0.0}
+            for assessment in clause_assessments:
+                for category, score in assessment['assessment'].risk_categories.items():
+                    overall_categories[category] += score
+            
+            # Average category scores
+            for category in overall_categories:
+                overall_categories[category] /= len(clause_assessments)
+            
+            low_confidence_warning = overall_confidence_percentage < 70
+        else:
+            overall_confidence = 0.5
+            overall_confidence_percentage = 50
+            overall_categories = {'financial': 0.5, 'legal': 0.5, 'operational': 0.5}
+            low_confidence_warning = True
+        
         return {
             'overall_risk': {
                 'level': overall_level.value,
                 'score': overall_score,
-                'severity': overall_severity
+                'severity': overall_severity,
+                'confidence_percentage': overall_confidence_percentage,
+                'risk_categories': overall_categories,
+                'low_confidence_warning': low_confidence_warning
             },
             'clause_assessments': clause_assessments,
-            'total_clauses_analyzed': len(clause_assessments)
+            'total_clauses_analyzed': len(clause_assessments),
+            'analysis_metadata': {
+                'translation_service': MockTranslationService(),
+                'ai_clarification': MockVertexAIService()
+            }
         }
         
     finally:

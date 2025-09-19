@@ -5,9 +5,20 @@ import time
 import json
 import re
 from openai import OpenAI
-from risk_classifier import RiskClassifier, classify_document_risk, RiskLevel as ClassifierRiskLevel
+from risk_classifier import RiskClassifier, classify_document_risk, RiskLevel as ClassifierRiskLevel, MockTranslationService, MockVertexAIService
+from file_processor import FileProcessor
+from document_classifier import DocumentClassifier, DocumentType
 
 app = Flask(__name__)
+
+# Configure file upload settings
+app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024  # 10MB max file size
+
+# Initialize services including enhanced AI services
+file_processor = FileProcessor()
+document_classifier = DocumentClassifier()
+translation_service = MockTranslationService()
+ai_clarification_service = MockVertexAIService()
 
 # Initialize OpenAI client for vLLM server (adapting from integrate.py)
 client = OpenAI(
@@ -16,13 +27,16 @@ client = OpenAI(
     timeout=5.0  # 5 second timeout for faster fallback
 )
 
-# Simple data models for document analysis results
+# Enhanced data models for document analysis results with confidence and categories
 @dataclass
 class RiskLevel:
     level: str  # "RED", "YELLOW", "GREEN"
     score: float  # 0.0 to 1.0
     reasons: List[str]
     severity: str
+    confidence_percentage: int  # 0-100%
+    risk_categories: dict  # financial, legal, operational
+    low_confidence_warning: bool
 
 @dataclass
 class AnalysisResult:
@@ -80,47 +94,57 @@ def validate_document_input(document_text):
 
 def analyze_rental_agreement_with_llm(document_text: str) -> DocumentAnalysis:
     """
-    Analyze rental agreement using enhanced risk classification system
-    Requirements: 2.1, 2.2, 4.1, 3.1, 3.2, 3.3, 3.4
+    Analyze rental agreement using enhanced risk classification system with improved error handling
+    Requirements: 2.1, 2.2, 4.1, 3.1, 3.2, 3.3, 3.4, 7.2 (Add try-catch blocks for LLM service failures)
     """
     start_time = time.time()
     
     try:
-        # Use the new risk classification system
+        # Use the new risk classification system with error handling
         risk_analysis = classify_document_risk(document_text)
         
-        # Convert to our data model format
+        # Convert to our enhanced data model format with confidence and categories
         overall_risk_data = risk_analysis['overall_risk']
         overall_risk = RiskLevel(
             level=overall_risk_data['level'],
             score=overall_risk_data['score'],
             reasons=[f"Overall document risk: {overall_risk_data['severity']}"],
-            severity=overall_risk_data['severity']
+            severity=overall_risk_data['severity'],
+            confidence_percentage=overall_risk_data['confidence_percentage'],
+            risk_categories=overall_risk_data['risk_categories'],
+            low_confidence_warning=overall_risk_data['low_confidence_warning']
         )
         
         analysis_results = []
         for clause_assessment in risk_analysis['clause_assessments']:
             assessment = clause_assessment['assessment']
             
-            # Convert classifier risk level to our format
+            # Convert classifier risk level to our enhanced format
             risk_level = RiskLevel(
                 level=assessment.level.value,
                 score=assessment.score,
                 reasons=assessment.reasons,
-                severity=assessment.severity
+                severity=assessment.severity,
+                confidence_percentage=assessment.confidence_percentage,
+                risk_categories=assessment.risk_categories,
+                low_confidence_warning=assessment.low_confidence_warning
             )
             
-            # Generate plain language explanation based on risk level
+            # Generate enhanced plain language explanation with confidence indicators
+            confidence_indicator = ""
+            if assessment.low_confidence_warning:
+                confidence_indicator = f" (⚠️ Low Confidence: {assessment.confidence_percentage}%)"
+            
             if assessment.level == ClassifierRiskLevel.RED:
-                explanation = f"⚠️ HIGH RISK: This clause contains terms that could be unfair or problematic. {' '.join(assessment.reasons[:2])}"
+                explanation = f"🚨 HIGH RISK{confidence_indicator}: This clause contains terms that could be unfair or problematic. {' '.join(assessment.reasons[:2])}"
                 implications = ["This clause may put you at a disadvantage", "Consider negotiating or seeking legal advice"]
                 recommendations = ["Request modification of this clause", "Consult with a legal professional", "Consider this a deal-breaker"]
             elif assessment.level == ClassifierRiskLevel.YELLOW:
-                explanation = f"⚡ MODERATE CONCERN: This clause has some issues that could be improved. {' '.join(assessment.reasons[:2])}"
+                explanation = f"⚠️ MODERATE CONCERN{confidence_indicator}: This clause has some issues that could be improved. {' '.join(assessment.reasons[:2])}"
                 implications = ["This clause could be more tenant-friendly", "May cause issues in certain situations"]
                 recommendations = ["Try to negotiate better terms", "Understand the implications fully", "Consider alternatives"]
             else:
-                explanation = f"✅ FAIR TERMS: This clause appears to be standard and reasonable. {' '.join(assessment.reasons[:1]) if assessment.reasons else 'No major concerns identified.'}"
+                explanation = f"✅ FAIR TERMS{confidence_indicator}: This clause appears to be standard and reasonable. {' '.join(assessment.reasons[:1]) if assessment.reasons else 'No major concerns identified.'}"
                 implications = ["This clause follows standard rental practices", "Generally fair to both parties"]
                 recommendations = ["This clause is acceptable as written"]
             
@@ -133,13 +157,25 @@ def analyze_rental_agreement_with_llm(document_text: str) -> DocumentAnalysis:
             )
             analysis_results.append(analysis_result)
         
-        # Generate summary based on overall risk
+        # Generate enhanced summary with confidence and category information
+        red_clauses = len([c for c in risk_analysis['clause_assessments'] if c['assessment'].level == ClassifierRiskLevel.RED])
+        yellow_clauses = len([c for c in risk_analysis['clause_assessments'] if c['assessment'].level == ClassifierRiskLevel.YELLOW])
+        
+        confidence_note = ""
+        if overall_risk_data['low_confidence_warning']:
+            confidence_note = f" (Analysis Confidence: {overall_risk_data['confidence_percentage']}% - Consider professional review)"
+        
+        # Category breakdown
+        categories = overall_risk_data['risk_categories']
+        high_risk_categories = [cat for cat, score in categories.items() if score > 0.6]
+        category_note = f" Primary concerns: {', '.join(high_risk_categories)}" if high_risk_categories else ""
+        
         if overall_risk_data['level'] == 'RED':
-            summary = f"🚨 HIGH RISK DOCUMENT: This rental agreement contains {len([c for c in risk_analysis['clause_assessments'] if c['assessment'].level == ClassifierRiskLevel.RED])} high-risk clauses that need immediate attention. We strongly recommend legal review before signing."
+            summary = f"🚨 HIGH RISK DOCUMENT{confidence_note}: This rental agreement contains {red_clauses} high-risk clauses that need immediate attention.{category_note} We strongly recommend legal review before signing."
         elif overall_risk_data['level'] == 'YELLOW':
-            summary = f"⚠️ MODERATE RISK: This agreement has some concerning clauses that could be improved. Review the highlighted issues and consider negotiating better terms."
+            summary = f"⚠️ MODERATE RISK{confidence_note}: This agreement has {yellow_clauses} concerning clauses that could be improved.{category_note} Review the highlighted issues and consider negotiating better terms."
         else:
-            summary = f"✅ LOW RISK: This appears to be a fairly standard rental agreement with reasonable terms. Review the details but generally acceptable."
+            summary = f"✅ LOW RISK{confidence_note}: This appears to be a fairly standard rental agreement with reasonable terms.{category_note} Review the details but generally acceptable."
         
         processing_time = time.time() - start_time
         
@@ -153,6 +189,18 @@ def analyze_rental_agreement_with_llm(document_text: str) -> DocumentAnalysis:
         
     except Exception as e:
         print(f"Error in enhanced risk analysis: {str(e)}")
+        # Enhanced error handling with specific error messages
+        error_msg = str(e).lower()
+        
+        if "connection" in error_msg or "timeout" in error_msg:
+            print("LLM service connection issue - using fallback analysis")
+        elif "api" in error_msg or "key" in error_msg:
+            print("LLM service API issue - using fallback analysis")
+        elif "memory" in error_msg or "resource" in error_msg:
+            print("LLM service resource issue - using fallback analysis")
+        else:
+            print(f"Unexpected LLM service error: {str(e)} - using fallback analysis")
+        
         # Fallback to basic analysis on error
         return create_fallback_analysis(document_text)
 
@@ -180,7 +228,10 @@ def create_fallback_analysis(document_text: str) -> DocumentAnalysis:
                 level=keyword_risk.level.value,
                 score=keyword_risk.score,
                 reasons=keyword_risk.reasons,
-                severity=keyword_risk.severity
+                severity=keyword_risk.severity,
+                confidence_percentage=keyword_risk.confidence_percentage,
+                risk_categories=keyword_risk.risk_categories,
+                low_confidence_warning=keyword_risk.low_confidence_warning
             )
             
             analysis_result = AnalysisResult(
@@ -218,7 +269,10 @@ def create_fallback_analysis(document_text: str) -> DocumentAnalysis:
             level=overall_level,
             score=overall_score,
             reasons=[f"Fallback analysis completed - {len(analysis_results)} clauses checked"],
-            severity=severity
+            severity=severity,
+            confidence_percentage=60,  # Medium confidence for fallback
+            risk_categories={'financial': 0.3, 'legal': 0.3, 'operational': 0.3},
+            low_confidence_warning=True
         )
         
         classifier.close()
@@ -239,7 +293,10 @@ def create_fallback_analysis(document_text: str) -> DocumentAnalysis:
             level="YELLOW",
             score=0.5,
             reasons=["Analysis services unavailable"],
-            severity="Medium"
+            severity="Medium",
+            confidence_percentage=20,
+            risk_categories={'financial': 0.5, 'legal': 0.5, 'operational': 0.5},
+            low_confidence_warning=True
         )
         
         basic_analysis = AnalysisResult(
@@ -260,24 +317,167 @@ def create_fallback_analysis(document_text: str) -> DocumentAnalysis:
 
 @app.route('/analyze', methods=['POST'])
 def analyze_document():
-    """Document analysis endpoint with enhanced validation"""
-    document_text = request.form.get('document_text', '')
+    """
+    Enhanced document analysis endpoint with file upload support and improved error handling
+    Requirements: 7.2 - Implement drag-and-drop file upload with basic validation
+    """
+    document_text = ""
+    file_info = None
+    warnings = []
     
-    # Validate document input
-    is_valid, error_message = validate_document_input(document_text)
-    
-    if not is_valid:
-        return render_template('index.html', error=error_message, document_text=document_text)
-    
-    # Perform AI-powered rental agreement analysis
     try:
-        analysis = analyze_rental_agreement_with_llm(document_text)
-    except Exception as e:
-        print(f"Analysis error: {str(e)}")
-        # Fallback to basic analysis on error
-        analysis = create_fallback_analysis(document_text)
+        # Check if file was uploaded
+        if 'document_file' in request.files and request.files['document_file'].filename:
+            file = request.files['document_file']
+            
+            # Process uploaded file
+            file_result = file_processor.process_uploaded_file(file)
+            
+            if not file_result.success:
+                return render_template('index.html', 
+                                     error=file_result.error_message,
+                                     document_text=request.form.get('document_text', ''))
+            
+            document_text = file_result.text_content
+            file_info = file_result.file_info
+            warnings.extend(file_result.warnings)
+            
+        else:
+            # Use text input from form
+            document_text = request.form.get('document_text', '')
+        
+        # Validate document input
+        is_valid, error_message = validate_document_input(document_text)
+        
+        if not is_valid:
+            return render_template('index.html', 
+                                 error=error_message, 
+                                 document_text=document_text,
+                                 file_info=file_info)
+        
+        # Classify document type
+        classification = document_classifier.classify_document(document_text)
+        classification_message = document_classifier.get_analysis_message(classification)
+        
+        # Add classification warning if not a rental agreement
+        if classification.document_type != DocumentType.RENTAL_AGREEMENT:
+            warnings.append(classification_message)
+            if classification.confidence < 0.5:
+                warnings.append("Document type unclear - analysis may be limited")
+        
+        # Perform AI-powered rental agreement analysis with enhanced error handling
+        try:
+            analysis = analyze_rental_agreement_with_llm(document_text)
+            
+            # Add file info and warnings to analysis
+            if hasattr(analysis, 'file_info'):
+                analysis.file_info = file_info
+            if hasattr(analysis, 'warnings'):
+                analysis.warnings = warnings
+            if hasattr(analysis, 'classification'):
+                analysis.classification = classification
+                
+        except ConnectionError as e:
+            error_msg = "Unable to connect to AI analysis service. Please try again in a few moments."
+            return render_template('index.html', 
+                                 error=error_msg, 
+                                 document_text=document_text,
+                                 file_info=file_info)
+        
+        except TimeoutError as e:
+            error_msg = "Analysis service timed out. Please try again with a shorter document or try again later."
+            return render_template('index.html', 
+                                 error=error_msg, 
+                                 document_text=document_text,
+                                 file_info=file_info)
+        
+        except Exception as e:
+            print(f"Analysis error: {str(e)}")
+            # Enhanced error handling with user-friendly messages
+            error_type = type(e).__name__
+            
+            if "memory" in str(e).lower() or "resource" in str(e).lower():
+                error_msg = "Analysis service is currently overloaded. Please try again in a few minutes."
+            elif "api" in str(e).lower() or "key" in str(e).lower():
+                error_msg = "Analysis service configuration issue. Using basic analysis instead."
+                # Fallback to basic analysis
+                analysis = create_fallback_analysis(document_text)
+            else:
+                error_msg = "An unexpected error occurred during analysis. Using basic analysis instead."
+                # Fallback to basic analysis
+                analysis = create_fallback_analysis(document_text)
+            
+            # If we couldn't create fallback analysis, show error
+            if 'analysis' not in locals():
+                return render_template('index.html', 
+                                     error=error_msg, 
+                                     document_text=document_text,
+                                     file_info=file_info)
+        
+        return render_template('results.html', 
+                             analysis=analysis, 
+                             file_info=file_info,
+                             warnings=warnings,
+                             classification=classification,
+                             translation_service=translation_service,
+                             ai_clarification_service=ai_clarification_service)
     
-    return render_template('results.html', analysis=analysis)
+    except Exception as e:
+        # Catch-all error handler
+        print(f"Unexpected error in analyze_document: {str(e)}")
+        error_msg = "An unexpected error occurred. Please try again or contact support if the problem persists."
+        return render_template('index.html', 
+                             error=error_msg, 
+                             document_text=request.form.get('document_text', ''))
+
+@app.route('/api/translate', methods=['POST'])
+def translate_text():
+    """
+    API endpoint for text translation using mock Google Translate service
+    Requirements: Add mock Google Translate API integration for multilingual support
+    """
+    try:
+        data = request.get_json()
+        text = data.get('text', '')
+        target_language = data.get('target_language', 'es')
+        
+        if not text:
+            return jsonify({'success': False, 'error': 'No text provided'})
+        
+        result = translation_service.translate_text(text, target_language)
+        return jsonify(result)
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/clarify', methods=['POST'])
+def ask_clarification():
+    """
+    API endpoint for AI clarification using mock Vertex AI service
+    Requirements: Add mock Vertex AI Generative AI integration for conversational clarification
+    """
+    try:
+        data = request.get_json()
+        question = data.get('question', '')
+        context = data.get('context', {})
+        
+        if not question:
+            return jsonify({'success': False, 'error': 'No question provided'})
+        
+        result = ai_clarification_service.ask_clarification(question, context)
+        return jsonify(result)
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/conversation-summary')
+def get_conversation_summary():
+    """Get conversation summary from AI clarification service"""
+    try:
+        summary = ai_clarification_service.get_conversation_summary()
+        return jsonify(summary)
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
 
 if __name__ == '__main__':
     app.run(debug=True)

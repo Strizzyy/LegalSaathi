@@ -8,24 +8,53 @@
         <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center mb-4">
             <h2 class="mb-2 mb-sm-0">📋 Document Analysis Results</h2>
             <a href="/" class="btn btn-outline-primary">
-                <i class="bi bi-arrow-left"></i> 
+                <i class="bi bi-arrow-left"></i>
                 <span class="d-none d-sm-inline">Analyze Another Document</span>
                 <span class="d-inline d-sm-none">New Analysis</span>
             </a>
         </div>
 
-        {% if error %}
-        <div class="alert alert-danger" role="alert">
-            <h4 class="alert-heading">❌ Analysis Error</h4>
-            <p>{{ error }}</p>
-            <hr>
-            <p class="mb-0">Please try again with a valid rental agreement document.</p>
-        </div>
-        {% else %}
+        {% if file_info or warnings or classification %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-info-circle"></i> Document Information</h5>
+            </div>
+            <div class="card-body">
+                {% if file_info %}
+                <div class="mb-3">
+                    <h6><i class="bi bi-file-earmark"></i> File Details:</h6>
+                    <p class="mb-1"><strong>Filename:</strong> {{ file_info.filename }}</p>
+                    <p class="mb-1"><strong>Size:</strong> {{ "%.1f"|format(file_info.size / (1024 * 1024)) }}MB</p>
+                </div>
+                {% endif %}
 
-        <!-- Overall Risk Assessment with Enhanced Traffic Light System -->
-        {% set risk_class = 'danger' if analysis.overall_risk.level == 'RED' else ('warning' if
-        analysis.overall_risk.level == 'YELLOW' else 'success') %}
+                {% if classification %}
+                <div class="mb-3">
+                    <h6><i class="bi bi-tag"></i> Document Classification:</h6>
+                    <div class="d-flex align-items-center mb-2">
+                        <span class="badge bg-primary me-2">{{ classification.document_type.value.replace('_', ' ').title() }}</span>
+                        <span class="text-muted">Confidence: {{ "%.0f"|format(classification.confidence * 100) }}%</span>
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if warnings %}
+                <div class="mb-0">
+                    <h6><i class="bi bi-exclamation-triangle text-warning"></i> Processing Notes:</h6>
+                    {% for warning in warnings %}
+                    <div class="alert alert-warning py-2 mb-2">
+                        <small>{{ warning }}</small>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+        
+        <div id="jsErrorAlert" class="alert alert-danger" role="alert" style="display: none;"></div>
+
+        {% set risk_class = 'danger' if analysis.overall_risk.level == 'RED' else ('warning' if analysis.overall_risk.level == 'YELLOW' else 'success') %}
         <div class="card mb-4 border-{{ risk_class }}">
             <div class="card-header bg-{{ risk_class }} text-white">
                 <div class="d-flex align-items-center">
@@ -37,97 +66,15 @@
                 </div>
             </div>
             <div class="card-body">
-                <div class="row">
-                    <div class="col-12 col-lg-8">
-                        <div class="d-flex flex-column flex-sm-row align-items-start align-items-sm-center mb-3"></div>
-                            <h4 class="mb-0 risk-{{ analysis.overall_risk.level.lower() }}">
-                                {% if analysis.overall_risk.level == 'RED' %}
-                                🚨 HIGH RISK DOCUMENT
-                                {% elif analysis.overall_risk.level == 'YELLOW' %}
-                                ⚠️ MODERATE RISK DOCUMENT
-                                {% else %}
-                                ✅ LOW RISK DOCUMENT
-                                {% endif %}
-                            </h4>
-                            <span class="badge bg-{{ risk_class }} ms-3 fs-6">
-                                Risk Score: {{ "%.0f"|format(analysis.overall_risk.score * 100) }}%
-                            </span>
-                        </div>
-
-                        <div class="alert alert-{{ risk_class }} mb-3">
-                            <p class="lead mb-0">{{ analysis.summary }}</p>
-                        </div>
-
-                        {% if analysis.overall_risk.reasons %}
-                        <div class="mt-3">
-                            <h6><i class="bi bi-exclamation-triangle"></i> Key Risk Factors:</h6>
-                            <ul class="list-unstyled">
-                                {% for reason in analysis.overall_risk.reasons %}
-                                <li class="mb-1">
-                                    <i class="bi bi-dot text-{{ risk_class }}"></i>
-                                    {{ reason }}
-                                </li>
-                                {% endfor %}
-                            </ul>
-                        </div>
-                        {% endif %}
-                    </div>
-                    <div class="col-12 col-lg-4 mt-3 mt-lg-0"></div>
-                        <div class="text-center">
-                            <div class="risk-meter mb-3">
-                                <div class="risk-meter-bg">
-                                    <div class="risk-meter-fill risk-meter-{{ analysis.overall_risk.level.lower() }}"
-                                        style="height: {{ analysis.overall_risk.score * 100 }}%"></div>
-                                </div>
-                                <small class="text-muted">Risk Level Indicator</small>
-                            </div>
-                        </div>
-                    </div>
+                <div class="alert alert-{{ risk_class }} mb-3">
+                    <p class="lead mb-0" id="analysisSummary">{{ analysis.summary }}</p>
                 </div>
-            </div>
+                </div>
         </div>
 
-        <!-- Quick Action Recommendations -->
         <div class="card mb-4">
-            <div class="card-header">
-                <h4 class="mb-0"><i class="bi bi-lightbulb"></i> Immediate Action Required</h4>
-            </div>
-            <div class="card-body">
-                {% if analysis.overall_risk.level == 'RED' %}
-                <div class="alert alert-danger">
-                    <h6><i class="bi bi-exclamation-triangle-fill"></i> URGENT: Do Not Sign Yet</h6>
-                    <ul class="mb-0">
-                        <li>🔍 Review all RED flagged clauses below</li>
-                        <li>⚖️ Consult with a legal professional immediately</li>
-                        <li>💬 Negotiate problematic terms with your landlord</li>
-                        <li>📋 Consider this a potential deal-breaker</li>
-                    </ul>
-                </div>
-                {% elif analysis.overall_risk.level == 'YELLOW' %}
-                <div class="alert alert-warning">
-                    <h6><i class="bi bi-exclamation-triangle"></i> CAUTION: Review Before Signing</h6>
-                    <ul class="mb-0">
-                        <li>📖 Carefully review highlighted concerns below</li>
-                        <li>💭 Consider negotiating better terms</li>
-                        <li>🤝 Discuss concerns with your landlord</li>
-                        <li>📞 Consider brief legal consultation if needed</li>
-                    </ul>
-                </div>
-                {% else %}
-                <div class="alert alert-success">
-                    <h6><i class="bi bi-check-circle-fill"></i> GOOD TO GO: Standard Agreement</h6>
-                    <ul class="mb-0">
-                        <li>✅ This appears to be a fair rental agreement</li>
-                        <li>📋 Review the details below for your records</li>
-                        <li>🤝 Standard terms that protect both parties</li>
-                        <li>📝 You can proceed with confidence</li>
-                    </ul>
-                </div>
-                {% endif %}
-            </div>
-        </div>
+             </div>
 
-        <!-- Detailed Clause-by-Clause Analysis with Enhanced Traffic Light System -->
         {% if analysis.analysis_results %}
         <div class="card mb-4">
             <div class="card-header">
@@ -136,15 +83,13 @@
             </div>
             <div class="card-body">
                 {% for result in analysis.analysis_results %}
-                {% set clause_risk_class = 'danger' if result.risk_level.level == 'RED' else ('warning' if
-                result.risk_level.level == 'YELLOW' else 'success') %}
+                {% set clause_risk_class = 'danger' if result.risk_level.level == 'RED' else ('warning' if result.risk_level.level == 'YELLOW' else 'success') %}
                 <div class="clause-analysis-item border border-{{ clause_risk_class }} rounded p-3 mb-4">
-                    <!-- Clause Header with Traffic Light -->
                     <div class="d-flex align-items-center justify-content-between mb-3">
                         <div class="d-flex align-items-center">
                             <span class="traffic-light-medium {{ result.risk_level.level.lower() }} me-3"></span>
                             <div>
-                                <h5 class="mb-0">Clause {{ result.clause_id }}</h5>
+                                <h5 class="mb-0">Clause #{{ loop.index }}</h5>
                                 <small class="text-muted">Risk Assessment</small>
                             </div>
                         </div>
@@ -153,186 +98,177 @@
                                 {{ result.risk_level.level }} RISK
                             </span>
                             <br>
-                            <small class="text-muted">Score: {{ "%.0f"|format(result.risk_level.score * 100) }}%</small>
+                            <small class="text-muted">
+                                Score: {{ "%.0f"|format(result.risk_level.score * 100) }}% |
+                                Confidence: {{ result.risk_level.confidence_percentage }}%
+                            </small>
                         </div>
                     </div>
 
-                    <!-- Plain Language Explanation -->
                     <div class="alert alert-{{ clause_risk_class }} mb-3">
-                        <h6 class="alert-heading">
-                            <i class="bi bi-chat-text"></i> What This Means in Simple Terms:
-                        </h6>
+                        <h6 class="alert-heading"><i class="bi bi-chat-text"></i> What This Means:</h6>
                         <p class="mb-0">{{ result.plain_explanation }}</p>
                     </div>
 
                     <div class="row">
-                        <!-- Legal Implications -->
-                        {% if result.legal_implications %}
-                        <div class="col-12 col-lg-6 mb-3"></div>
-                            <div class="implications-section">
-                                <h6 class="text-{{ clause_risk_class }}">
-                                    <i class="bi bi-info-circle"></i> Legal Implications:
-                                </h6>
-                                <ul class="list-unstyled">
-                                    {% for implication in result.legal_implications %}
-                                    <li class="mb-2">
-                                        <i class="bi bi-arrow-right text-{{ clause_risk_class }}"></i>
-                                        {{ implication }}
-                                    </li>
-                                    {% endfor %}
-                                </ul>
-                            </div>
-                        </div>
-                        {% endif %}
-
-                        <!-- Actionable Recommendations -->
-                        {% if result.recommendations %}
                         <div class="col-12 col-lg-6 mb-3">
-                            <div class="recommendations-section">
-                                <h6 class="text-{{ clause_risk_class }}">
-                                    <i class="bi bi-lightbulb"></i> Recommended Actions:
-                                </h6>
-                                <ul class="list-unstyled">
-                                    {% for recommendation in result.recommendations %}
-                                    <li class="mb-2">
-                                        {% if result.risk_level.level == 'RED' %}
-                                        <i class="bi bi-exclamation-triangle-fill text-danger"></i>
-                                        {% elif result.risk_level.level == 'YELLOW' %}
-                                        <i class="bi bi-exclamation-triangle text-warning"></i>
-                                        {% else %}
-                                        <i class="bi bi-check-circle text-success"></i>
-                                        {% endif %}
-                                        {{ recommendation }}
-                                    </li>
-                                    {% endfor %}
-                                </ul>
+                             <h6><i class="bi bi-info-circle"></i> Legal Implications:</h6>
+                             </div>
+                        <div class="col-12 col-lg-6 mb-3">
+                            <h6><i class="bi bi-lightbulb"></i> Recommended Actions:</h6>
                             </div>
-                        </div>
-                        {% endif %}
                     </div>
-
-                    <!-- Risk Level Specific Action Buttons -->
-                    {% if result.risk_level.level == 'RED' %}
-                    <div class="mt-3 p-2 bg-danger bg-opacity-10 rounded">
-                        <small class="text-danger">
-                            <i class="bi bi-exclamation-triangle-fill"></i>
-                            <strong>HIGH PRIORITY:</strong> This clause requires immediate attention before signing.
-                        </small>
-                    </div>
-                    {% elif result.risk_level.level == 'YELLOW' %}
-                    <div class="mt-3 p-2 bg-warning bg-opacity-10 rounded">
-                        <small class="text-warning">
-                            <i class="bi bi-exclamation-triangle"></i>
-                            <strong>REVIEW NEEDED:</strong> Consider negotiating or clarifying this clause.
-                        </small>
-                    </div>
-                    {% else %}
-                    <div class="mt-3 p-2 bg-success bg-opacity-10 rounded">
-                        <small class="text-success">
-                            <i class="bi bi-check-circle"></i>
-                            <strong>ACCEPTABLE:</strong> This clause appears fair and standard.
-                        </small>
-                    </div>
-                    {% endif %}
                 </div>
                 {% endfor %}
             </div>
         </div>
         {% endif %}
 
-        <!-- Summary and Next Steps -->
         <div class="card mb-4">
             <div class="card-header">
-                <h4 class="mb-0"><i class="bi bi-clipboard-check"></i> Summary & Next Steps</h4>
+                <h4 class="mb-0"><i class="bi bi-robot"></i> AI-Powered Features</h4>
+                <small class="text-muted">Get additional help with translation and clarification</small>
             </div>
             <div class="card-body">
                 <div class="row">
-                    <div class="col-12 col-lg-8"></div>
-                        <h6>Analysis Summary:</h6>
-                        <ul class="list-unstyled">
-                            <li><i class="bi bi-file-text"></i> <strong>Total Clauses Analyzed:</strong> {{
-                                analysis.analysis_results|length }}</li>
-                            <li><i class="bi bi-exclamation-triangle-fill text-danger"></i> <strong>High Risk
-                                    (RED):</strong> {{ analysis.analysis_results|selectattr("risk_level.level",
-                                "equalto", "RED")|list|length }}</li>
-                            <li><i class="bi bi-exclamation-triangle text-warning"></i> <strong>Medium Risk
-                                    (YELLOW):</strong> {{ analysis.analysis_results|selectattr("risk_level.level",
-                                "equalto", "YELLOW")|list|length }}</li>
-                            <li><i class="bi bi-check-circle text-success"></i> <strong>Low Risk (GREEN):</strong> {{
-                                analysis.analysis_results|selectattr("risk_level.level", "equalto", "GREEN")|list|length
-                                }}</li>
-                        </ul>
-
-                        <div class="mt-3">
-                            <h6>Recommended Next Steps:</h6>
-                            {% if analysis.overall_risk.level == 'RED' %}
-                            <div class="alert alert-danger">
-                                <ol class="mb-0">
-                                    <li><strong>DO NOT SIGN</strong> this agreement in its current form</li>
-                                    <li>Schedule a consultation with a tenant rights lawyer</li>
-                                    <li>Prepare a list of required changes for negotiation</li>
-                                    <li>Consider looking for alternative rental options</li>
-                                </ol>
-                            </div>
-                            {% elif analysis.overall_risk.level == 'YELLOW' %}
-                            <div class="alert alert-warning">
-                                <ol class="mb-0">
-                                    <li>Review all YELLOW flagged clauses carefully</li>
-                                    <li>Prepare questions for your landlord about concerning terms</li>
-                                    <li>Consider a brief legal consultation for peace of mind</li>
-                                    <li>Negotiate improvements where possible</li>
-                                </ol>
-                            </div>
-                            {% else %}
-                            <div class="alert alert-success">
-                                <ol class="mb-0">
-                                    <li>Review the full agreement one more time</li>
-                                    <li>Ensure you understand all terms and conditions</li>
-                                    <li>Keep a copy of this analysis for your records</li>
-                                    <li>You can proceed with signing confidently</li>
-                                </ol>
-                            </div>
-                            {% endif %}
+                    <div class="col-12 col-md-6 mb-3">
+                        <div class="feature-card p-3 border rounded">
+                            <h6><i class="bi bi-translate"></i> Multi-language Support</h6>
+                            <p class="small text-muted mb-3">Translate the overall summary to your preferred language.</p>
+                            <select class="form-select form-select-sm mb-2" id="targetLanguage">
+                                <option value="es">Spanish</option>
+                                <option value="fr">French</option>
+                                <option value="de">German</option>
+                                <option value="hi">Hindi</option>
+                                <option value="zh">Chinese</option>
+                            </select>
+                            <button class="btn btn-outline-primary btn-sm" id="translateBtn" onclick="translateSummary()">
+                                <i class="bi bi-translate"></i> Translate Summary
+                            </button>
+                            <div id="translationResult" class="mt-2" style="display: none;"></div>
                         </div>
                     </div>
-                    <div class="col-12 col-lg-4 mt-4 mt-lg-0"></div>
-                        <div class="text-center">
-                            <div class="mb-3">
-                                <h6>Need Help?</h6>
-                                <p class="small text-muted">Consider these resources:</p>
-                            </div>
-                            <div class="d-grid gap-2">
-                                <button class="btn btn-outline-primary btn-sm" onclick="window.print()">
-                                    <i class="bi bi-printer"></i> Print Analysis
-                                </button>
-                                <a href="/" class="btn btn-primary btn-sm">
-                                    <i class="bi bi-arrow-left"></i> Analyze Another Document
-                                </a>
-                            </div>
-                            <div class="mt-3">
-                                <small class="text-muted">
-                                    <i class="bi bi-shield-check"></i> Your document was analyzed securely and privately
-                                </small>
-                            </div>
+                    <div class="col-12 col-md-6 mb-3">
+                        <div class="feature-card p-3 border rounded">
+                            <h6><i class="bi bi-chat-dots"></i> AI Clarification</h6>
+                            <p class="small text-muted mb-3">Ask questions about the document or specific terms.</p>
+                            <input type="text" class="form-control form-control-sm mb-2" id="clarificationQuestion" placeholder="e.g., What is 'subletting'?">
+                            <button class="btn btn-outline-success btn-sm" id="clarifyBtn" onclick="askClarification()">
+                                <i class="bi bi-chat-dots"></i> Ask AI
+                            </button>
+                            <div id="clarificationResult" class="mt-2" style="display: none;"></div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Processing Information -->
         <div class="card">
-            <div class="card-body text-center">
-                <small class="text-muted">
-                    <i class="bi bi-clock"></i> Analysis completed in {{ "%.2f"|format(analysis.processing_time) }}
-                    seconds
-                    | <i class="bi bi-shield-lock"></i> Document processed securely and not stored
-                    | <i class="bi bi-cpu"></i> Powered by AI legal analysis
-                </small>
-            </div>
-        </div>
+             </div>
 
-        {% endif %}
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// --- AI FEATURES SCRIPT ---
+
+// Function to safely display errors
+function showAIError(message) {
+    const errorAlert = document.getElementById('jsErrorAlert');
+    errorAlert.textContent = message;
+    errorAlert.style.display = 'block';
+    setTimeout(() => { errorAlert.style.display = 'none'; }, 5000);
+}
+
+async function translateSummary() {
+    const translateBtn = document.getElementById('translateBtn');
+    const targetLanguage = document.getElementById('targetLanguage').value;
+    // --- FIX: Safely get text from the DOM, don't inject with Jinja ---
+    const summaryText = document.getElementById('analysisSummary').textContent;
+
+    // --- UX: Show loading state on button ---
+    const originalBtnHtml = translateBtn.innerHTML;
+    translateBtn.disabled = true;
+    translateBtn.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Translating...`;
+
+    try {
+        const response = await fetch('/api/translate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                text: summaryText,
+                target_language: targetLanguage
+            })
+        });
+
+        if (!response.ok) throw new Error(`Server error: ${response.statusText}`);
+
+        const data = await response.json();
+        if (data.success) {
+            const resultDiv = document.getElementById('translationResult');
+            resultDiv.innerHTML = `<div class="alert alert-info py-2"><small><strong>${data.language_name}:</strong> ${data.translated_text}</small></div>`;
+            resultDiv.style.display = 'block';
+        } else {
+            throw new Error(data.error || 'Translation failed.');
+        }
+    } catch (error) {
+        console.error('Translation error:', error);
+        showAIError('Translation service is currently unavailable. Please try again later.');
+    } finally {
+        // --- UX: Restore button state ---
+        translateBtn.disabled = false;
+        translateBtn.innerHTML = originalBtnHtml;
+    }
+}
+
+async function askClarification() {
+    const clarifyBtn = document.getElementById('clarifyBtn');
+    const questionInput = document.getElementById('clarificationQuestion');
+    const question = questionInput.value;
+
+    if (!question.trim()) {
+        showAIError('Please enter a question.');
+        return;
+    }
+
+    // --- UX: Show loading state ---
+    const originalBtnHtml = clarifyBtn.innerHTML;
+    clarifyBtn.disabled = true;
+    clarifyBtn.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Asking...`;
+
+    try {
+        const response = await fetch('/api/clarify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                question: question,
+                context: { // Context can be sent for more specific answers
+                    risk_level: '{{ analysis.overall_risk.level }}',
+                    summary: '{{ analysis.summary | truncate(200) }}'
+                }
+            })
+        });
+
+        if (!response.ok) throw new Error(`Server error: ${response.statusText}`);
+
+        const data = await response.json();
+        if (data.success) {
+            const resultDiv = document.getElementById('clarificationResult');
+            resultDiv.innerHTML = `<div class="alert alert-success py-2"><small>${data.response}</small></div>`;
+            resultDiv.style.display = 'block';
+        } else {
+            throw new Error(data.error || 'Clarification failed.');
+        }
+    } catch (error) {
+        console.error('Clarification error:', error);
+        showAIError('AI clarification service is unavailable. Please try again later.');
+    } finally {
+        // --- UX: Restore button state ---
+        clarifyBtn.disabled = false;
+        clarifyBtn.innerHTML = originalBtnHtml;
+    }
+}
+</script>
 {% endblock %}
