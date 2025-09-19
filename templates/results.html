@@ -5,7 +5,8 @@
 {% block content %}
 <div class="row">
     <div class="col-12">
-        <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center mb-4">
+        <div
+            class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center mb-4">
             <h2 class="mb-2 mb-sm-0">📋 Document Analysis Results</h2>
             <a href="/" class="btn btn-outline-primary">
                 <i class="bi bi-arrow-left"></i>
@@ -32,8 +33,10 @@
                 <div class="mb-3">
                     <h6><i class="bi bi-tag"></i> Document Classification:</h6>
                     <div class="d-flex align-items-center mb-2">
-                        <span class="badge bg-primary me-2">{{ classification.document_type.value.replace('_', ' ').title() }}</span>
-                        <span class="text-muted">Confidence: {{ "%.0f"|format(classification.confidence * 100) }}%</span>
+                        <span class="badge bg-primary me-2">{{ classification.document_type.value.replace('_', '
+                            ').title() }}</span>
+                        <span class="text-muted">Confidence: {{ "%.0f"|format(classification.confidence * 100)
+                            }}%</span>
                     </div>
                 </div>
                 {% endif %}
@@ -51,29 +54,86 @@
             </div>
         </div>
         {% endif %}
-        
+
         <div id="jsErrorAlert" class="alert alert-danger" role="alert" style="display: none;"></div>
 
-        {% set risk_class = 'danger' if analysis.overall_risk.level == 'RED' else ('warning' if analysis.overall_risk.level == 'YELLOW' else 'success') %}
+        {% set risk_class = 'danger' if analysis.overall_risk.level == 'RED' else ('warning' if
+        analysis.overall_risk.level == 'YELLOW' else 'success') %}
         <div class="card mb-4 border-{{ risk_class }}">
             <div class="card-header bg-{{ risk_class }} text-white">
-                <div class="d-flex align-items-center">
-                    <span class="traffic-light-large {{ analysis.overall_risk.level.lower() }} me-3"></span>
-                    <div>
-                        <h3 class="mb-0">Overall Risk Assessment</h3>
-                        <small class="opacity-75">Complete document analysis summary</small>
+                <div class="d-flex align-items-center justify-content-between">
+                    <div class="d-flex align-items-center">
+                        <span class="traffic-light-large {{ analysis.overall_risk.level.lower() }} me-3"></span>
+                        <div>
+                            <h3 class="mb-0">Overall Risk Assessment</h3>
+                            <small class="opacity-75">Complete document analysis summary</small>
+                        </div>
                     </div>
+                    {% if analysis.overall_risk.low_confidence_warning %}
+                    <div class="text-end">
+                        <span class="badge bg-warning text-dark">
+                            <i class="bi bi-exclamation-triangle"></i> Low Confidence: {{
+                            analysis.overall_risk.confidence_percentage }}%
+                        </span>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
             <div class="card-body">
                 <div class="alert alert-{{ risk_class }} mb-3">
                     <p class="lead mb-0" id="analysisSummary">{{ analysis.summary }}</p>
                 </div>
+
+                {% if analysis.overall_risk.risk_categories %}
+                <div class="row mb-3">
+                    <div class="col-12">
+                        <h6><i class="bi bi-pie-chart"></i> Risk Category Breakdown:</h6>
+                        <div class="row">
+                            {% for category, score in analysis.overall_risk.risk_categories.items() %}
+                            {% set category_class = 'danger' if score > 0.7 else ('warning' if score > 0.4 else
+                            'success') %}
+                            <div class="col-6 col-md-3 mb-2">
+                                <div class="text-center">
+                                    <div class="progress mb-1" style="height: 8px;">
+                                        <div class="progress-bar bg-{{ category_class }}" role="progressbar"
+                                            style="width: {{ (score * 100)|round }}%"
+                                            aria-valuenow="{{ (score * 100)|round }}" aria-valuemin="0"
+                                            aria-valuemax="100"></div>
+                                    </div>
+                                    <small class="text-muted">
+                                        <strong>{{ category.title() }}</strong><br>
+                                        {{ (score * 100)|round }}% Risk
+                                    </small>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
                 </div>
+                {% endif %}
+            </div>
         </div>
 
-        <div class="card mb-4">
-             </div>
+        {% if analysis.severity_indicators %}
+        <div class="card mb-4 border-warning">
+            <div class="card-header bg-warning text-dark">
+                <h4 class="mb-0"><i class="bi bi-exclamation-triangle"></i> Critical Issues Detected</h4>
+                <small>High-priority concerns that require immediate attention</small>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for indicator in analysis.severity_indicators %}
+                    <div class="col-12 col-md-6 mb-2">
+                        <div class="alert alert-warning py-2 mb-0">
+                            <i class="bi bi-shield-exclamation me-2"></i>
+                            <strong>{{ indicator }}</strong>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
 
         {% if analysis.analysis_results %}
         <div class="card mb-4">
@@ -83,20 +143,27 @@
             </div>
             <div class="card-body">
                 {% for result in analysis.analysis_results %}
-                {% set clause_risk_class = 'danger' if result.risk_level.level == 'RED' else ('warning' if result.risk_level.level == 'YELLOW' else 'success') %}
+                {% set clause_risk_class = 'danger' if result.risk_level.level == 'RED' else ('warning' if
+                result.risk_level.level == 'YELLOW' else 'success') %}
                 <div class="clause-analysis-item border border-{{ clause_risk_class }} rounded p-3 mb-4">
                     <div class="d-flex align-items-center justify-content-between mb-3">
                         <div class="d-flex align-items-center">
                             <span class="traffic-light-medium {{ result.risk_level.level.lower() }} me-3"></span>
                             <div>
                                 <h5 class="mb-0">Clause #{{ loop.index }}</h5>
-                                <small class="text-muted">Risk Assessment</small>
+                                <small class="text-muted">{{ result.risk_level.severity }} Risk - {{ result.clause_id
+                                    }}</small>
                             </div>
                         </div>
                         <div class="text-end">
                             <span class="badge bg-{{ clause_risk_class }} fs-6 mb-1">
                                 {{ result.risk_level.level }} RISK
                             </span>
+                            {% if result.risk_level.low_confidence_warning %}
+                            <span class="badge bg-warning text-dark ms-1">
+                                <i class="bi bi-exclamation-triangle"></i> Low Confidence
+                            </span>
+                            {% endif %}
                             <br>
                             <small class="text-muted">
                                 Score: {{ "%.0f"|format(result.risk_level.score * 100) }}% |
@@ -105,6 +172,23 @@
                         </div>
                     </div>
 
+                    {% if result.risk_level.risk_categories %}
+                    <div class="mb-3">
+                        <small class="text-muted d-block mb-1">Risk Categories:</small>
+                        <div class="d-flex flex-wrap gap-1">
+                            {% for category, score in result.risk_level.risk_categories.items() %}
+                            {% if score > 0.3 %}
+                            {% set cat_class = 'danger' if score > 0.7 else ('warning' if score > 0.4 else 'secondary')
+                            %}
+                            <span class="badge bg-{{ cat_class }} small">
+                                {{ category.title() }}: {{ (score * 100)|round }}%
+                            </span>
+                            {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+
                     <div class="alert alert-{{ clause_risk_class }} mb-3">
                         <h6 class="alert-heading"><i class="bi bi-chat-text"></i> What This Means:</h6>
                         <p class="mb-0">{{ result.plain_explanation }}</p>
@@ -112,11 +196,22 @@
 
                     <div class="row">
                         <div class="col-12 col-lg-6 mb-3">
-                             <h6><i class="bi bi-info-circle"></i> Legal Implications:</h6>
-                             </div>
+                            <h6><i class="bi bi-info-circle"></i> Legal Implications:</h6>
+                            <ul class="list-unstyled">
+                                {% for implication in result.legal_implications %}
+                                <li class="mb-1"><i class="bi bi-arrow-right text-muted me-2"></i>{{ implication }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
                         <div class="col-12 col-lg-6 mb-3">
                             <h6><i class="bi bi-lightbulb"></i> Recommended Actions:</h6>
-                            </div>
+                            <ul class="list-unstyled">
+                                {% for recommendation in result.recommendations %}
+                                <li class="mb-1"><i class="bi bi-check-circle text-success me-2"></i>{{ recommendation
+                                    }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
                     </div>
                 </div>
                 {% endfor %}
@@ -134,15 +229,20 @@
                     <div class="col-12 col-md-6 mb-3">
                         <div class="feature-card p-3 border rounded">
                             <h6><i class="bi bi-translate"></i> Multi-language Support</h6>
-                            <p class="small text-muted mb-3">Translate the overall summary to your preferred language.</p>
+                            <p class="small text-muted mb-3">Translate the overall summary to your preferred language.
+                            </p>
                             <select class="form-select form-select-sm mb-2" id="targetLanguage">
-                                <option value="es">Spanish</option>
-                                <option value="fr">French</option>
-                                <option value="de">German</option>
-                                <option value="hi">Hindi</option>
-                                <option value="zh">Chinese</option>
+                                <option value="hi">Hindi (हिंदी)</option>
+                                <option value="es">Spanish (Español)</option>
+                                <option value="fr">French (Français)</option>
+                                <option value="de">German (Deutsch)</option>
+                                <option value="zh">Chinese (中文)</option>
+                                <option value="ar">Arabic (العربية)</option>
+                                <option value="pt">Portuguese (Português)</option>
+                                <option value="ru">Russian (Русский)</option>
                             </select>
-                            <button class="btn btn-outline-primary btn-sm" id="translateBtn" onclick="translateSummary()">
+                            <button class="btn btn-outline-primary btn-sm" id="translateBtn"
+                                onclick="translateSummary()">
                                 <i class="bi bi-translate"></i> Translate Summary
                             </button>
                             <div id="translationResult" class="mt-2" style="display: none;"></div>
@@ -152,7 +252,8 @@
                         <div class="feature-card p-3 border rounded">
                             <h6><i class="bi bi-chat-dots"></i> AI Clarification</h6>
                             <p class="small text-muted mb-3">Ask questions about the document or specific terms.</p>
-                            <input type="text" class="form-control form-control-sm mb-2" id="clarificationQuestion" placeholder="e.g., What is 'subletting'?">
+                            <input type="text" class="form-control form-control-sm mb-2" id="clarificationQuestion"
+                                placeholder="e.g., What is 'subletting'?">
                             <button class="btn btn-outline-success btn-sm" id="clarifyBtn" onclick="askClarification()">
                                 <i class="bi bi-chat-dots"></i> Ask AI
                             </button>
@@ -164,7 +265,33 @@
         </div>
 
         <div class="card">
-             </div>
+            <div class="card-header">
+                <h4 class="mb-0"><i class="bi bi-download"></i> Export & Share</h4>
+                <small class="text-muted">Save or share your analysis results</small>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-12 col-md-6 mb-3">
+                        <button class="btn btn-outline-primary w-100" onclick="window.print()">
+                            <i class="bi bi-printer"></i> Print Analysis
+                        </button>
+                    </div>
+                    <div class="col-12 col-md-6 mb-3">
+                        <button class="btn btn-outline-secondary w-100" onclick="copyAnalysisToClipboard(event)">
+                            <i class="bi bi-clipboard"></i> Copy to Clipboard
+                        </button>
+                    </div>
+                </div>
+                <div class="alert alert-info mt-3">
+                    <small>
+                        <i class="bi bi-info-circle me-1"></i>
+                        <strong>Disclaimer:</strong> This analysis is for informational purposes only and does not
+                        constitute legal advice.
+                        Please consult with a qualified legal professional for specific legal matters.
+                    </small>
+                </div>
+            </div>
+        </div>
 
     </div>
 </div>
@@ -172,103 +299,154 @@
 
 {% block scripts %}
 <script>
-// --- AI FEATURES SCRIPT ---
+    // --- AI FEATURES SCRIPT ---
 
-// Function to safely display errors
-function showAIError(message) {
-    const errorAlert = document.getElementById('jsErrorAlert');
-    errorAlert.textContent = message;
-    errorAlert.style.display = 'block';
-    setTimeout(() => { errorAlert.style.display = 'none'; }, 5000);
-}
+    // Function to safely display errors
+    function showAIError(message) {
+        const errorAlert = document.getElementById('jsErrorAlert');
+        errorAlert.textContent = message;
+        errorAlert.style.display = 'block';
+        setTimeout(() => { errorAlert.style.display = 'none'; }, 5000);
+    }
 
-async function translateSummary() {
-    const translateBtn = document.getElementById('translateBtn');
-    const targetLanguage = document.getElementById('targetLanguage').value;
-    // --- FIX: Safely get text from the DOM, don't inject with Jinja ---
-    const summaryText = document.getElementById('analysisSummary').textContent;
+    async function translateSummary() {
+        const translateBtn = document.getElementById('translateBtn');
+        const targetLanguage = document.getElementById('targetLanguage').value;
+        // --- FIX: Safely get text from the DOM, don't inject with Jinja ---
+        const summaryText = document.getElementById('analysisSummary').textContent;
 
-    // --- UX: Show loading state on button ---
-    const originalBtnHtml = translateBtn.innerHTML;
-    translateBtn.disabled = true;
-    translateBtn.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Translating...`;
+        // --- UX: Show loading state on button ---
+        const originalBtnHtml = translateBtn.innerHTML;
+        translateBtn.disabled = true;
+        translateBtn.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Translating...`;
 
-    try {
-        const response = await fetch('/api/translate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                text: summaryText,
-                target_language: targetLanguage
-            })
+        try {
+            const response = await fetch('/api/translate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    text: summaryText,
+                    target_language: targetLanguage
+                })
+            });
+
+            if (!response.ok) throw new Error(`Server error: ${response.statusText}`);
+
+            const data = await response.json();
+            if (data.success) {
+                const resultDiv = document.getElementById('translationResult');
+                resultDiv.innerHTML = `<div class="alert alert-info py-2"><small><strong>${data.language_name}:</strong> ${data.translated_text}</small></div>`;
+                resultDiv.style.display = 'block';
+            } else {
+                throw new Error(data.error || 'Translation failed.');
+            }
+        } catch (error) {
+            console.error('Translation error:', error);
+            showAIError('Translation service is currently unavailable. Please try again later.');
+        } finally {
+            // --- UX: Restore button state ---
+            translateBtn.disabled = false;
+            translateBtn.innerHTML = originalBtnHtml;
+        }
+    }
+
+    async function askClarification() {
+        const clarifyBtn = document.getElementById('clarifyBtn');
+        const questionInput = document.getElementById('clarificationQuestion');
+        const question = questionInput.value;
+
+        if (!question.trim()) {
+            showAIError('Please enter a question.');
+            return;
+        }
+
+        // --- UX: Show loading state ---
+        const originalBtnHtml = clarifyBtn.innerHTML;
+        clarifyBtn.disabled = true;
+        clarifyBtn.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Asking...`;
+
+        try {
+            const response = await fetch('/api/clarify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    question: question,
+                    context: { // Context can be sent for more specific answers
+                        risk_level: '{{ analysis.overall_risk.level }}',
+                        summary: '{{ analysis.summary | truncate(200) }}'
+                    }
+                })
+            });
+
+            if (!response.ok) throw new Error(`Server error: ${response.statusText}`);
+
+            const data = await response.json();
+            if (data.success) {
+                const resultDiv = document.getElementById('clarificationResult');
+                resultDiv.innerHTML = `<div class="alert alert-success py-2"><small>${data.response}</small></div>`;
+                resultDiv.style.display = 'block';
+            } else {
+                throw new Error(data.error || 'Clarification failed.');
+            }
+        } catch (error) {
+            console.error('Clarification error:', error);
+            showAIError('AI clarification service is unavailable. Please try again later.');
+        } finally {
+            // --- UX: Restore button state ---
+            clarifyBtn.disabled = false;
+            clarifyBtn.innerHTML = originalBtnHtml;
+        }
+    }
+
+    // Function to copy analysis to clipboard
+    async function copyAnalysisToClipboard(event) {
+        try {
+            const analysisText = extractAnalysisText();
+            await navigator.clipboard.writeText(analysisText);
+
+            // Show success feedback
+            const btn = event.currentTarget;
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="bi bi-check"></i> Copied!';
+            btn.classList.add('btn-success');
+            btn.classList.remove('btn-outline-secondary');
+
+            setTimeout(() => {
+                btn.innerHTML = originalText;
+                btn.classList.remove('btn-success');
+                btn.classList.add('btn-outline-secondary');
+            }, 2000);
+        } catch (err) {
+            console.error('Failed to copy text: ', err);
+            showAIError('Failed to copy to clipboard. Please try selecting and copying manually.');
+        }
+    }
+
+    // Extract analysis text for copying
+    function extractAnalysisText() {
+        const title = document.querySelector('h2')?.textContent.trim() || 'Document Analysis Results';
+        const overallRisk = document.querySelector('.card-header h3')?.textContent.trim() || '';
+        const summary = document.querySelector('#analysisSummary')?.textContent.trim() || '';
+
+        let text = `${title}\n${'='.repeat(title.length)}\n\n`;
+        text += `OVERALL RISK\n${'-'.repeat(12)}\n${summary}\n\n`;
+
+        // Add clause analysis
+        text += `DETAILED CLAUSE ANALYSIS\n${'='.repeat(24)}\n\n`;
+        const clauses = document.querySelectorAll('.clause-analysis-item');
+        clauses.forEach((clause, index) => {
+            const clauseTitle = clause.querySelector('h5')?.textContent.trim() || `Clause ${index + 1}`;
+            const explanation = clause.querySelector('.alert p')?.textContent.trim() || '';
+            const riskLevel = clause.querySelector('.badge.fs-6')?.textContent.trim() || '';
+
+            text += `${clauseTitle} (${riskLevel})\n`;
+            text += `Explanation: ${explanation}\n\n`;
         });
 
-        if (!response.ok) throw new Error(`Server error: ${response.statusText}`);
+        text += '\n--- Generated by LegalSaathi Universal Document Advisor ---\n';
+        text += 'Disclaimer: This analysis is for informational purposes only and does not constitute legal advice.';
 
-        const data = await response.json();
-        if (data.success) {
-            const resultDiv = document.getElementById('translationResult');
-            resultDiv.innerHTML = `<div class="alert alert-info py-2"><small><strong>${data.language_name}:</strong> ${data.translated_text}</small></div>`;
-            resultDiv.style.display = 'block';
-        } else {
-            throw new Error(data.error || 'Translation failed.');
-        }
-    } catch (error) {
-        console.error('Translation error:', error);
-        showAIError('Translation service is currently unavailable. Please try again later.');
-    } finally {
-        // --- UX: Restore button state ---
-        translateBtn.disabled = false;
-        translateBtn.innerHTML = originalBtnHtml;
+        return text;
     }
-}
-
-async function askClarification() {
-    const clarifyBtn = document.getElementById('clarifyBtn');
-    const questionInput = document.getElementById('clarificationQuestion');
-    const question = questionInput.value;
-
-    if (!question.trim()) {
-        showAIError('Please enter a question.');
-        return;
-    }
-
-    // --- UX: Show loading state ---
-    const originalBtnHtml = clarifyBtn.innerHTML;
-    clarifyBtn.disabled = true;
-    clarifyBtn.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Asking...`;
-
-    try {
-        const response = await fetch('/api/clarify', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                question: question,
-                context: { // Context can be sent for more specific answers
-                    risk_level: '{{ analysis.overall_risk.level }}',
-                    summary: '{{ analysis.summary | truncate(200) }}'
-                }
-            })
-        });
-
-        if (!response.ok) throw new Error(`Server error: ${response.statusText}`);
-
-        const data = await response.json();
-        if (data.success) {
-            const resultDiv = document.getElementById('clarificationResult');
-            resultDiv.innerHTML = `<div class="alert alert-success py-2"><small>${data.response}</small></div>`;
-            resultDiv.style.display = 'block';
-        } else {
-            throw new Error(data.error || 'Clarification failed.');
-        }
-    } catch (error) {
-        console.error('Clarification error:', error);
-        showAIError('AI clarification service is unavailable. Please try again later.');
-    } finally {
-        // --- UX: Restore button state ---
-        clarifyBtn.disabled = false;
-        clarifyBtn.innerHTML = originalBtnHtml;
-    }
-}
 </script>
 {% endblock %}

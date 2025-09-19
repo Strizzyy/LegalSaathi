@@ -7,12 +7,12 @@
     <div class="col-12 col-md-10 col-lg-8">
         <div class="card">
             <div class="card-header">
-                <h2 class="mb-0">Rental Agreement Analysis</h2>
+                <h2 class="mb-0">Universal Legal Document Analysis</h2>
             </div>
             <div class="card-body">
                 <p class="text-muted">
-                    Paste your rental agreement text below to get an AI-powered analysis with risk assessment and
-                    plain-language explanations.
+                    Upload or paste your legal document below to get an AI-powered analysis with risk assessment and
+                    plain-language explanations. Supports rental agreements, employment contracts, NDAs, terms of service, loan agreements, and more.
                 </p>
 
                 {% if error %}
@@ -58,16 +58,74 @@
                             <small class="text-muted">Alternative to file upload</small>
                         </div>
                         <textarea class="form-control" id="document_text" name="document_text" rows="15"
-                            placeholder="Paste your rental agreement text here..." minlength="100"
+                            placeholder="Paste your legal document text here (rental agreement, employment contract, NDA, etc.)..." minlength="100"
                             maxlength="50000">{{ document_text or '' }}</textarea>
                         <div class="form-text">
                             <div class="d-flex flex-column flex-sm-row justify-content-between">
-                                <span class="mb-1 mb-sm-0">Please ensure you provide the complete rental agreement for
+                                <span class="mb-1 mb-sm-0">Please ensure you provide the complete legal document for
                                     accurate analysis.</span>
                                 <span id="charCount" class="text-muted char-counter">0 / 50,000 characters</span>
                             </div>
                         </div>
                         <div id="validationFeedback" class="invalid-feedback"></div>
+                    </div>
+
+                    <!-- User Expertise Level Selection -->
+                    <div class="mb-4">
+                        <label class="form-label">
+                            <i class="bi bi-person-badge me-1"></i>
+                            Your Experience Level (Optional)
+                        </label>
+                        <div class="row">
+                            <div class="col-12 col-md-4 mb-2">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="expertise_level" id="beginner" value="beginner" checked>
+                                    <label class="form-check-label" for="beginner">
+                                        <strong>Beginner</strong>
+                                        <small class="d-block text-muted">New to legal documents</small>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-12 col-md-4 mb-2">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="expertise_level" id="intermediate" value="intermediate">
+                                    <label class="form-check-label" for="intermediate">
+                                        <strong>Intermediate</strong>
+                                        <small class="d-block text-muted">Some legal document experience</small>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-12 col-md-4 mb-2">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="expertise_level" id="expert" value="expert">
+                                    <label class="form-check-label" for="expert">
+                                        <strong>Expert</strong>
+                                        <small class="d-block text-muted">Legal/real estate professional</small>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-text">
+                            <small class="text-muted">
+                                <i class="bi bi-info-circle me-1"></i>
+                                This helps us adapt our explanations to your knowledge level
+                            </small>
+                        </div>
+                    </div>
+
+                    <!-- Optional Questions Field -->
+                    <div class="mb-4">
+                        <label for="user_questions" class="form-label">
+                            <i class="bi bi-chat-question me-1"></i>
+                            Any Specific Questions? (Optional)
+                        </label>
+                        <textarea class="form-control" id="user_questions" name="user_questions" rows="2"
+                            placeholder="e.g., What does this clause mean? Are these terms fair? What are my rights?"></textarea>
+                        <div class="form-text">
+                            <small class="text-muted">
+                                Ask any questions about legal terms or specific clauses you're concerned about
+                            </small>
+                        </div>
                     </div>
 
                     <div class="d-grid">
@@ -89,7 +147,7 @@
                     <ol class="list-group list-group-flush">
                         <li class="list-group-item d-flex align-items-center border-0 px-0">
                             <span class="badge bg-primary rounded-pill me-3">1</span>
-                            <span>Paste your rental agreement text in the box above</span>
+                            <span>Upload or paste your legal document text in the box above</span>
                         </li>
                         <li class="list-group-item d-flex align-items-center border-0 px-0">
                             <span class="badge bg-primary rounded-pill me-3">2</span>
@@ -157,11 +215,11 @@
                 validationFeedback.textContent = 'Document text exceeds 50,000 characters.';
                 return false;
             }
-            const keywords = ['rent', 'lease', 'tenant', 'landlord', 'property', 'agreement'];
+            const keywords = ['agreement', 'contract', 'party', 'parties', 'terms', 'conditions', 'shall', 'legal'];
             const found = keywords.filter(k => text.toLowerCase().includes(k));
-            if (found.length < 3) {
+            if (found.length < 2) {
                 documentText.classList.add('is-invalid');
-                validationFeedback.textContent = 'This doesn\'t appear to be a rental agreement.';
+                validationFeedback.textContent = 'This doesn\'t appear to be a legal document.';
                 return false;
             }
             documentText.classList.add('is-valid');

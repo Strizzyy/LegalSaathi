@@ -13,6 +13,10 @@ class DocumentType(Enum):
     EMPLOYMENT_CONTRACT = "employment_contract"
     NDA = "nda"
     TERMS_OF_SERVICE = "terms_of_service"
+    LOAN_AGREEMENT = "loan_agreement"
+    PARTNERSHIP_AGREEMENT = "partnership_agreement"
+    SERVICE_AGREEMENT = "service_agreement"
+    PURCHASE_AGREEMENT = "purchase_agreement"
     UNKNOWN = "unknown"
 
 @dataclass
@@ -60,7 +64,7 @@ class DocumentClassifier:
                     'non-disclosure agreement', 'secrecy', 'proprietary information',
                     'unauthorized disclosure', 'breach of confidentiality'
                 ],
-                'required_keywords': ['confidential', 'disclosure', 'non-disclosure'],
+                'required_keywords': ['confidential', 'disclosure'],
                 'weight': 1.0
             },
             DocumentType.TERMS_OF_SERVICE: {
@@ -73,6 +77,46 @@ class DocumentClassifier:
                     'indemnification', 'governing law'
                 ],
                 'required_keywords': ['terms', 'service', 'user'],
+                'weight': 1.0
+            },
+            DocumentType.LOAN_AGREEMENT: {
+                'keywords': [
+                    'loan', 'borrower', 'lender', 'principal', 'interest',
+                    'repayment', 'installment', 'credit', 'debt', 'mortgage',
+                    'collateral', 'security', 'default', 'payment schedule',
+                    'loan amount', 'interest rate', 'maturity date', 'amortization'
+                ],
+                'required_keywords': ['loan', 'borrower', 'lender'],
+                'weight': 1.0
+            },
+            DocumentType.PARTNERSHIP_AGREEMENT: {
+                'keywords': [
+                    'partnership', 'partner', 'partners', 'business', 'venture',
+                    'profit sharing', 'loss sharing', 'capital contribution',
+                    'management', 'authority', 'dissolution', 'withdrawal',
+                    'partnership interest', 'business operations', 'joint venture'
+                ],
+                'required_keywords': ['partnership', 'partner', 'business'],
+                'weight': 1.0
+            },
+            DocumentType.SERVICE_AGREEMENT: {
+                'keywords': [
+                    'service', 'services', 'provider', 'client', 'contractor',
+                    'scope of work', 'deliverables', 'payment terms', 'invoice',
+                    'professional services', 'consulting', 'performance',
+                    'service level', 'milestone', 'project', 'work order'
+                ],
+                'required_keywords': ['service', 'provider', 'client'],
+                'weight': 1.0
+            },
+            DocumentType.PURCHASE_AGREEMENT: {
+                'keywords': [
+                    'purchase', 'sale', 'buyer', 'seller', 'goods', 'product',
+                    'purchase price', 'delivery', 'warranty', 'title',
+                    'ownership', 'transfer', 'payment', 'invoice', 'receipt',
+                    'merchandise', 'commodity', 'acquisition'
+                ],
+                'required_keywords': ['purchase', 'buyer', 'seller'],
                 'weight': 1.0
             }
         }
@@ -160,25 +204,27 @@ class DocumentClassifier:
     
     def is_supported_document_type(self, document_type: DocumentType) -> bool:
         """Check if the document type is supported for analysis"""
-        # Currently only rental agreements are fully supported
-        return document_type == DocumentType.RENTAL_AGREEMENT
+        # All document types are now supported for universal analysis
+        return document_type != DocumentType.UNKNOWN
     
     def get_analysis_message(self, classification: ClassificationResult) -> str:
         """Get appropriate message based on document classification"""
-        if classification.document_type == DocumentType.RENTAL_AGREEMENT:
+        doc_type_names = {
+            DocumentType.RENTAL_AGREEMENT: "Rental Agreement",
+            DocumentType.EMPLOYMENT_CONTRACT: "Employment Contract", 
+            DocumentType.NDA: "Non-Disclosure Agreement",
+            DocumentType.TERMS_OF_SERVICE: "Terms of Service",
+            DocumentType.LOAN_AGREEMENT: "Loan Agreement",
+            DocumentType.PARTNERSHIP_AGREEMENT: "Partnership Agreement",
+            DocumentType.SERVICE_AGREEMENT: "Service Agreement",
+            DocumentType.PURCHASE_AGREEMENT: "Purchase Agreement"
+        }
+        
+        if classification.document_type in doc_type_names:
+            doc_name = doc_type_names[classification.document_type]
             if classification.confidence > 0.7:
-                return "✅ Rental agreement detected - proceeding with full analysis"
+                return f"✅ {doc_name} detected - proceeding with comprehensive legal analysis"
             else:
-                return "⚠️ Possible rental agreement detected - analysis may be limited"
-        
-        elif classification.document_type == DocumentType.EMPLOYMENT_CONTRACT:
-            return "📋 Employment contract detected - currently only rental agreements are supported for full analysis"
-        
-        elif classification.document_type == DocumentType.NDA:
-            return "🤐 Non-disclosure agreement detected - currently only rental agreements are supported for full analysis"
-        
-        elif classification.document_type == DocumentType.TERMS_OF_SERVICE:
-            return "📱 Terms of service detected - currently only rental agreements are supported for full analysis"
-        
+                return f"⚠️ Possible {doc_name} detected - analysis confidence may vary"
         else:
-            return "❓ Document type unclear - for best results, please upload a rental agreement"
+            return "❓ Document type unclear - analysis will use general legal document patterns"

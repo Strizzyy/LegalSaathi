@@ -6,6 +6,7 @@ Implements RED/YELLOW/GREEN risk categorization with AI and rule-based detection
 import os
 import re
 import json
+import time
 from typing import List, Dict, Tuple
 from dataclasses import dataclass
 from enum import Enum
@@ -525,149 +526,190 @@ class RiskClassifier:
         if self.neo4j_driver:
             self.neo4j_driver.close()
 
-class MockTranslationService:
+class UserExpertiseDetector:
     """
-    Mock Google Translate API integration for multilingual support
-    Requirements: Add mock Google Translate API integration for multilingual support
-    """
-    
-    def __init__(self):
-        # Mock supported languages
-        self.supported_languages = {
-            'en': 'English',
-            'es': 'Spanish', 
-            'fr': 'French',
-            'de': 'German',
-            'hi': 'Hindi',
-            'zh': 'Chinese'
-        }
-        
-        # Mock translations for common legal terms
-        self.mock_translations = {
-            'es': {
-                'rental agreement': 'contrato de alquiler',
-                'security deposit': 'depósito de seguridad',
-                'tenant': 'inquilino',
-                'landlord': 'propietario',
-                'high risk': 'alto riesgo',
-                'medium risk': 'riesgo medio',
-                'low risk': 'bajo riesgo'
-            },
-            'fr': {
-                'rental agreement': 'contrat de location',
-                'security deposit': 'dépôt de garantie',
-                'tenant': 'locataire',
-                'landlord': 'propriétaire',
-                'high risk': 'risque élevé',
-                'medium risk': 'risque moyen',
-                'low risk': 'faible risque'
-            }
-        }
-    
-    def translate_text(self, text: str, target_language: str) -> Dict[str, str]:
-        """Mock translation of text to target language"""
-        if target_language not in self.supported_languages:
-            return {
-                'success': False,
-                'error': f'Language {target_language} not supported',
-                'translated_text': text
-            }
-        
-        # Mock translation using predefined mappings
-        translated_text = text.lower()
-        if target_language in self.mock_translations:
-            for english_term, translated_term in self.mock_translations[target_language].items():
-                translated_text = translated_text.replace(english_term, translated_term)
-        
-        return {
-            'success': True,
-            'original_text': text,
-            'translated_text': translated_text,
-            'target_language': target_language,
-            'language_name': self.supported_languages[target_language]
-        }
-    
-    def detect_language(self, text: str) -> Dict[str, str]:
-        """Mock language detection"""
-        # Simple mock detection based on common words
-        spanish_indicators = ['contrato', 'alquiler', 'inquilino', 'propietario']
-        french_indicators = ['contrat', 'location', 'locataire', 'propriétaire']
-        
-        text_lower = text.lower()
-        
-        if any(word in text_lower for word in spanish_indicators):
-            return {'language': 'es', 'confidence': 0.85}
-        elif any(word in text_lower for word in french_indicators):
-            return {'language': 'fr', 'confidence': 0.85}
-        else:
-            return {'language': 'en', 'confidence': 0.90}
-
-class MockVertexAIService:
-    """
-    Mock Vertex AI Generative AI integration for conversational clarification
-    Requirements: Add mock Vertex AI Generative AI integration for conversational clarification
+    Detect user expertise level for adaptive explanations
+    Requirements: Add user expertise detection (beginner/intermediate/expert) with adaptive explanations
     """
     
     def __init__(self):
-        self.conversation_history = []
-        
-        # Mock responses for common questions
-        self.mock_responses = {
-            'what does this mean': 'This clause means that the landlord has specific rights or the tenant has certain obligations. Let me break it down in simpler terms.',
-            'is this fair': 'Based on standard rental practices, this clause appears to be [fair/unfair/concerning]. Here\'s why:',
-            'should i sign': 'Before signing, consider these factors: 1) Your comfort with the terms, 2) Local rental laws, 3) Alternative options available.',
-            'can i negotiate': 'Yes, many rental terms are negotiable. Focus on the high-risk items we identified, especially around deposits, fees, and tenant rights.',
-            'what are my rights': 'As a tenant, you typically have rights to: privacy, habitability, fair treatment, and proper notice for changes or entry.'
-        }
-    
-    def ask_clarification(self, question: str, context: Dict = None) -> Dict[str, str]:
-        """Mock conversational AI for document clarification"""
-        question_lower = question.lower()
-        
-        # Find best matching response
-        best_response = "I understand you're asking about your rental agreement. Could you be more specific about which clause or term you'd like me to explain?"
-        
-        for trigger, response in self.mock_responses.items():
-            if trigger in question_lower:
-                best_response = response
-                break
-        
-        # Add context-aware information if available
-        if context and 'risk_level' in context:
-            risk_level = context['risk_level']
-            if risk_level == 'RED':
-                best_response += f"\n\n⚠️ This is particularly important because we identified this as a HIGH RISK clause."
-            elif risk_level == 'YELLOW':
-                best_response += f"\n\n⚠️ This clause has MEDIUM RISK - worth discussing with the landlord."
-        
-        # Store in conversation history
-        self.conversation_history.append({
-            'question': question,
-            'response': best_response,
-            'timestamp': 'mock_timestamp'
-        })
-        
-        return {
-            'success': True,
-            'response': best_response,
-            'confidence': 0.75,
-            'follow_up_suggestions': [
-                'Can you explain this in simpler terms?',
-                'What should I do about this clause?',
-                'Is this legal in my area?'
+        self.expertise_indicators = {
+            'beginner': [
+                'what does this mean', 'i don\'t understand', 'explain', 'simple terms',
+                'new to renting', 'first time', 'help me', 'confused'
+            ],
+            'intermediate': [
+                'is this normal', 'standard practice', 'typical', 'compare',
+                'negotiate', 'reasonable', 'fair market'
+            ],
+            'expert': [
+                'legal precedent', 'jurisdiction', 'statute', 'compliance',
+                'liability exposure', 'contractual obligation', 'enforceability'
             ]
         }
     
-    def get_conversation_summary(self) -> Dict[str, any]:
-        """Get summary of conversation for context"""
-        return {
-            'total_questions': len(self.conversation_history),
-            'recent_topics': [item['question'][:50] + '...' for item in self.conversation_history[-3:]],
-            'conversation_history': self.conversation_history
+    def detect_expertise(self, user_input: str = "", document_complexity: str = "medium") -> Dict:
+        """
+        Detect user expertise level based on input and document complexity
+        
+        Args:
+            user_input: Any user questions or comments
+            document_complexity: Complexity of the document being analyzed
+        
+        Returns:
+            Dictionary with expertise level and adaptive explanation style
+        """
+        if not user_input:
+            # Default based on document complexity
+            if document_complexity == "high":
+                return self._get_expertise_profile('intermediate')
+            else:
+                return self._get_expertise_profile('beginner')
+        
+        user_input_lower = user_input.lower()
+        
+        # Count indicators for each level
+        scores = {
+            'beginner': sum(1 for indicator in self.expertise_indicators['beginner'] 
+                          if indicator in user_input_lower),
+            'intermediate': sum(1 for indicator in self.expertise_indicators['intermediate'] 
+                             if indicator in user_input_lower),
+            'expert': sum(1 for indicator in self.expertise_indicators['expert'] 
+                        if indicator in user_input_lower)
         }
+        
+        # Determine expertise level
+        if scores['expert'] > 0:
+            expertise_level = 'expert'
+        elif scores['intermediate'] > scores['beginner']:
+            expertise_level = 'intermediate'
+        else:
+            expertise_level = 'beginner'
+        
+        return self._get_expertise_profile(expertise_level)
+    
+    def _get_expertise_profile(self, level: str) -> Dict:
+        """Get explanation style profile for expertise level"""
+        profiles = {
+            'beginner': {
+                'level': 'beginner',
+                'explanation_style': 'simple',
+                'use_legal_terms': False,
+                'detail_level': 'basic',
+                'include_examples': True,
+                'focus_areas': ['immediate_impact', 'practical_consequences'],
+                'language_complexity': 'elementary'
+            },
+            'intermediate': {
+                'level': 'intermediate',
+                'explanation_style': 'balanced',
+                'use_legal_terms': True,
+                'detail_level': 'moderate',
+                'include_examples': True,
+                'focus_areas': ['legal_implications', 'negotiation_points', 'market_standards'],
+                'language_complexity': 'moderate'
+            },
+            'expert': {
+                'level': 'expert',
+                'explanation_style': 'technical',
+                'use_legal_terms': True,
+                'detail_level': 'comprehensive',
+                'include_examples': False,
+                'focus_areas': ['legal_precedents', 'compliance_issues', 'liability_analysis'],
+                'language_complexity': 'advanced'
+            }
+        }
+        
+        return profiles.get(level, profiles['beginner'])
+
+class EnhancedRiskCategories:
+    """
+    Enhanced risk categorization system with reputational risk
+    Requirements: Extend risk classifier to include financial, legal, operational, reputational categories
+    """
+    
+    def __init__(self):
+        self.category_patterns = {
+            'financial': {
+                'patterns': [
+                    r'deposit.*non-refundable', r'fee.*\$[0-9]+', r'penalty.*\$[0-9]+',
+                    r'rent.*increase', r'late.*fee', r'additional.*charge',
+                    r'security.*deposit.*[0-9]+', r'damage.*cost'
+                ],
+                'weight_multiplier': 1.2,
+                'severity_indicators': ['excessive fees', 'unfair deposits', 'hidden costs']
+            },
+            'legal': {
+                'patterns': [
+                    r'waive.*right', r'forfeit.*right', r'liability.*unlimited',
+                    r'legal.*action', r'court.*costs', r'attorney.*fees',
+                    r'indemnify', r'hold.*harmless', r'jurisdiction'
+                ],
+                'weight_multiplier': 1.5,
+                'severity_indicators': ['rights violations', 'legal exposure', 'unfair liability']
+            },
+            'operational': {
+                'patterns': [
+                    r'entry.*without.*notice', r'inspection.*daily', r'pets.*prohibited',
+                    r'subletting.*prohibited', r'guests.*restricted', r'noise.*restrictions',
+                    r'use.*restrictions', r'modification.*prohibited'
+                ],
+                'weight_multiplier': 1.0,
+                'severity_indicators': ['privacy violations', 'lifestyle restrictions', 'operational limits']
+            },
+            'reputational': {
+                'patterns': [
+                    r'background.*check', r'credit.*report', r'reference.*required',
+                    r'eviction.*record', r'public.*record', r'tenant.*screening',
+                    r'criminal.*history', r'employment.*verification'
+                ],
+                'weight_multiplier': 0.8,
+                'severity_indicators': ['privacy concerns', 'discrimination risk', 'reputation impact']
+            }
+        }
+    
+    def analyze_risk_categories(self, text: str) -> Dict[str, float]:
+        """
+        Analyze text for multi-dimensional risk categories
+        
+        Returns:
+            Dictionary with risk scores for each category (0.0 to 1.0)
+        """
+        text_lower = text.lower()
+        category_scores = {}
+        
+        for category, config in self.category_patterns.items():
+            score = 0.0
+            matches = 0
+            
+            for pattern in config['patterns']:
+                if re.search(pattern, text_lower, re.IGNORECASE):
+                    matches += 1
+                    score += 0.2  # Base score per match
+            
+            # Apply weight multiplier and normalize
+            if matches > 0:
+                score = min(score * config['weight_multiplier'], 1.0)
+            
+            category_scores[category] = score
+        
+        return category_scores
+    
+    def get_severity_indicators(self, category_scores: Dict[str, float]) -> List[str]:
+        """Get severity indicators for high-risk categories"""
+        indicators = []
+        
+        for category, score in category_scores.items():
+            if score > 0.6:  # High risk threshold
+                config = self.category_patterns[category]
+                indicators.extend(config['severity_indicators'])
+        
+        return indicators
+
+# MockVertexAIService removed - using real AI service in app.py
 
 # Utility function for easy integration
-def classify_document_risk(document_text: str) -> Dict:
+def classify_document_risk(document_text: str, document_type=None) -> Dict:
     """
     Classify risk for an entire document by analyzing it in chunks
     """
@@ -746,8 +788,8 @@ def classify_document_risk(document_text: str) -> Dict:
             'clause_assessments': clause_assessments,
             'total_clauses_analyzed': len(clause_assessments),
             'analysis_metadata': {
-                'translation_service': MockTranslationService(),
-                'ai_clarification': MockVertexAIService()
+                'document_type': document_type.value if document_type else 'unknown',
+                'analysis_timestamp': time.time()
             }
         }
         
