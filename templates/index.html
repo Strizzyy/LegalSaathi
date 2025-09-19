@@ -87,7 +87,13 @@
                     <div class="mb-3">
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <label for="document_text" class="form-label">Or Paste Document Text</label>
-                            <small class="text-muted">Alternative to file upload</small>
+                            <div class="d-flex align-items-center gap-2">
+                                <button type="button" class="btn btn-outline-info btn-sm" id="voiceInputBtn" onclick="startVoiceInput()" title="Voice Input (Google Speech-to-Text)">
+                                    <i class="bi bi-mic"></i>
+                                    <span class="d-none d-sm-inline ms-1">Voice Input</span>
+                                </button>
+                                <small class="text-muted">Alternative to file upload</small>
+                            </div>
                         </div>
                         <textarea class="form-control" 
                                   id="document_text" 
@@ -397,6 +403,591 @@
 
 {% block scripts %}
 <script>
+    // Demo sample documents
+    const demoSamples = {
+        rental: `RESIDENTIAL LEASE AGREEMENT
+
+This Lease Agreement is entered into between ABC Property Management ("Landlord") and Tenant.
+
+TERMS AND CONDITIONS:
+
+1. RENT: Tenant agrees to pay $2,500 per month, due on the 1st of each month. Late fees of $150 will be charged for payments received after the 3rd day of the month.
+
+2. SECURITY DEPOSIT: Tenant must pay a security deposit of $5,000, which may be used by Landlord for any damages, unpaid rent, or cleaning fees at Landlord's sole discretion.
+
+3. MAINTENANCE: Tenant is responsible for ALL maintenance and repairs, including major structural repairs, HVAC systems, and appliances, regardless of cause.
+
+4. TERMINATION: Landlord may terminate this lease at any time with 24 hours written notice for any reason or no reason. Tenant must give 60 days notice to terminate.
+
+5. LIABILITY: Tenant assumes all liability for any injuries or damages occurring on the premises, including those caused by Landlord's negligence.
+
+6. MODIFICATIONS: Landlord may modify lease terms at any time with 7 days notice. Tenant's continued occupancy constitutes acceptance of modifications.
+
+7. SUBLETTING: Subletting is strictly prohibited. Violation results in immediate eviction and forfeiture of all deposits.
+
+8. ENTRY: Landlord may enter premises at any time without notice for inspections, repairs, or showing to prospective tenants.`,
+
+        employment: `EMPLOYMENT AGREEMENT
+
+This Employment Agreement is between TechCorp Inc. ("Company") and Employee.
+
+EMPLOYMENT TERMS:
+
+1. POSITION: Employee is hired as Software Developer, reporting to the Engineering Manager.
+
+2. COMPENSATION: Annual salary of $85,000, paid bi-weekly. Performance reviews conducted annually with potential for merit increases.
+
+3. BENEFITS: Health insurance (Company pays 80%), dental and vision coverage, 401(k) with 4% company match, 15 days PTO annually.
+
+4. WORK SCHEDULE: Standard 40-hour work week, Monday-Friday, 9 AM to 5 PM. Flexible work arrangements may be available with supervisor approval.
+
+5. CONFIDENTIALITY: Employee agrees to maintain confidentiality of proprietary information and trade secrets during and after employment.
+
+6. TERMINATION: Either party may terminate employment with two weeks written notice. Company may terminate immediately for cause.
+
+7. INTELLECTUAL PROPERTY: Work-related inventions and developments belong to Company. Employee retains rights to pre-existing personal projects.
+
+8. NON-COMPETE: Employee agrees not to work for direct competitors for 6 months after termination within the same geographic region.`,
+
+        nda: `NON-DISCLOSURE AGREEMENT
+
+This Non-Disclosure Agreement is between MegaCorp Industries ("Disclosing Party") and Recipient.
+
+CONFIDENTIALITY TERMS:
+
+1. DEFINITION OF CONFIDENTIAL INFORMATION: All information, data, materials, products, technology, computer programs, software, marketing plans, customer lists, financial information, and any other business information disclosed by Disclosing Party.
+
+2. SCOPE: Recipient agrees that ANY information learned, observed, or accessed during any interaction with Disclosing Party shall be considered confidential, including publicly available information.
+
+3. OBLIGATIONS: Recipient shall not disclose, use, copy, or distribute any confidential information for ANY purpose, including personal use, competitive analysis, or general knowledge.
+
+4. DURATION: This agreement remains in effect INDEFINITELY, even after termination of business relationship.
+
+5. RETURN OF MATERIALS: Upon request, Recipient must immediately return or destroy all materials, including any notes, copies, or derivative works, and provide written certification of destruction.
+
+6. REMEDIES: Breach of this agreement will result in immediate injunctive relief and monetary damages of no less than $100,000, plus attorney fees and costs.
+
+7. BROAD INTERPRETATION: Any doubt about whether information is confidential shall be resolved in favor of confidentiality.
+
+8. SURVIVAL: All obligations survive termination of any business relationship and bind Recipient's heirs, successors, and assigns.`
+    };
+
+    // Load demo sample function
+    window.loadDemoSample = function(sampleType) {
+        const documentText = document.getElementById('document_text');
+        const fileUploadArea = document.getElementById('fileUploadArea');
+        
+        if (demoSamples[sampleType]) {
+            // Clear any uploaded file
+            clearFile();
+            
+            // Load sample text
+            documentText.value = demoSamples[sampleType];
+            
+            // Update character count and validation
+            updateCharCount();
+            validateDocumentText();
+            
+            // Scroll to the text area
+            documentText.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            
+            // Add visual feedback
+            documentText.classList.add('success-bounce');
+            setTimeout(() => {
+                documentText.classList.remove('success-bounce');
+            }, 600);
+            
+            // Show notification
+            if (typeof showNotification === 'function') {
+                const sampleNames = {
+                    rental: 'Rental Agreement',
+                    employment: 'Employment Contract', 
+                    nda: 'NDA Agreement'
+                };
+                showNotification(`${sampleNames[sampleType]} sample loaded successfully!`, 'success');
+            }
+            
+            // Update demo button states
+            document.querySelectorAll('.demo-sample-btn').forEach(btn => {
+                btn.classList.remove('btn-primary', 'btn-success', 'btn-warning');
+                const sample = btn.dataset.sample;
+                if (sample === 'rental') btn.classList.add('btn-outline-primary');
+                else if (sample === 'employment') btn.classList.add('btn-outline-success');
+                else if (sample === 'nda') btn.classList.add('btn-outline-warning');
+            });
+            
+            // Highlight selected button
+            const selectedBtn = document.querySelector(`[data-sample="${sampleType}"]`);
+            if (selectedBtn) {
+                selectedBtn.classList.remove('btn-outline-primary', 'btn-outline-success', 'btn-outline-warning');
+                if (sampleType === 'rental') selectedBtn.classList.add('btn-primary');
+                else if (sampleType === 'employment') selectedBtn.classList.add('btn-success');
+                else if (sampleType === 'nda') selectedBtn.classList.add('btn-warning');
+            }
+        }
+    };
+
+    // Voice Input Functionality using Google Cloud Speech-to-Text
+    let mediaRecorder;
+    let audioChunks = [];
+    let isRecording = false;
+
+    window.startVoiceInput = function() {
+        const voiceBtn = document.getElementById('voiceInputBtn');
+        
+        if (!isRecording) {
+            // Start recording
+            navigator.mediaDevices.getUserMedia({ audio: true })
+                .then(stream => {
+                    mediaRecorder = new MediaRecorder(stream);
+                    audioChunks = [];
+                    
+                    mediaRecorder.ondataavailable = event => {
+                        audioChunks.push(event.data);
+                    };
+                    
+                    mediaRecorder.onstop = async () => {
+                        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                        await processVoiceInput(audioBlob);
+                        
+                        // Stop all tracks to release microphone
+                        stream.getTracks().forEach(track => track.stop());
+                    };
+                    
+                    mediaRecorder.start();
+                    isRecording = true;
+                    
+                    // Update button state
+                    voiceBtn.innerHTML = '<i class="bi bi-stop-fill text-danger"></i><span class="d-none d-sm-inline ms-1">Stop Recording</span>';
+                    voiceBtn.classList.remove('btn-outline-info');
+                    voiceBtn.classList.add('btn-danger');
+                    
+                    // Show recording indicator
+                    showRecordingIndicator();
+                    
+                    // Auto-stop after 30 seconds
+                    setTimeout(() => {
+                        if (isRecording) {
+                            stopVoiceInput();
+                        }
+                    }, 30000);
+                })
+                .catch(error => {
+                    console.error('Error accessing microphone:', error);
+                    if (typeof showNotification === 'function') {
+                        showNotification('Microphone access denied. Please enable microphone permissions.', 'warning');
+                    } else {
+                        alert('Microphone access denied. Please enable microphone permissions.');
+                    }
+                });
+        } else {
+            stopVoiceInput();
+        }
+    };
+
+    function stopVoiceInput() {
+        if (mediaRecorder && isRecording) {
+            mediaRecorder.stop();
+            isRecording = false;
+            
+            const voiceBtn = document.getElementById('voiceInputBtn');
+            voiceBtn.innerHTML = '<i class="bi bi-mic"></i><span class="d-none d-sm-inline ms-1">Voice Input</span>';
+            voiceBtn.classList.remove('btn-danger');
+            voiceBtn.classList.add('btn-outline-info');
+            
+            hideRecordingIndicator();
+        }
+    }
+
+    function showRecordingIndicator() {
+        // Create recording indicator
+        const indicator = document.createElement('div');
+        indicator.id = 'recordingIndicator';
+        indicator.className = 'alert alert-info d-flex align-items-center';
+        indicator.innerHTML = `
+            <div class="spinner-grow spinner-grow-sm text-primary me-2" role="status">
+                <span class="sr-only">Recording...</span>
+            </div>
+            <div>
+                <strong>Recording in progress...</strong>
+                <small class="d-block">Speak clearly about your legal document. Click "Stop Recording" when finished.</small>
+            </div>
+        `;
+        
+        // Insert before the textarea
+        const textArea = document.getElementById('document_text');
+        textArea.parentNode.insertBefore(indicator, textArea);
+    }
+
+    function hideRecordingIndicator() {
+        const indicator = document.getElementById('recordingIndicator');
+        if (indicator) {
+            indicator.remove();
+        }
+    }
+
+    async function processVoiceInput(audioBlob) {
+        try {
+            // Show processing indicator
+            const processingIndicator = document.createElement('div');
+            processingIndicator.id = 'processingIndicator';
+            processingIndicator.className = 'alert alert-primary d-flex align-items-center';
+            processingIndicator.innerHTML = `
+                <div class="spinner-border spinner-border-sm text-primary me-2" role="status">
+                    <span class="sr-only">Processing...</span>
+                </div>
+                <div>
+                    <strong>Processing speech with Google Cloud AI...</strong>
+                    <small class="d-block">Converting your voice to text using advanced speech recognition.</small>
+                </div>
+            `;
+            
+            const textArea = document.getElementById('document_text');
+            textArea.parentNode.insertBefore(processingIndicator, textArea);
+            
+            // Prepare form data
+            const formData = new FormData();
+            formData.append('audio', audioBlob);
+            formData.append('language_code', 'en-US'); // Could be made configurable
+            
+            // Send to Google Cloud Speech-to-Text API
+            const response = await fetch('/api/speech-to-text', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const result = await response.json();
+            
+            // Remove processing indicator
+            processingIndicator.remove();
+            
+            if (result.success && result.transcript) {
+                // Add transcribed text to textarea
+                const currentText = textArea.value;
+                const newText = currentText ? currentText + '\n\n' + result.transcript : result.transcript;
+                textArea.value = newText;
+                
+                // Update character count and validation
+                updateCharCount();
+                validateDocumentText();
+                
+                // Show success notification
+                if (typeof showNotification === 'function') {
+                    showNotification(`Voice input successful! Transcribed ${result.transcript.length} characters.`, 'success');
+                }
+                
+                // Show confidence and quality info
+                if (result.confidence) {
+                    const confidenceAlert = document.createElement('div');
+                    confidenceAlert.className = 'alert alert-info alert-dismissible fade show mt-2';
+                    confidenceAlert.innerHTML = `
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-google text-primary me-2"></i>
+                            <div>
+                                <strong>Google Cloud Speech Recognition:</strong>
+                                <small class="d-block">Confidence: ${Math.round(result.confidence * 100)}% | Quality: ${result.quality_assessment?.overall_quality || 'Good'}</small>
+                            </div>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    `;
+                    textArea.parentNode.insertBefore(confidenceAlert, textArea.nextSibling);
+                    
+                    // Auto-dismiss after 5 seconds
+                    setTimeout(() => {
+                        if (confidenceAlert.parentNode) {
+                            confidenceAlert.remove();
+                        }
+                    }, 5000);
+                }
+                
+            } else {
+                // Show error
+                const errorMsg = result.error || 'Speech recognition failed. Please try again.';
+                if (typeof showNotification === 'function') {
+                    showNotification(errorMsg, 'warning');
+                } else {
+                    alert(errorMsg);
+                }
+            }
+            
+        } catch (error) {
+            console.error('Voice input processing error:', error);
+            
+            // Remove processing indicator
+            const processingIndicator = document.getElementById('processingIndicator');
+            if (processingIndicator) {
+                processingIndicator.remove();
+            }
+            
+            if (typeof showNotification === 'function') {
+                showNotification('Voice processing failed. Please try again or use text input.', 'danger');
+            } else {
+                alert('Voice processing failed. Please try again or use text input.');
+            }
+        }
+    }
+
+    // Interactive walkthrough function
+    window.startWalkthrough = function() {
+        // Create walkthrough overlay
+        const walkthroughOverlay = document.createElement('div');
+        walkthroughOverlay.className = 'walkthrough-overlay';
+        walkthroughOverlay.innerHTML = `
+            <div class="walkthrough-content">
+                <div class="walkthrough-header">
+                    <h4><i class="bi bi-compass me-2"></i>LegalSaathi AI Walkthrough</h4>
+                    <button class="btn-close" onclick="closeWalkthrough()" aria-label="Close walkthrough"></button>
+                </div>
+                <div class="walkthrough-body">
+                    <div class="walkthrough-step active" data-step="1">
+                        <div class="step-indicator">
+                            <span class="step-number">1</span>
+                            <span class="step-title">Welcome to AI Legal Analysis</span>
+                        </div>
+                        <div class="step-content">
+                            <div class="row align-items-center">
+                                <div class="col-md-6">
+                                    <h5>Protecting Your Legal Interests</h5>
+                                    <p>LegalSaathi uses advanced AI to analyze legal documents and identify potential risks that could cost you money or legal problems.</p>
+                                    <ul class="list-unstyled">
+                                        <li><i class="bi bi-shield-check text-success me-2"></i>78% of people miss important legal risks</li>
+                                        <li><i class="bi bi-cpu text-primary me-2"></i>Our AI catches what humans often miss</li>
+                                        <li><i class="bi bi-translate text-info me-2"></i>Plain language explanations for everyone</li>
+                                    </ul>
+                                </div>
+                                <div class="col-md-6 text-center">
+                                    <div class="demo-visual">
+                                        <i class="bi bi-shield-exclamation text-warning" style="font-size: 4rem;"></i>
+                                        <p class="text-muted mt-2">Legal documents can hide costly risks</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="walkthrough-step" data-step="2">
+                        <div class="step-indicator">
+                            <span class="step-number">2</span>
+                            <span class="step-title">Traffic Light Risk System</span>
+                        </div>
+                        <div class="step-content">
+                            <div class="row align-items-center">
+                                <div class="col-md-6">
+                                    <h5>Easy-to-Understand Risk Levels</h5>
+                                    <p>Our traffic light system makes it simple to understand which clauses need your attention:</p>
+                                    <div class="risk-examples mt-3">
+                                        <div class="d-flex align-items-center mb-2">
+                                            <span class="traffic-light red me-3"></span>
+                                            <div>
+                                                <strong>RED - High Risk</strong>
+                                                <small class="d-block text-muted">Immediate attention required</small>
+                                            </div>
+                                        </div>
+                                        <div class="d-flex align-items-center mb-2">
+                                            <span class="traffic-light yellow me-3"></span>
+                                            <div>
+                                                <strong>YELLOW - Moderate Risk</strong>
+                                                <small class="d-block text-muted">Review and consider changes</small>
+                                            </div>
+                                        </div>
+                                        <div class="d-flex align-items-center">
+                                            <span class="traffic-light green me-3"></span>
+                                            <div>
+                                                <strong>GREEN - Low Risk</strong>
+                                                <small class="d-block text-muted">Standard, acceptable terms</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 text-center">
+                                    <div class="demo-visual">
+                                        <div class="traffic-light-demo">
+                                            <span class="traffic-light-large red mb-3"></span>
+                                            <p class="text-muted">Visual indicators you can trust</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="walkthrough-step" data-step="3">
+                        <div class="step-indicator">
+                            <span class="step-number">3</span>
+                            <span class="step-title">AI Confidence & Transparency</span>
+                        </div>
+                        <div class="step-content">
+                            <div class="row align-items-center">
+                                <div class="col-md-6">
+                                    <h5>Transparent AI Analysis</h5>
+                                    <p>We believe in AI transparency. Every analysis includes:</p>
+                                    <ul class="list-unstyled mt-3">
+                                        <li class="mb-2">
+                                            <i class="bi bi-percent text-primary me-2"></i>
+                                            <strong>Confidence Scores:</strong> How certain our AI is about each assessment
+                                        </li>
+                                        <li class="mb-2">
+                                            <i class="bi bi-exclamation-triangle text-warning me-2"></i>
+                                            <strong>Variability Warnings:</strong> When results might vary or need human review
+                                        </li>
+                                        <li class="mb-2">
+                                            <i class="bi bi-google text-success me-2"></i>
+                                            <strong>Google Cloud AI:</strong> Powered by advanced machine learning models
+                                        </li>
+                                    </ul>
+                                </div>
+                                <div class="col-md-6 text-center">
+                                    <div class="demo-visual">
+                                        <div class="confidence-demo">
+                                            <div class="badge bg-success mb-2">Confidence: 87%</div>
+                                            <div class="badge bg-warning">⚠️ Low Confidence: 45%</div>
+                                            <p class="text-muted mt-2 small">Always know how confident our AI is</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="walkthrough-step" data-step="4">
+                        <div class="step-indicator">
+                            <span class="step-number">4</span>
+                            <span class="step-title">Plain Language Explanations</span>
+                        </div>
+                        <div class="step-content">
+                            <div class="row align-items-center">
+                                <div class="col-md-6">
+                                    <h5>Legal Jargon Made Simple</h5>
+                                    <p>Complex legal terms are automatically translated into language everyone can understand:</p>
+                                    <div class="translation-example mt-3">
+                                        <div class="alert alert-light">
+                                            <strong>Legal Term:</strong> "Liquidated damages clause"<br>
+                                            <strong>Plain English:</strong> "Fixed penalty amount you must pay if you break the contract"
+                                        </div>
+                                        <div class="alert alert-light">
+                                            <strong>Legal Term:</strong> "Indemnification provision"<br>
+                                            <strong>Plain English:</strong> "You agree to pay for any legal problems caused by your actions"
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 text-center">
+                                    <div class="demo-visual">
+                                        <i class="bi bi-translate text-info" style="font-size: 4rem;"></i>
+                                        <p class="text-muted mt-2">Complex → Simple</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="walkthrough-step" data-step="5">
+                        <div class="step-indicator">
+                            <span class="step-number">5</span>
+                            <span class="step-title">Ready to Get Started</span>
+                        </div>
+                        <div class="step-content">
+                            <div class="text-center">
+                                <h5>You're Ready to Analyze Documents!</h5>
+                                <p class="mb-4">Now you understand how our AI protects your legal interests. Try it with a sample document or upload your own.</p>
+                                <div class="row justify-content-center">
+                                    <div class="col-md-8">
+                                        <div class="d-grid gap-2 d-md-flex justify-content-md-center">
+                                            <button class="btn btn-primary btn-lg" onclick="closeWalkthrough(); loadDemoSample('rental');">
+                                                <i class="bi bi-play-fill me-2"></i>Try Demo
+                                            </button>
+                                            <button class="btn btn-outline-primary btn-lg" onclick="closeWalkthrough(); document.getElementById('document_text').focus();">
+                                                <i class="bi bi-upload me-2"></i>Upload Document
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="walkthrough-footer">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <button class="btn btn-outline-secondary" onclick="previousStep()" id="prevBtn" disabled>
+                            <i class="bi bi-arrow-left me-2"></i>Previous
+                        </button>
+                        <div class="step-progress">
+                            <span class="current-step">1</span> of <span class="total-steps">5</span>
+                        </div>
+                        <button class="btn btn-primary" onclick="nextStep()" id="nextBtn">
+                            Next<i class="bi bi-arrow-right ms-2"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(walkthroughOverlay);
+        
+        // Prevent body scroll
+        document.body.style.overflow = 'hidden';
+        
+        // Announce to screen readers
+        if (typeof announceToScreenReader === 'function') {
+            announceToScreenReader('Interactive walkthrough started');
+        }
+    };
+
+    // Walkthrough navigation functions
+    window.nextStep = function() {
+        const currentStep = document.querySelector('.walkthrough-step.active');
+        const currentStepNum = parseInt(currentStep.dataset.step);
+        const nextStepNum = currentStepNum + 1;
+        const nextStep = document.querySelector(`[data-step="${nextStepNum}"]`);
+        
+        if (nextStep) {
+            currentStep.classList.remove('active');
+            nextStep.classList.add('active');
+            
+            // Update progress
+            document.querySelector('.current-step').textContent = nextStepNum;
+            
+            // Update buttons
+            document.getElementById('prevBtn').disabled = false;
+            if (nextStepNum === 5) {
+                document.getElementById('nextBtn').style.display = 'none';
+            }
+        }
+    };
+
+    window.previousStep = function() {
+        const currentStep = document.querySelector('.walkthrough-step.active');
+        const currentStepNum = parseInt(currentStep.dataset.step);
+        const prevStepNum = currentStepNum - 1;
+        const prevStep = document.querySelector(`[data-step="${prevStepNum}"]`);
+        
+        if (prevStep) {
+            currentStep.classList.remove('active');
+            prevStep.classList.add('active');
+            
+            // Update progress
+            document.querySelector('.current-step').textContent = prevStepNum;
+            
+            // Update buttons
+            document.getElementById('prevBtn').disabled = prevStepNum === 1;
+            document.getElementById('nextBtn').style.display = 'block';
+        }
+    };
+
+    window.closeWalkthrough = function() {
+        const overlay = document.querySelector('.walkthrough-overlay');
+        if (overlay) {
+            overlay.remove();
+        }
+        
+        // Restore body scroll
+        document.body.style.overflow = '';
+        
+        // Announce to screen readers
+        if (typeof announceToScreenReader === 'function') {
+            announceToScreenReader('Walkthrough closed');
+        }
+    };
+
     document.addEventListener('DOMContentLoaded', function () {
         // --- DOM ELEMENT SELECTORS ---
         const form = document.getElementById('documentForm');

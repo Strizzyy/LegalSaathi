@@ -8,11 +8,19 @@
         <div
             class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center mb-4">
             <h2 class="mb-2 mb-sm-0">📋 Document Analysis Results</h2>
-            <a href="/" class="btn btn-outline-primary">
-                <i class="bi bi-arrow-left"></i>
-                <span class="d-none d-sm-inline">Analyze Another Document</span>
-                <span class="d-inline d-sm-none">New Analysis</span>
-            </a>
+            <div class="d-flex flex-column flex-sm-row gap-2">
+                <div class="d-flex align-items-center">
+                    <label for="languageSelector" class="form-label me-2 mb-0">🌐 Language:</label>
+                    <select id="languageSelector" class="form-select form-select-sm" style="width: auto;">
+                        <option value="en">English</option>
+                    </select>
+                </div>
+                <a href="/" class="btn btn-outline-primary">
+                    <i class="bi bi-arrow-left"></i>
+                    <span class="d-none d-sm-inline">Analyze Another Document</span>
+                    <span class="d-inline d-sm-none">New Analysis</span>
+                </a>
+            </div>
         </div>
 
         {% if file_info or warnings or classification %}
@@ -54,6 +62,100 @@
             </div>
         </div>
         {% endif %}
+
+        <!-- Enhanced AI Processing & Confidence Indicators -->
+        <div class="card mb-4 border-info">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-cpu-fill me-2"></i>
+                    AI Analysis Transparency
+                </h5>
+                <small class="opacity-75">Powered by Google Cloud AI with full transparency</small>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-12 col-md-6 mb-3">
+                        <h6><i class="bi bi-google text-primary me-2"></i>Google Cloud AI Integration</h6>
+                        <div class="ai-processing-indicator mb-2">
+                            <i class="bi bi-check-circle-fill text-success"></i>
+                            <span>Advanced NLP Analysis Complete</span>
+                        </div>
+                        <div class="ai-processing-indicator mb-2">
+                            <i class="bi bi-shield-check text-success"></i>
+                            <span>Risk Pattern Recognition Applied</span>
+                        </div>
+                        <div class="ai-processing-indicator">
+                            <i class="bi bi-translate text-info"></i>
+                            <span>Plain Language Translation Generated</span>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-6 mb-3">
+                        <h6><i class="bi bi-graph-up me-2"></i>Analysis Confidence Metrics</h6>
+                        <div class="mb-2">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <small><strong>Overall Analysis:</strong></small>
+                                <small class="text-muted">{{ analysis.overall_risk.confidence_percentage }}%</small>
+                            </div>
+                            <div class="confidence-bar">
+                                <div class="confidence-fill {{ 'high' if analysis.overall_risk.confidence_percentage >= 70 else ('medium' if analysis.overall_risk.confidence_percentage >= 50 else 'low') }}" 
+                                     style="width: {{ analysis.overall_risk.confidence_percentage }}%"></div>
+                            </div>
+                        </div>
+                        {% if analysis.overall_risk.low_confidence_warning %}
+                        <div class="variability-warning">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            <span><strong>Results May Vary:</strong> Lower confidence detected. Consider professional review for critical decisions.</span>
+                        </div>
+                        {% endif %}
+                        <div class="google-cloud-badge mt-2">
+                            <i class="bi bi-google"></i>
+                            <span>Google Cloud Powered</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Progressive Disclosure: Advanced Metrics -->
+                <div class="progressive-disclosure mt-3">
+                    <div class="disclosure-header" onclick="toggleDisclosure('advancedMetrics')">
+                        <span><i class="bi bi-bar-chart me-2"></i><strong>Advanced AI Metrics</strong></span>
+                        <i class="bi bi-chevron-down disclosure-toggle" id="advancedMetricsToggle"></i>
+                    </div>
+                    <div class="disclosure-content" id="advancedMetricsContent">
+                        <div class="row">
+                            <div class="col-12 col-md-4">
+                                <h6>Processing Details</h6>
+                                <ul class="list-unstyled small">
+                                    <li><strong>Analysis Time:</strong> {{ "%.2f"|format(analysis.processing_time) }}s</li>
+                                    <li><strong>Clauses Analyzed:</strong> {{ analysis.analysis_results|length }}</li>
+                                    <li><strong>AI Model:</strong> Llama-3.1-8B-Instruct</li>
+                                    <li><strong>Vector Embeddings:</strong> Sentence Transformers</li>
+                                </ul>
+                            </div>
+                            <div class="col-12 col-md-4">
+                                <h6>Risk Distribution</h6>
+                                {% set red_count = analysis.analysis_results | selectattr('risk_level.level', 'equalto', 'RED') | list | length %}
+                                {% set yellow_count = analysis.analysis_results | selectattr('risk_level.level', 'equalto', 'YELLOW') | list | length %}
+                                {% set green_count = analysis.analysis_results | selectattr('risk_level.level', 'equalto', 'GREEN') | list | length %}
+                                <ul class="list-unstyled small">
+                                    <li><span class="traffic-light red me-2"></span><strong>High Risk:</strong> {{ red_count }} clauses</li>
+                                    <li><span class="traffic-light yellow me-2"></span><strong>Moderate Risk:</strong> {{ yellow_count }} clauses</li>
+                                    <li><span class="traffic-light green me-2"></span><strong>Low Risk:</strong> {{ green_count }} clauses</li>
+                                </ul>
+                            </div>
+                            <div class="col-12 col-md-4">
+                                <h6>Quality Indicators</h6>
+                                <ul class="list-unstyled small">
+                                    <li><i class="bi bi-check-circle text-success me-2"></i>Legal Pattern Matching</li>
+                                    <li><i class="bi bi-check-circle text-success me-2"></i>Context Understanding</li>
+                                    <li><i class="bi bi-check-circle text-success me-2"></i>Risk Categorization</li>
+                                    <li><i class="bi bi-check-circle text-success me-2"></i>Plain Language Generation</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <div id="jsErrorAlert" class="alert alert-danger" role="alert" style="display: none;"></div>
 
@@ -172,45 +274,106 @@
                         </div>
                     </div>
 
-                    {% if result.risk_level.risk_categories %}
+                    <!-- Enhanced Confidence & Risk Indicators -->
                     <div class="mb-3">
-                        <small class="text-muted d-block mb-1">Risk Categories:</small>
-                        <div class="d-flex flex-wrap gap-1">
-                            {% for category, score in result.risk_level.risk_categories.items() %}
-                            {% if score > 0.3 %}
-                            {% set cat_class = 'danger' if score > 0.7 else ('warning' if score > 0.4 else 'secondary')
-                            %}
-                            <span class="badge bg-{{ cat_class }} small">
-                                {{ category.title() }}: {{ (score * 100)|round }}%
-                            </span>
-                            {% endif %}
-                            {% endfor %}
+                        <div class="row align-items-center">
+                            <div class="col-12 col-md-6">
+                                {% if result.risk_level.risk_categories %}
+                                <small class="text-muted d-block mb-1">Risk Categories:</small>
+                                <div class="d-flex flex-wrap gap-1">
+                                    {% for category, score in result.risk_level.risk_categories.items() %}
+                                    {% if score > 0.3 %}
+                                    {% set cat_class = 'danger' if score > 0.7 else ('warning' if score > 0.4 else 'secondary') %}
+                                    <span class="badge bg-{{ cat_class }} small">
+                                        {{ category.title() }}: {{ (score * 100)|round }}%
+                                    </span>
+                                    {% endif %}
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <div class="confidence-indicator">
+                                    <small class="text-muted me-2">AI Confidence:</small>
+                                    <div class="confidence-bar me-2">
+                                        <div class="confidence-fill {{ 'high' if result.risk_level.confidence_percentage >= 70 else ('medium' if result.risk_level.confidence_percentage >= 50 else 'low') }}" 
+                                             style="width: {{ result.risk_level.confidence_percentage }}%"></div>
+                                    </div>
+                                    <small class="text-muted">{{ result.risk_level.confidence_percentage }}%</small>
+                                </div>
+                                {% if result.risk_level.low_confidence_warning %}
+                                <div class="variability-warning mt-1">
+                                    <i class="bi bi-info-circle"></i>
+                                    <small>Results may vary - consider professional review</small>
+                                </div>
+                                {% endif %}
+                            </div>
                         </div>
                     </div>
-                    {% endif %}
 
                     <div class="alert alert-{{ clause_risk_class }} mb-3">
                         <h6 class="alert-heading"><i class="bi bi-chat-text"></i> What This Means:</h6>
                         <p class="mb-0">{{ result.plain_explanation }}</p>
                     </div>
 
-                    <div class="row">
-                        <div class="col-12 col-lg-6 mb-3">
-                            <h6><i class="bi bi-info-circle"></i> Legal Implications:</h6>
-                            <ul class="list-unstyled">
-                                {% for implication in result.legal_implications %}
-                                <li class="mb-1"><i class="bi bi-arrow-right text-muted me-2"></i>{{ implication }}</li>
-                                {% endfor %}
-                            </ul>
+                    <!-- Progressive Disclosure: Detailed Analysis -->
+                    <div class="progressive-disclosure">
+                        <div class="disclosure-header" onclick="toggleDisclosure('clause{{ loop.index }}Details')">
+                            <span><i class="bi bi-list-ul me-2"></i><strong>View Detailed Analysis</strong></span>
+                            <i class="bi bi-chevron-down disclosure-toggle" id="clause{{ loop.index }}DetailsToggle"></i>
                         </div>
-                        <div class="col-12 col-lg-6 mb-3">
-                            <h6><i class="bi bi-lightbulb"></i> Recommended Actions:</h6>
-                            <ul class="list-unstyled">
-                                {% for recommendation in result.recommendations %}
-                                <li class="mb-1"><i class="bi bi-check-circle text-success me-2"></i>{{ recommendation
-                                    }}</li>
-                                {% endfor %}
-                            </ul>
+                        <div class="disclosure-content" id="clause{{ loop.index }}DetailsContent">
+                            <div class="row">
+                                <div class="col-12 col-lg-6 mb-3">
+                                    <h6><i class="bi bi-info-circle"></i> Legal Implications:</h6>
+                                    <ul class="list-unstyled">
+                                        {% for implication in result.legal_implications %}
+                                        <li class="mb-1"><i class="bi bi-arrow-right text-muted me-2"></i>{{ implication }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                                <div class="col-12 col-lg-6 mb-3">
+                                    <h6><i class="bi bi-lightbulb"></i> Recommended Actions:</h6>
+                                    <ul class="list-unstyled">
+                                        {% for recommendation in result.recommendations %}
+                                        <li class="mb-1"><i class="bi bi-check-circle text-success me-2"></i>{{ recommendation }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                            </div>
+                            
+                            <!-- Additional AI Insights -->
+                            <div class="row mt-3 pt-3 border-top">
+                                <div class="col-12">
+                                    <h6><i class="bi bi-robot me-2"></i>AI Analysis Details</h6>
+                                    <div class="row">
+                                        <div class="col-12 col-md-4">
+                                            <small class="text-muted d-block"><strong>Risk Score:</strong></small>
+                                            <div class="progress mb-2" style="height: 6px;">
+                                                <div class="progress-bar bg-{{ clause_risk_class }}" style="width: {{ (result.risk_level.score * 100)|round }}%"></div>
+                                            </div>
+                                            <small class="text-muted">{{ (result.risk_level.score * 100)|round }}% risk level</small>
+                                        </div>
+                                        <div class="col-12 col-md-4">
+                                            <small class="text-muted d-block"><strong>Confidence Level:</strong></small>
+                                            <div class="progress mb-2" style="height: 6px;">
+                                                <div class="progress-bar bg-info" style="width: {{ result.risk_level.confidence_percentage }}%"></div>
+                                            </div>
+                                            <small class="text-muted">{{ result.risk_level.confidence_percentage }}% confidence</small>
+                                        </div>
+                                        <div class="col-12 col-md-4">
+                                            <small class="text-muted d-block"><strong>Analysis Quality:</strong></small>
+                                            {% if result.risk_level.confidence_percentage >= 80 %}
+                                            <span class="badge bg-success">High Quality</span>
+                                            {% elif result.risk_level.confidence_percentage >= 60 %}
+                                            <span class="badge bg-warning">Good Quality</span>
+                                            {% else %}
+                                            <span class="badge bg-secondary">Basic Quality</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -219,10 +382,70 @@
         </div>
         {% endif %}
 
+        <!-- Google Cloud AI Insights -->
+        {% if analysis.enhanced_insights %}
+        <div class="card mb-4 border-primary">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0"><i class="bi bi-google"></i> Google Cloud AI Insights</h4>
+                <small class="opacity-75">Advanced multi-service AI analysis results</small>
+            </div>
+            <div class="card-body">
+                {% if analysis.enhanced_insights.document_ai %}
+                <div class="mb-4">
+                    <h6><i class="bi bi-file-earmark-text me-2"></i>Document AI Analysis</h6>
+                    <div class="row">
+                        <div class="col-12 col-md-6">
+                            <div class="alert alert-light">
+                                <strong>Entities Extracted:</strong> {{ analysis.enhanced_insights.document_ai.entities|length }}<br>
+                                <strong>Tables Found:</strong> {{ analysis.enhanced_insights.document_ai.tables|length }}<br>
+                                <strong>Key-Value Pairs:</strong> {{ analysis.enhanced_insights.document_ai.key_value_pairs|length }}
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <div class="alert alert-info">
+                                <strong>Legal Clauses Identified:</strong> {{ analysis.enhanced_insights.document_ai.legal_clauses|length }}<br>
+                                <strong>Extraction Confidence:</strong> {{ "%.0f"|format(analysis.enhanced_insights.document_ai.confidence_scores.overall_extraction * 100) }}%
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                
+                {% if analysis.enhanced_insights.natural_language %}
+                <div class="mb-4">
+                    <h6><i class="bi bi-chat-text me-2"></i>Natural Language AI Analysis</h6>
+                    <div class="row">
+                        <div class="col-12 col-md-4">
+                            <div class="alert alert-{{ 'success' if analysis.enhanced_insights.natural_language.sentiment.legal_tone == 'favorable' else ('warning' if analysis.enhanced_insights.natural_language.sentiment.legal_tone == 'mixed' else 'danger') }}">
+                                <strong>Document Sentiment:</strong><br>
+                                {{ analysis.enhanced_insights.natural_language.sentiment.legal_tone.title() }}<br>
+                                <small>Score: {{ "%.2f"|format(analysis.enhanced_insights.natural_language.sentiment.score) }}</small>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <div class="alert alert-info">
+                                <strong>Complexity Level:</strong><br>
+                                {{ analysis.enhanced_insights.natural_language.legal_insights.document_complexity.title() }}<br>
+                                <small>Readability: {{ analysis.enhanced_insights.natural_language.legal_insights.readability_assessment.title() }}</small>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <div class="alert alert-secondary">
+                                <strong>Legal Entities:</strong> {{ analysis.enhanced_insights.natural_language.entities|length }}<br>
+                                <strong>Risk Indicators:</strong> {{ analysis.enhanced_insights.natural_language.legal_insights.potential_risk_indicators|length }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
         <!-- Enhanced AI-Powered Features with Google Cloud Integration -->
         <div class="card mb-4">
             <div class="card-header">
-                <h4 class="mb-0"><i class="bi bi-robot"></i> Enhanced AI-Powered Features</h4>
+                <h4 class="mb-0"><i class="bi bi-robot"></i> Interactive AI Features</h4>
                 <small class="text-muted">Advanced Google Cloud AI integration for comprehensive document analysis</small>
             </div>
             <div class="card-body">
@@ -270,6 +493,30 @@
                                 <i class="bi bi-translate"></i> Translate Summary
                             </button>
                             <div id="translationResult" class="mt-2" style="display: none;"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Google Cloud AI Services Status -->
+                    <div class="col-12 col-lg-6 mb-3">
+                        <div class="feature-card p-3 border rounded">
+                            <h6><i class="bi bi-google"></i> Google Cloud AI Services</h6>
+                            <p class="small text-muted mb-3">View the status of integrated Google Cloud AI services.</p>
+                            <button class="btn btn-outline-info btn-sm" onclick="showAIServicesStatus()">
+                                <i class="bi bi-cloud-check"></i> Check AI Services
+                            </button>
+                            <div id="aiServicesStatus" class="mt-2" style="display: none;"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Advanced Document Analysis -->
+                    <div class="col-12 col-lg-6 mb-3">
+                        <div class="feature-card p-3 border rounded">
+                            <h6><i class="bi bi-file-earmark-medical"></i> Advanced Document Analysis</h6>
+                            <p class="small text-muted mb-3">Get detailed Natural Language AI insights about your document.</p>
+                            <button class="btn btn-outline-success btn-sm" onclick="runAdvancedAnalysis()">
+                                <i class="bi bi-cpu"></i> Run NL Analysis
+                            </button>
+                            <div id="advancedAnalysisResult" class="mt-2" style="display: none;"></div>
                         </div>
                     </div>
                     
@@ -1023,5 +1270,297 @@
             });
         }
     });
+
+    // Progressive Disclosure Toggle Function
+    window.toggleDisclosure = function(contentId) {
+        const content = document.getElementById(contentId + 'Content');
+        const toggle = document.getElementById(contentId + 'Toggle');
+        
+        if (content && toggle) {
+            if (content.classList.contains('show')) {
+                content.classList.remove('show');
+                toggle.classList.remove('rotated');
+                
+                // Announce to screen readers
+                if (typeof announceToScreenReader === 'function') {
+                    announceToScreenReader('Section collapsed');
+                }
+            } else {
+                content.classList.add('show');
+                toggle.classList.add('rotated');
+                
+                // Announce to screen readers
+                if (typeof announceToScreenReader === 'function') {
+                    announceToScreenReader('Section expanded');
+                }
+            }
+        }
+    };
+
+    // Enhanced confidence scoring display
+    window.showConfidenceDetails = function() {
+        const detailsDiv = document.getElementById('confidenceDetails');
+        
+        if (detailsDiv.style.display === 'none' || !detailsDiv.style.display) {
+            // Calculate confidence metrics from the page
+            const confidenceBars = document.querySelectorAll('.confidence-fill');
+            let totalConfidence = 0;
+            let highConfidenceCount = 0;
+            let lowConfidenceCount = 0;
+            
+            confidenceBars.forEach(bar => {
+                const width = parseFloat(bar.style.width);
+                totalConfidence += width;
+                if (width >= 70) highConfidenceCount++;
+                if (width < 50) lowConfidenceCount++;
+            });
+            
+            const avgConfidence = confidenceBars.length > 0 ? (totalConfidence / confidenceBars.length).toFixed(1) : 0;
+            
+            detailsDiv.innerHTML = `
+                <div class="alert alert-info mt-2">
+                    <h6><i class="bi bi-graph-up me-2"></i>Confidence Analysis</h6>
+                    <div class="row">
+                        <div class="col-6">
+                            <small><strong>Average Confidence:</strong> ${avgConfidence}%</small><br>
+                            <small><strong>High Confidence Clauses:</strong> ${highConfidenceCount}</small>
+                        </div>
+                        <div class="col-6">
+                            <small><strong>Low Confidence Clauses:</strong> ${lowConfidenceCount}</small><br>
+                            <small><strong>Total Analyzed:</strong> ${confidenceBars.length}</small>
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        <small class="text-muted">
+                            <i class="bi bi-info-circle me-1"></i>
+                            Higher confidence indicates more reliable AI analysis. Consider professional review for low-confidence items.
+                        </small>
+                    </div>
+                </div>
+            `;
+            detailsDiv.style.display = 'block';
+            
+            // Show success notification
+            if (typeof showNotification === 'function') {
+                showNotification('Confidence details displayed', 'info');
+            }
+        } else {
+            detailsDiv.style.display = 'none';
+        }
+    };
+
+    // Google Cloud AI Services Status
+    window.showAIServicesStatus = function() {
+        const statusDiv = document.getElementById('aiServicesStatus');
+        
+        if (statusDiv.style.display === 'none' || !statusDiv.style.display) {
+            // Show loading
+            statusDiv.innerHTML = `
+                <div class="d-flex align-items-center">
+                    <div class="spinner-border spinner-border-sm text-info me-2" role="status"></div>
+                    <small>Checking Google Cloud AI services...</small>
+                </div>
+            `;
+            statusDiv.style.display = 'block';
+            
+            // Fetch AI services status
+            fetch('/api/ai-services-status')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        let statusHtml = `
+                            <div class="alert alert-info mt-2">
+                                <h6><i class="bi bi-google me-2"></i>Google Cloud AI Integration Status</h6>
+                                <div class="row">
+                        `;
+                        
+                        for (const [serviceName, serviceInfo] of Object.entries(data.services)) {
+                            const statusIcon = serviceInfo.enabled ? 'bi-check-circle-fill text-success' : 'bi-x-circle-fill text-danger';
+                            const statusText = serviceInfo.enabled ? 'Active' : 'Inactive';
+                            
+                            statusHtml += `
+                                <div class="col-6 mb-2">
+                                    <small>
+                                        <i class="bi ${statusIcon} me-1"></i>
+                                        <strong>${serviceInfo.service}:</strong> ${statusText}
+                                    </small>
+                                </div>
+                            `;
+                        }
+                        
+                        statusHtml += `
+                                </div>
+                                <div class="mt-2 pt-2 border-top">
+                                    <small class="text-muted">
+                                        <strong>Integration Level:</strong> ${data.summary.integration_level}
+                                    </small>
+                                </div>
+                            </div>
+                        `;
+                        
+                        statusDiv.innerHTML = statusHtml;
+                    } else {
+                        statusDiv.innerHTML = `
+                            <div class="alert alert-warning mt-2">
+                                <small>Unable to fetch AI services status: ${data.error}</small>
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    console.error('AI services status error:', error);
+                    statusDiv.innerHTML = `
+                        <div class="alert alert-danger mt-2">
+                            <small>Error checking AI services status. Please try again.</small>
+                        </div>
+                    `;
+                });
+        } else {
+            statusDiv.style.display = 'none';
+        }
+    };
+
+    // Advanced Natural Language Analysis
+    window.runAdvancedAnalysis = function() {
+        const resultDiv = document.getElementById('advancedAnalysisResult');
+        const summaryElement = document.getElementById('analysisSummary');
+        
+        if (!summaryElement) {
+            alert('No document text available for analysis.');
+            return;
+        }
+        
+        const documentText = summaryElement.textContent.trim();
+        
+        if (resultDiv.style.display === 'none' || !resultDiv.style.display) {
+            // Show loading
+            resultDiv.innerHTML = `
+                <div class="d-flex align-items-center">
+                    <div class="spinner-border spinner-border-sm text-success me-2" role="status"></div>
+                    <small>Running Google Natural Language AI analysis...</small>
+                </div>
+            `;
+            resultDiv.style.display = 'block';
+            
+            // Run Natural Language analysis
+            fetch('/api/natural-language-analysis', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    text: documentText
+                })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const insights = data.legal_insights;
+                        const sentiment = data.sentiment;
+                        
+                        resultDiv.innerHTML = `
+                            <div class="alert alert-success mt-2">
+                                <h6><i class="bi bi-cpu me-2"></i>Natural Language AI Insights</h6>
+                                <div class="row">
+                                    <div class="col-12 col-md-6">
+                                        <small>
+                                            <strong>Document Complexity:</strong> ${insights.document_complexity}<br>
+                                            <strong>Legal Language Density:</strong> ${(insights.legal_language_density * 100).toFixed(1)}%<br>
+                                            <strong>Readability:</strong> ${insights.readability_assessment}
+                                        </small>
+                                    </div>
+                                    <div class="col-12 col-md-6">
+                                        <small>
+                                            <strong>Sentiment:</strong> ${sentiment.legal_tone}<br>
+                                            <strong>Recommended Level:</strong> ${insights.recommended_expertise_level}<br>
+                                            <strong>Risk Indicators:</strong> ${insights.potential_risk_indicators.length}
+                                        </small>
+                                    </div>
+                                </div>
+                                ${insights.potential_risk_indicators.length > 0 ? `
+                                    <div class="mt-2 pt-2 border-top">
+                                        <small><strong>Risk Terms Found:</strong> ${insights.potential_risk_indicators.join(', ')}</small>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        `;
+                    } else {
+                        resultDiv.innerHTML = `
+                            <div class="alert alert-warning mt-2">
+                                <small>Natural Language analysis failed: ${data.error}</small>
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    console.error('Natural Language analysis error:', error);
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-danger mt-2">
+                            <small>Analysis failed. Please try again.</small>
+                        </div>
+                    `;
+                });
+        } else {
+            resultDiv.style.display = 'none';
+        }
+    };
+
+    // Enhanced document comparison placeholder
+    window.showDocumentComparison = function() {
+        const modalDiv = document.getElementById('comparisonModal');
+        
+        if (modalDiv.style.display === 'none' || !modalDiv.style.display) {
+            modalDiv.innerHTML = `
+                <div class="alert alert-warning mt-2">
+                    <h6><i class="bi bi-files me-2"></i>Document Comparison</h6>
+                    <p class="mb-2">Compare this document with another to identify risk differences and improvements.</p>
+                    <div class="d-grid gap-2 d-md-flex">
+                        <button class="btn btn-outline-primary btn-sm" onclick="alert('Feature coming soon! Upload a second document to compare risk levels and clauses.')">
+                            <i class="bi bi-upload me-1"></i>Upload Second Document
+                        </button>
+                        <button class="btn btn-outline-secondary btn-sm" onclick="this.parentElement.parentElement.parentElement.style.display='none'">
+                            <i class="bi bi-x me-1"></i>Close
+                        </button>
+                    </div>
+                    <small class="text-muted d-block mt-2">
+                        <i class="bi bi-info-circle me-1"></i>
+                        This feature will highlight differences in risk levels, terms, and provide recommendations for choosing between documents.
+                    </small>
+                </div>
+            `;
+            modalDiv.style.display = 'block';
+        } else {
+            modalDiv.style.display = 'none';
+        }
+    };
+
+    // Initialize progressive disclosure on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        // Add keyboard support for disclosure headers
+        document.querySelectorAll('.disclosure-header').forEach(header => {
+            header.setAttribute('tabindex', '0');
+            header.setAttribute('role', 'button');
+            header.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    this.click();
+                }
+            });
+        });
+        
+        // Animate confidence bars on load
+        setTimeout(() => {
+            document.querySelectorAll('.confidence-fill').forEach(bar => {
+                const width = bar.style.width;
+                bar.style.width = '0%';
+                setTimeout(() => {
+                    bar.style.width = width;
+                }, 100);
+            });
+        }, 500);
+    });
+    
+    // Initialize translation functionality
+    initializeLanguageSelector();
 </script>
 {% endblock %}

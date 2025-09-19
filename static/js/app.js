@@ -1,5 +1,78 @@
 /* LegalSaathi Document Advisor - Enhanced JavaScript Functionality */
 
+// Translation functionality
+let currentLanguage = 'en';
+const supportedLanguages = {
+    'en': 'English',
+    'hi': 'Hindi (हिंदी)',
+    'es': 'Spanish (Español)',
+    'fr': 'French (Français)',
+    'de': 'German (Deutsch)',
+    'pt': 'Portuguese (Português)',
+    'ar': 'Arabic (العربية)',
+    'zh': 'Chinese (中文)',
+    'ja': 'Japanese (日本語)',
+    'ko': 'Korean (한국어)'
+};
+
+async function translateResults(targetLanguage) {
+    if (targetLanguage === currentLanguage) return;
+    
+    try {
+        showNotification('Translating results...', 'info');
+        
+        // Get all translatable elements
+        const elementsToTranslate = document.querySelectorAll('[data-translatable]');
+        
+        for (const element of elementsToTranslate) {
+            const originalText = element.textContent;
+            if (originalText.trim()) {
+                const response = await fetch('/api/translate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        text: originalText,
+                        target_language: targetLanguage,
+                        source_language: currentLanguage
+                    })
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    element.textContent = result.translated_text;
+                }
+            }
+        }
+        
+        currentLanguage = targetLanguage;
+        showNotification(`Results translated to ${supportedLanguages[targetLanguage]}`, 'success');
+        
+    } catch (error) {
+        console.error('Translation error:', error);
+        showNotification('Translation failed. Please try again.', 'error');
+    }
+}
+
+function initializeLanguageSelector() {
+    const languageSelector = document.getElementById('languageSelector');
+    if (!languageSelector) return;
+    
+    // Populate language options
+    Object.entries(supportedLanguages).forEach(([code, name]) => {
+        const option = document.createElement('option');
+        option.value = code;
+        option.textContent = name;
+        languageSelector.appendChild(option);
+    });
+    
+    // Add change event listener
+    languageSelector.addEventListener('change', (e) => {
+        translateResults(e.target.value);
+    });
+}
+
 // Enhanced loading overlay functionality with better progress simulation
 function showLoading() {
     const overlay = document.getElementById('loadingOverlay');

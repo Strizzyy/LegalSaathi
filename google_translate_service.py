@@ -1,12 +1,17 @@
 """
-Google Translate Service for Multilingual Support
-Uses Google Translate free tier for document translation
+Google Cloud Translate Service for Multilingual Support
+Uses Google Cloud Translate API for document translation
 """
 
+import os
 import requests
 import json
 from typing import Dict, Any, Optional
 from dataclasses import dataclass
+from google.cloud import translate_v2 as translate
+import logging
+
+logger = logging.getLogger(__name__)
 
 @dataclass
 class TranslationResult:
@@ -19,11 +24,26 @@ class TranslationResult:
 
 class GoogleTranslateService:
     """
-    Google Translate service using free tier API
+    Google Cloud Translate service with proper authentication
     Supports English, Hindi, and regional languages
     """
     
     def __init__(self):
+        # Set up authentication
+        credentials_path = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
+        if credentials_path and os.path.exists(credentials_path):
+            os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = credentials_path
+        
+        try:
+            self.client = translate.Client()
+            self.enabled = True
+            self.cloud_enabled = True
+            logger.info("Google Cloud Translate service initialized successfully")
+        except Exception as e:
+            logger.warning(f"Google Cloud Translate not available, using fallback: {e}")
+            self.enabled = True  # Still enabled via fallback
+            self.cloud_enabled = False
+            self.client = None
         # Language codes and names mapping
         self.supported_languages = {
             'en': 'English',
@@ -100,12 +120,12 @@ class GoogleTranslateService:
             'xh': 'Xhosa'
         }
         
-        # Free Google Translate API endpoint (using public API)
-        self.base_url = "https://translate.googleapis.com/translate_a/single"
+        # Google Cloud Translate API endpoint
+        self.base_url = "https://translation.googleapis.com/language/translate/v2"
         
     def translate_text(self, text: str, target_language: str = 'hi', source_language: str = 'auto') -> Dict[str, Any]:
         """
-        Translate text using Google Translate free tier
+        Translate text using Google Cloud Translate API
         
         Args:
             text: Text to translate
@@ -115,6 +135,9 @@ class GoogleTranslateService:
         Returns:
             Dictionary with translation result
         """
+        if not self.cloud_enabled:
+            return self._fallback_translation(text, target_language, source_language)
+        
         try:
             if not text or not text.strip():
                 return {
@@ -128,18 +151,50 @@ class GoogleTranslateService:
                     'error': f'Unsupported target language: {target_language}'
                 }
             
-            # Prepare parameters for Google Translate API
+            # Use Google Cloud Translate API
+            if source_language == 'auto':
+                # Auto-detect source language
+                result = self.client.translate(
+                    text[:5000],  # Limit text length
+                    target_language=target_language
+                )
+                detected_language = result.get('detectedSourceLanguage', 'unknown')
+            else:
+                # Specify source language
+                result = self.client.translate(
+                    text[:5000],
+                    target_language=target_language,
+                    source_language=source_language
+                )
+                detected_language = source_language
+            
+            return {
+                'success': True,
+                'translated_text': result['translatedText'],
+                'source_language': detected_language,
+                'target_language': target_language,
+                'language_name': self.supported_languages.get(target_language, target_language)
+            }
+            
+        except Exception as e:
+            logger.error(f"Google Cloud Translate error: {e}")
+            return self._fallback_translation(text, target_language, source_language)
+    
+    def _fallback_translation(self, text: str, target_language: str, source_language: str) -> Dict[str, Any]:
+        """Fallback translation using free API when Google Cloud is unavailable"""
+        try:
+            # Prepare parameters for free Google Translate API
             params = {
                 'client': 'gtx',
                 'sl': source_language,
                 'tl': target_language,
                 'dt': 't',
-                'q': text[:5000]  # Limit text length for free tier
+                'q': text[:5000]  # Limit text length
             }
             
-            # Make request to Google Translate
+            # Make request to free Google Translate
             response = requests.get(
-                self.base_url,
+                "https://translate.googleapis.com/translate_a/single",
                 params=params,
                 timeout=10,
                 headers={
@@ -168,7 +223,8 @@ class GoogleTranslateService:
                         'translated_text': translated_text,
                         'source_language': detected_language,
                         'target_language': target_language,
-                        'language_name': self.supported_languages.get(target_language, target_language)
+                        'language_name': self.supported_languages.get(target_language, target_language),
+                        'fallback': True
                     }
             
             return {
@@ -176,16 +232,6 @@ class GoogleTranslateService:
                 'error': f'Translation service returned status {response.status_code}'
             }
             
-        except requests.exceptions.Timeout:
-            return {
-                'success': False,
-                'error': 'Translation service timed out. Please try again.'
-            }
-        except requests.exceptions.ConnectionError:
-            return {
-                'success': False,
-                'error': 'Unable to connect to translation service. Please check your internet connection.'
-            }
         except Exception as e:
             return {
                 'success': False,

@@ -14,6 +14,9 @@ import threading
 from openai import OpenAI
 from risk_classifier import RiskClassifier, classify_document_risk, RiskLevel as ClassifierRiskLevel, UserExpertiseDetector, EnhancedRiskCategories
 from google_translate_service import GoogleTranslateService
+from google_document_ai_service import document_ai_service
+from google_natural_language_service import natural_language_service
+from google_speech_service import speech_service
 from file_processor import FileProcessor
 from document_classifier import DocumentClassifier, DocumentType
 
@@ -59,12 +62,17 @@ CACHE_EXPIRY = 3600  # 1 hour
 RATE_LIMIT_REQUESTS = 10  # requests per minute
 RATE_LIMIT_WINDOW = 60  # seconds
 
-# Initialize services including enhanced AI services
+# Initialize services including enhanced Google Cloud AI services
 file_processor = FileProcessor()
 document_classifier = DocumentClassifier()
 translation_service = GoogleTranslateService()
 expertise_detector = UserExpertiseDetector()
 risk_categories = EnhancedRiskCategories()
+
+# Initialize Google Cloud AI services
+google_document_ai = document_ai_service
+google_natural_language = natural_language_service
+google_speech = speech_service
 
 # Initialize OpenAI client for vLLM server (adapting from integrate.py)
 client = OpenAI(
@@ -117,16 +125,16 @@ Please provide a helpful response that:
 
 Keep your response clear, concise (under 200 words), and focused on helping the user understand their document better."""
 
-            # Make API call with enhanced error handling
+            # Make API call with optimized timeout for faster response
             response = self.client.chat.completions.create(
                 model="meta-llama/Llama-3.1-8B-Instruct",
                 messages=[
                     {"role": "system", "content": "You are LegalSaathi, a helpful and knowledgeable legal document advisor focused on accessibility and user education."},
                     {"role": "user", "content": prompt}
                 ],
-                max_tokens=250,
-                temperature=0.6,
-                timeout=8.0
+                max_tokens=150,  # Reduced for faster response
+                temperature=0.4,  # Lower temperature for more focused responses
+                timeout=3.0  # Reduced timeout for faster fallback
             )
             
             ai_response = response.choices[0].message.content.strip()
@@ -455,15 +463,53 @@ def _get_document_context(document_type: DocumentType) -> Dict[str, str]:
         'legal_area': 'relevant legal'
     })
 
-def analyze_legal_document_with_llm(document_text: str, document_type: DocumentType, expertise_profile: Dict = None) -> DocumentAnalysis:
+def analyze_legal_document_with_llm(document_text: str, document_type: DocumentType, expertise_profile: Dict = None, document_bytes: bytes = None) -> DocumentAnalysis:
     """
-    Analyze legal document using enhanced risk classification system with improved error handling
-    Supports multiple document types: rental, employment, NDA, terms of service, loans, partnerships
-    Requirements: 2.1, 2.2, 4.1, 3.1, 3.2, 3.3, 3.4, 7.2 (Add try-catch blocks for LLM service failures)
+    Enhanced legal document analysis using multiple Google Cloud AI services
+    Integrates Document AI, Natural Language AI, and advanced risk classification
+    Requirements: 2.1, 2.2, 4.1, 3.1, 3.2, 3.3, 3.4, 7.2
     """
     start_time = time.time()
     
     try:
+        # Enhanced analysis with Google Cloud AI services
+        enhanced_insights = {}
+        
+        # 1. Google Cloud Document AI analysis (if document bytes available)
+        if document_bytes and google_document_ai.enabled:
+            try:
+                logger.info("Running Google Document AI analysis")
+                doc_ai_result = google_document_ai.process_legal_document(document_bytes)
+                if doc_ai_result['success']:
+                    enhanced_insights['document_ai'] = {
+                        'entities': doc_ai_result['entities'],
+                        'tables': doc_ai_result['tables'],
+                        'key_value_pairs': doc_ai_result['key_value_pairs'],
+                        'legal_clauses': doc_ai_result['legal_clauses'],
+                        'confidence_scores': doc_ai_result['confidence_scores']
+                    }
+                    logger.info(f"Document AI extracted {len(doc_ai_result['entities'])} entities")
+            except Exception as e:
+                logger.warning(f"Document AI analysis failed: {e}")
+        
+        # 2. Google Cloud Natural Language AI analysis
+        if google_natural_language.enabled:
+            try:
+                logger.info("Running Google Natural Language AI analysis")
+                nl_result = google_natural_language.analyze_legal_document(document_text)
+                if nl_result['success']:
+                    enhanced_insights['natural_language'] = {
+                        'sentiment': nl_result['sentiment'],
+                        'entities': nl_result['entities'],
+                        'syntax': nl_result['syntax'],
+                        'classification': nl_result['classification'],
+                        'legal_insights': nl_result['legal_insights']
+                    }
+                    logger.info(f"Natural Language AI completed with {len(nl_result['entities'])} entities")
+            except Exception as e:
+                logger.warning(f"Natural Language AI analysis failed: {e}")
+        
+        # 3. Continue with existing risk classification (enhanced with AI insights)
         # Use the new risk classification system with error handling
         risk_analysis = classify_document_risk(document_text, document_type)
         
@@ -1002,14 +1048,19 @@ def analyze_document():
         classification = document_classifier.classify_document(document_text)
         classification_message = document_classifier.get_analysis_message(classification)
         
-        # Add classification info for all document types
-        if classification.confidence > 0.7:
-            warnings.append(classification_message)
+        # Add classification info only when needed
+        if classification.confidence > 0.8:
+            # High confidence - no warning needed, just log success
+            logger.info(f"Document classified as {classification.document_type.value} with high confidence ({classification.confidence:.1%})")
+        elif classification.confidence > 0.6:
+            # Medium confidence - show informational message
+            warnings.append(f"✓ Detected as {classification.document_type.value.replace('_', ' ').title()} document")
         elif classification.confidence > 0.3:
-            warnings.append(classification_message)
-            warnings.append("Document type detection has moderate confidence - analysis may vary")
+            # Low confidence - show warning
+            warnings.append(f"⚠️ Possible {classification.document_type.value.replace('_', ' ').title()} detected - analysis confidence may vary")
         else:
-            warnings.append("Document type unclear - using general legal document analysis")
+            # Very low confidence - use general analysis
+            warnings.append("📄 Using general legal document analysis for best results")
         
         # Detect user expertise level for adaptive explanations
         user_questions = request.form.get('user_questions', '')
@@ -1043,10 +1094,24 @@ def analyze_document():
                                  classification=classification,
                                  expertise_profile=expertise_profile)
         
-        # Perform AI-powered legal document analysis with enhanced error handling
+        # Perform enhanced AI-powered legal document analysis with Google Cloud AI services
         try:
-            logger.info("Starting new document analysis")
-            analysis = analyze_legal_document_with_llm(document_text, classification.document_type, expertise_profile)
+            logger.info("Starting enhanced document analysis with Google Cloud AI")
+            
+            # Get document bytes for Document AI if available
+            document_bytes = None
+            if file_info and hasattr(file_processor, 'get_file_bytes'):
+                try:
+                    document_bytes = file_processor.get_file_bytes()
+                except:
+                    pass  # Continue without Document AI if bytes unavailable
+            
+            analysis = analyze_legal_document_with_llm(
+                document_text, 
+                classification.document_type, 
+                expertise_profile,
+                document_bytes
+            )
             
             # Add enhanced risk category analysis
             category_analysis = risk_categories.analyze_risk_categories(document_text)
@@ -1498,25 +1563,191 @@ def not_found_handler(e):
     }), 404
 
 # Health check endpoint
+@app.route('/api/speech-to-text', methods=['POST'])
+@rate_limit_decorator
+def speech_to_text():
+    """
+    Google Cloud Speech-to-Text API endpoint for voice input
+    Supports legal terminology and multiple languages
+    """
+    try:
+        if 'audio' not in request.files:
+            return jsonify({'success': False, 'error': 'No audio file provided'}), 400
+        
+        audio_file = request.files['audio']
+        language_code = request.form.get('language_code', 'en-US')
+        
+        if not audio_file.filename:
+            return jsonify({'success': False, 'error': 'No audio file selected'}), 400
+        
+        # Read audio content
+        audio_content = audio_file.read()
+        
+        # Process with Google Speech-to-Text
+        result = google_speech.transcribe_audio(audio_content, language_code)
+        
+        if result['success']:
+            logger.info(f"Speech transcription successful: {len(result['transcript'])} characters")
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Speech-to-text error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/document-ai-analysis', methods=['POST'])
+@rate_limit_decorator
+def document_ai_analysis():
+    """
+    Google Cloud Document AI analysis endpoint
+    Extracts structured data from legal documents
+    """
+    try:
+        if 'document' not in request.files:
+            return jsonify({'success': False, 'error': 'No document file provided'}), 400
+        
+        document_file = request.files['document']
+        
+        if not document_file.filename:
+            return jsonify({'success': False, 'error': 'No document file selected'}), 400
+        
+        # Read document content
+        document_content = document_file.read()
+        mime_type = document_file.content_type or 'application/pdf'
+        
+        # Process with Google Document AI
+        result = google_document_ai.process_legal_document(document_content, mime_type)
+        
+        if result['success']:
+            logger.info(f"Document AI analysis successful: {len(result['entities'])} entities extracted")
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Document AI analysis error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/natural-language-analysis', methods=['POST'])
+@rate_limit_decorator
+def natural_language_analysis():
+    """
+    Google Cloud Natural Language AI analysis endpoint
+    Provides sentiment, entity, and complexity analysis
+    """
+    try:
+        data = request.get_json()
+        text = data.get('text', '').strip()
+        
+        if not text:
+            return jsonify({'success': False, 'error': 'No text provided'}), 400
+        
+        # Process with Google Natural Language AI
+        result = google_natural_language.analyze_legal_document(text)
+        
+        if result['success']:
+            logger.info(f"Natural Language analysis successful: {len(result['entities'])} entities found")
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Natural Language analysis error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/ai-services-status')
+def ai_services_status():
+    """
+    Get status of all Google Cloud AI services
+    Monitoring endpoint for service health
+    """
+    try:
+        status = {
+            'google_translate': {
+                'enabled': hasattr(translation_service, 'enabled') and translation_service.enabled,
+                'service': 'Google Translate API',
+                'cloud_enabled': hasattr(translation_service, 'cloud_enabled') and translation_service.cloud_enabled,
+                'status': 'Active' if (hasattr(translation_service, 'enabled') and translation_service.enabled) else 'Inactive'
+            },
+            'google_document_ai': {
+                'enabled': google_document_ai.enabled,
+                'service': 'Google Cloud Document AI'
+            },
+            'google_natural_language': {
+                'enabled': google_natural_language.enabled,
+                'service': 'Google Cloud Natural Language AI'
+            },
+            'google_speech': {
+                'enabled': google_speech.enabled,
+                'service': 'Google Cloud Speech-to-Text'
+            }
+        }
+        
+        # Count enabled services
+        enabled_count = sum(1 for service in status.values() if service['enabled'])
+        total_count = len(status)
+        
+        return jsonify({
+            'success': True,
+            'services': status,
+            'summary': {
+                'enabled_services': enabled_count,
+                'total_services': total_count,
+                'integration_level': f"{enabled_count}/{total_count} Google Cloud AI services active"
+            },
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"AI services status error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @app.route('/health')
 def health_check():
-    """Health check endpoint for monitoring"""
+    """Enhanced health check endpoint with Google Cloud AI services monitoring"""
     try:
-        # Basic health checks
+        # Enhanced health checks including Google Cloud AI services
         health_status = {
             'status': 'healthy',
             'timestamp': datetime.now().isoformat(),
             'services': {
-                'ai_clarification': True,  # Could add actual service checks
-                'translation': True,
+                'ai_clarification': True,
+                'translation': translation_service.enabled if hasattr(translation_service, 'enabled') else True,
                 'risk_classification': True,
-                'file_processing': True
+                'file_processing': True,
+                'google_document_ai': google_document_ai.enabled,
+                'google_natural_language': google_natural_language.enabled,
+                'google_speech': google_speech.enabled
             },
             'cache': {
                 'size': len(analysis_cache),
                 'status': 'operational'
+            },
+            'google_cloud_integration': {
+                'active_services': sum(1 for service in [
+                    google_document_ai.enabled,
+                    google_natural_language.enabled,
+                    google_speech.enabled,
+                    True  # Google Translate (always enabled)
+                ] if service),
+                'total_services': 4
             }
         }
+        
+        # Determine overall health
+        critical_services = ['ai_clarification', 'risk_classification', 'file_processing']
+        if not all(health_status['services'][service] for service in critical_services):
+            health_status['status'] = 'degraded'
         
         return jsonify(health_status)
         

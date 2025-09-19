@@ -375,6 +375,51 @@ wheels = [
 ]
 
 [[package]]
+name = "google-cloud-documentai"
+version = "3.6.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "google-api-core", extra = ["grpc"] },
+    { name = "google-auth" },
+    { name = "proto-plus" },
+    { name = "protobuf" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/27/74/99a8b80f973afce5c782f8dcbcf1a1020c749a38eb39bc88ffb3ca20d4af/google_cloud_documentai-3.6.0.tar.gz", hash = "sha256:c91c1fd3da4d5656a857cffea5906636f7a220ec4b6a4bec2b3e781dca8bc43c", size = 349266, upload-time = "2025-09-02T15:40:04.598Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/24/92/e3c4850d5d1dd83da7538f1ee91baac9d4bc849e96899bc23ddbe20f15f4/google_cloud_documentai-3.6.0-py3-none-any.whl", hash = "sha256:4c630002eec653313cde75892c92a5482c0d4629997279b3244d356261f9b5f5", size = 300333, upload-time = "2025-09-02T15:39:23.845Z" },
+]
+
+[[package]]
+name = "google-cloud-language"
+version = "2.17.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "google-api-core", extra = ["grpc"] },
+    { name = "google-auth" },
+    { name = "proto-plus" },
+    { name = "protobuf" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/01/60/6e744f281e8c667f4e3c81664235f80039d598286c5c71733c9dea834499/google_cloud_language-2.17.2.tar.gz", hash = "sha256:3a05e666f1f5ba1fe53375080ac55117c03b39f2a6e63f4175eb642a8986a304", size = 178387, upload-time = "2025-06-11T23:47:20.378Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/6b/ba/7700f9c2c373a2a1d633c239deb732fefb6bab2ec72d4da36ecfbd27e691/google_cloud_language-2.17.2-py3-none-any.whl", hash = "sha256:b5d643e94d3ca2b6a35627554e1d88a7dde2779a93658298dfeb2b19735e91b3", size = 168354, upload-time = "2025-06-11T23:47:19.061Z" },
+]
+
+[[package]]
+name = "google-cloud-speech"
+version = "2.33.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "google-api-core", extra = ["grpc"] },
+    { name = "google-auth" },
+    { name = "proto-plus" },
+    { name = "protobuf" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/9a/74/9c5a556f8af19cab461058aa15e1409e7afa453ca2383473a24a12801ef7/google_cloud_speech-2.33.0.tar.gz", hash = "sha256:fd08511b5124fdaa768d71a4054e84a5d8eb02531cb6f84f311c0387ea1314ed", size = 389072, upload-time = "2025-06-11T23:56:37.231Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/12/1d/880342b2541b4bad888ad8ab2ac77d4b5dad25b32a2a1c5f21140c14c8e3/google_cloud_speech-2.33.0-py3-none-any.whl", hash = "sha256:4ba16c8517c24a6abcde877289b0f40b719090504bf06b1adea248198ccd50a5", size = 335681, upload-time = "2025-06-11T23:56:36.026Z" },
+]
+
+[[package]]
 name = "google-cloud-translate"
 version = "3.21.1"
 source = { registry = "https://pypi.org/simple" }
@@ -723,6 +768,9 @@ version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "flask" },
+    { name = "google-cloud-documentai" },
+    { name = "google-cloud-language" },
+    { name = "google-cloud-speech" },
     { name = "google-cloud-translate" },
     { name = "google-generativeai" },
     { name = "groq" },
@@ -732,6 +780,7 @@ dependencies = [
     { name = "python-docx" },
     { name = "python-dotenv" },
     { name = "reportlab" },
+    { name = "requests" },
     { name = "werkzeug" },
 ]
 
@@ -747,6 +796,9 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "flask", specifier = ">=2.3.3" },
+    { name = "google-cloud-documentai", specifier = ">=2.20.0" },
+    { name = "google-cloud-language", specifier = ">=2.10.0" },
+    { name = "google-cloud-speech", specifier = ">=2.21.0" },
     { name = "google-cloud-translate", specifier = ">=3.12.0" },
     { name = "google-generativeai", specifier = ">=0.3.0" },
     { name = "groq", specifier = ">=0.4.1" },
@@ -756,6 +808,7 @@ requires-dist = [
     { name = "python-docx", specifier = ">=1.1.0" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
     { name = "reportlab", specifier = ">=4.0.0" },
+    { name = "requests", specifier = ">=2.31.0" },
     { name = "werkzeug", specifier = ">=2.3.7" },
 ]
 
