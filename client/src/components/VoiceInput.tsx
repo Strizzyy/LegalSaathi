@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
 import { Mic, MicOff } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { cn } from '../utils';
 import { notificationService } from '../services/notificationService';
 
 interface VoiceInputProps {

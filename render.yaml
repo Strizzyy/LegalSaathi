@@ -5,8 +5,9 @@ services:
     plan: free
     buildCommand: |
       # Build frontend
-      cd client && npm ci && npm run build && cd ..
+      cd client && npm ci && npm run build && cd .. || exit 1
       # Install Python dependencies
+      python -m pip install --upgrade pip
       pip install -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT --workers 2
     envVars:

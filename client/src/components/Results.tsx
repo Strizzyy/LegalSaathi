@@ -19,7 +19,7 @@ import {
   Users,
   Loader2
 } from 'lucide-react';
-import { cn, formatFileSize, formatPercentage, getRiskColor, getRiskBadgeColor, getConfidenceColor } from '../lib/utils';
+import { cn, formatFileSize, formatPercentage, getRiskColor, getRiskBadgeColor, getConfidenceColor } from '../utils';
 
 import { exportService } from '../services/exportService';
 import { notificationService } from '../services/notificationService';

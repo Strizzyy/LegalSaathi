@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Play, Pause, Volume2, VolumeX, RotateCcw, Download } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { cn } from '../utils';
 import { notificationService } from '../services/notificationService';
 
 interface AudioPlayerProps {
