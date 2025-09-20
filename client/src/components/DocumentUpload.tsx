@@ -1,10 +1,8 @@
-import React, { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Upload, 
   FileText, 
-  Mic, 
-  MicOff, 
   X, 
   CheckCircle, 
   AlertCircle,
@@ -16,10 +14,13 @@ import {
 import { cn, formatFileSize } from '../lib/utils';
 import { notificationService } from '../services/notificationService';
 import { validationService } from '../services/validationService';
+import { VoiceInput } from './VoiceInput';
 
 interface DocumentUploadProps {
   onSubmit: (formData: FormData) => void;
 }
+
+import React from 'react';
 
 export const DocumentUpload = React.memo(function DocumentUpload({ onSubmit }: DocumentUploadProps) {
   const [documentText, setDocumentText] = useState('');
@@ -27,7 +28,7 @@ export const DocumentUpload = React.memo(function DocumentUpload({ onSubmit }: D
   const [expertiseLevel, setExpertiseLevel] = useState('beginner');
   const [userQuestions, setUserQuestions] = useState('');
   const [isDragOver, setIsDragOver] = useState(false);
-  const [isListening, setIsListening] = useState(false);
+
   const [charCount, setCharCount] = useState(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
   
@@ -157,63 +158,7 @@ CONFIDENTIALITY TERMS:
     clearFile();
   };
 
-  const startVoiceInput = async () => {
-    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      setErrors({ voice: 'Speech recognition not supported in this browser' });
-      return;
-    }
 
-    try {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      const recognition = new SpeechRecognition();
-      
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = 'en-US';
-
-      recognition.onstart = () => {
-        setIsListening(true);
-        setErrors({ ...errors, voice: '' });
-      };
-
-      recognition.onresult = (event) => {
-        let finalTranscript = '';
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          if (event.results[i].isFinal) {
-            finalTranscript += event.results[i][0].transcript;
-          }
-        }
-        
-        if (finalTranscript) {
-          const newText = documentText + ' ' + finalTranscript;
-          setDocumentText(newText);
-          setCharCount(newText.length);
-        }
-      };
-
-      recognition.onerror = (event) => {
-        const errorMessage = `Speech recognition error: ${event.error}`;
-        setErrors({ voice: errorMessage });
-        setIsListening(false);
-        notificationService.error(errorMessage);
-      };
-
-      recognition.onend = () => {
-        setIsListening(false);
-      };
-
-      recognition.start();
-    } catch (error) {
-      const errorMessage = 'Failed to start voice recognition';
-      setErrors({ voice: errorMessage });
-      notificationService.error(errorMessage);
-    }
-  };
-
-  const stopVoiceInput = () => {
-    setIsListening(false);
-    // The recognition will stop automatically
-  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -370,28 +315,15 @@ CONFIDENTIALITY TERMS:
                   Or Paste Document Text
                 </label>
                 <div className="flex items-center space-x-3">
-                  <button
-                    type="button"
-                    onClick={isListening ? stopVoiceInput : startVoiceInput}
-                    className={cn(
-                      "inline-flex items-center px-4 py-2 rounded-lg transition-all",
-                      isListening 
-                        ? "bg-red-500 hover:bg-red-600 text-white" 
-                        : "bg-slate-700 hover:bg-slate-600 text-slate-300"
-                    )}
-                  >
-                    {isListening ? (
-                      <>
-                        <MicOff className="w-4 h-4 mr-2" />
-                        Stop Recording
-                      </>
-                    ) : (
-                      <>
-                        <Mic className="w-4 h-4 mr-2" />
-                        Voice Input
-                      </>
-                    )}
-                  </button>
+                  <VoiceInput
+                    onTranscript={(transcript) => {
+                      const newText = documentText + ' ' + transcript;
+                      setDocumentText(newText);
+                      setCharCount(newText.length);
+                    }}
+                    onError={(error) => setErrors({ ...errors, voice: error })}
+                    language="en-US"
+                  />
                   <span className="text-sm text-slate-400">Alternative to file upload</span>
                 </div>
               </div>
@@ -406,12 +338,7 @@ CONFIDENTIALITY TERMS:
                   maxLength={50000}
                 />
                 
-                {isListening && (
-                  <div className="absolute top-4 right-4 flex items-center space-x-2 bg-red-500/20 border border-red-500/50 rounded-lg px-3 py-2">
-                    <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                    <span className="text-red-400 text-sm">Recording...</span>
-                  </div>
-                )}
+
               </div>
               
               <div className="flex justify-between items-center text-sm">

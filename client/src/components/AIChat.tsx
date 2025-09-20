@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Send, 
@@ -96,7 +96,7 @@ export function AIChat({ isOpen, onClose, documentContext, clauseContext }: AICh
 
   const handleContactHuman = async () => {
     try {
-      supportService.createSupportRequest(
+      await supportService.createSupportRequest(
         documentContext,
         clauseContext,
         inputValue || "I need help understanding this document",
@@ -104,15 +104,26 @@ export function AIChat({ isOpen, onClose, documentContext, clauseContext }: AICh
         'medium'
       );
       
-      const tickets = supportService.getUserTickets();
-      const newTicket = tickets[0]; // Most recent ticket
+      const tickets = await supportService.getUserTickets();
+      const newTicket = tickets.length > 0 ? tickets[0] : null; // Most recent ticket
       
       setSupportTicket(newTicket);
       setShowHumanSupport(false);
       
-      // Simulate expert response for demo
+      // Poll for ticket updates instead of simulation
       if (newTicket) {
-        supportService.simulateExpertResponse(newTicket.id);
+        // Poll every 30 seconds for updates
+        const pollInterval = setInterval(async () => {
+          await supportService.pollTicketUpdates(newTicket.id);
+          const updatedTicket = await supportService.getTicketStatus(newTicket.id);
+          if (updatedTicket && updatedTicket.status === 'resolved') {
+            setSupportTicket(updatedTicket);
+            clearInterval(pollInterval);
+          }
+        }, 30000);
+        
+        // Clear interval after 10 minutes
+        setTimeout(() => clearInterval(pollInterval), 600000);
       }
     } catch (error) {
       console.error('Support request error:', error);
@@ -336,7 +347,14 @@ export function AIChat({ isOpen, onClose, documentContext, clauseContext }: AICh
         {/* Input Area */}
         <div className="flex items-end space-x-3">
           <div className="flex-1">
+            <label htmlFor="ai-chat-input" className="sr-only">
+              {clauseContext 
+                ? `Ask about Clause ${clauseContext.clauseId}` 
+                : "Ask about clauses, risks, or legal implications"
+              }
+            </label>
             <textarea
+              id="ai-chat-input"
               ref={inputRef}
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
@@ -348,6 +366,10 @@ export function AIChat({ isOpen, onClose, documentContext, clauseContext }: AICh
               className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-xl text-white placeholder-slate-400 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 focus:outline-none resize-none"
               rows={2}
               disabled={isLoading}
+              aria-label={clauseContext 
+                ? `Ask about Clause ${clauseContext.clauseId}` 
+                : "Ask about clauses, risks, or legal implications"
+              }
             />
           </div>
           <button

@@ -10,22 +10,26 @@ services:
       cd client && npm ci && npm run build && cd ..
       # Install Python dependencies
       pip install -r requirements.txt
-    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 120 app:app
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT --workers 2
     envVars:
-      - key: FLASK_ENV
+      - key: ENVIRONMENT
         value: production
-      - key: FLASK_DEBUG
-        value: false
       - key: GROQ_API_KEY
-        sync: false
-      - key: GEMINI_API_KEY
-        sync: false
-      - key: GOOGLE_TRANSLATE_API_KEY
-        sync: false
+        sync: false            
       - key: GOOGLE_CLOUD_PROJECT_ID
         sync: false
       - key: GOOGLE_CLOUD_LOCATION
         sync: false
       - key: DOCUMENT_AI_PROCESSOR_ID
+        sync: false
+      - key: GOOGLE_APPLICATION_CREDENTIALS
+        value: ./google-cloud-credentials.json
+      - key: NEO4J_URI
+        sync: false
+      - key: NEO4J_USERNAME
+        sync: false
+      - key: NEO4J_PASSWORD
+        sync: false
+      - key: NEO4J_DATABASE
         sync: false
     healthCheckPath: /health

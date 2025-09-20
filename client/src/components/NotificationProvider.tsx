@@ -49,7 +49,7 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
       type, 
       message, 
       duration: persistent ? 0 : duration,
-      action: action || undefined
+      ...(action && { action })
     };
     
     setNotifications(prev => [...prev, notification]);

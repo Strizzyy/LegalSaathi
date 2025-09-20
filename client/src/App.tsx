@@ -21,6 +21,7 @@ export interface AnalysisResult {
   summary: string;
   analysis_results: Array<{
     clause_id: string;
+    clause_text: string; // Actual clause text from backend
     risk_level: {
       level: 'RED' | 'YELLOW' | 'GREEN';
       score: number;
@@ -64,13 +65,20 @@ function App() {
   const handleAnalysisSubmit = async (formData: FormData) => {
     setIsLoading(true);
     
+    // Clear previous results to prevent stale data
+    setAnalysisResult(null);
+    setFileInfo(null);
+    setClassification(null);
+    setWarnings([]);
+    
     try {
       const result = await apiService.analyzeDocument(formData);
       
       if (result.success && result.analysis) {
+        console.log('Setting new analysis result:', result.analysis);
         setAnalysisResult(result.analysis);
-        setFileInfo(result.file_info || null);
-        setClassification(result.classification || null);
+        setFileInfo(null); // File info no longer used
+        setClassification(null); // Classification no longer used
         setWarnings(result.warnings || []);
         
         setCurrentView('results');
@@ -130,6 +138,7 @@ function App() {
                 </div>
               }>
                 <Results
+                  key={analysisResult?.processing_time || Date.now()}
                   analysis={analysisResult}
                   fileInfo={fileInfo}
                   classification={classification}

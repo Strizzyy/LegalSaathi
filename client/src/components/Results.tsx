@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { 
   ArrowLeft, 
@@ -31,6 +31,7 @@ import { StatusModal } from './StatusModal';
 import { DocumentSummary } from './DocumentSummary';
 import { ClauseTranslationButton } from './ClauseTranslationButton';
 import { ClauseSummary } from './ClauseSummary';
+import { DocumentComparison } from './DocumentComparison';
 import type { AnalysisResult, FileInfo, Classification } from '../App';
 import type { ClauseContext, DocumentContext } from '../types/chat';
 
@@ -42,12 +43,27 @@ interface ResultsProps {
   onBackToHome: () => void;
 }
 
+import React from 'react';
+
 export const Results = React.memo(function Results({ analysis, fileInfo, classification, warnings, onBackToHome }: ResultsProps) {
   const [expandedClauses, setExpandedClauses] = useState<Set<number>>(new Set());
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
+  
+  // Debug: Log the analysis data to see what we're receiving
+  React.useEffect(() => {
+    if (analysis) {
+      console.log('Results component received analysis:', analysis);
+      console.log('Clause texts in Results:', analysis.analysis_results.map(r => ({
+        id: r.clause_id,
+        hasText: !!r.clause_text,
+        textPreview: r.clause_text?.substring(0, 50) + '...'
+      })));
+    }
+  }, [analysis]);
   const [currentLanguage, setCurrentLanguage] = useState('en');
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isHumanSupportOpen, setIsHumanSupportOpen] = useState(false);
+  const [isComparisonOpen, setIsComparisonOpen] = useState(false);
   const [isTranslationOpen, setIsTranslationOpen] = useState(false);
   const [isStatusOpen, setIsStatusOpen] = useState(false);
   const [translationText, setTranslationText] = useState('');
@@ -144,15 +160,30 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
     totalClauses: analysis.analysis_results.length
   };
 
-  // Helper to create clause context
-  const createClauseContext = (result: AnalysisResult['analysis_results'][0]): ClauseContext => ({
-    clauseId: result.clause_id,
-    text: result.plain_explanation,
-    riskLevel: result.risk_level.level,
-    explanation: result.plain_explanation,
-    implications: result.legal_implications,
-    recommendations: result.recommendations
-  });
+  // Helper to create clause context with complete clause data
+  const createClauseContext = (result: AnalysisResult['analysis_results'][0]): ClauseContext => {
+    const context: ClauseContext = {
+      clauseId: result.clause_id,
+      text: result.clause_text, // Use actual clause text from backend
+      riskLevel: result.risk_level.level,
+      explanation: result.plain_explanation,
+      implications: result.legal_implications,
+      recommendations: result.recommendations
+    };
+    
+    // Add optional properties only if they exist
+    if (result.risk_level.score !== undefined) {
+      context.riskScore = result.risk_level.score;
+    }
+    if (result.risk_level.confidence_percentage !== undefined) {
+      context.confidencePercentage = result.risk_level.confidence_percentage;
+    }
+    if (result.risk_level.risk_categories) {
+      context.riskCategories = result.risk_level.risk_categories;
+    }
+    
+    return context;
+  };
 
   const openStatus = () => {
     setIsStatusOpen(true);
@@ -269,10 +300,15 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
           
           <div className="flex items-center space-x-4 mt-4 sm:mt-0">
             <div className="relative">
+              <label htmlFor="language-select-header" className="sr-only">
+                Select display language
+              </label>
               <select
+                id="language-select-header"
                 value={currentLanguage}
                 onChange={(e) => setCurrentLanguage(e.target.value)}
                 className="px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:border-cyan-500 focus:outline-none appearance-none pr-8"
+                aria-label="Select display language"
               >
                 <option value="en">🇺🇸 English</option>
                 <option value="hi">🇮🇳 Hindi</option>
@@ -648,6 +684,40 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
                   )}
                 </div>
                 
+                {/* Actual Clause Text */}
+                {result.clause_text && (
+                  <div className="bg-slate-700/50 rounded-xl p-4 mb-4 border border-slate-600">
+                    <h4 className="font-semibold text-white mb-2 flex items-center">
+                      <FileText className="w-4 h-4 mr-2" />
+                      Original Clause Text:
+                      <span className="ml-2 px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded-full">
+                        Real Data ✓
+                      </span>
+                    </h4>
+                    <p className="text-slate-300 text-sm leading-relaxed font-mono bg-slate-800/50 p-3 rounded border border-slate-600">
+                      {result.clause_text}
+                    </p>
+                  </div>
+                )}
+                
+                {/* Debug: Show if clause_text is missing */}
+                {!result.clause_text && (
+                  <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 mb-4">
+                    <h4 className="font-semibold text-red-400 mb-2 flex items-center">
+                      <AlertTriangle className="w-4 h-4 mr-2" />
+                      Missing Clause Text - Debug Info:
+                    </h4>
+                    <pre className="text-red-300 text-xs bg-red-500/10 p-2 rounded">
+                      {JSON.stringify({
+                        clause_id: result.clause_id,
+                        has_clause_text: !!result.clause_text,
+                        clause_text_type: typeof result.clause_text,
+                        clause_text_length: result.clause_text?.length || 0
+                      }, null, 2)}
+                    </pre>
+                  </div>
+                )}
+
                 {/* Plain Explanation */}
                 <div className={cn(
                   "rounded-xl p-4 mb-4 border",
@@ -667,7 +737,7 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
                   <ClauseTranslationButton 
                     clauseData={{
                       id: result.clause_id,
-                      text: result.plain_explanation,
+                      text: result.clause_text,
                       index: index
                     }}
                   />
@@ -870,10 +940,15 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
                 Multi-language Support
               </h3>
               <p className="text-slate-400 text-sm mb-3">Translate the overall summary to your preferred language.</p>
+              <label htmlFor="language-select-summary" className="sr-only">
+                Select translation language for summary
+              </label>
               <select
+                id="language-select-summary"
                 value={currentLanguage}
                 onChange={(e) => setCurrentLanguage(e.target.value)}
                 className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm mb-2 focus:border-cyan-500 focus:outline-none"
+                aria-label="Select translation language for summary"
               >
                 <option value="en">English</option>
                 <option value="hi">Hindi (हिंदी)</option>
@@ -926,7 +1001,7 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
               </h3>
               <p className="text-slate-400 text-sm mb-3">Compare this document with another for risk differences.</p>
               <button
-                onClick={() => toggleSection('comparison')}
+                onClick={() => setIsComparisonOpen(true)}
                 className="inline-flex items-center px-3 py-2 bg-yellow-500/20 text-yellow-400 border border-yellow-500/50 rounded-lg hover:bg-yellow-500/30 transition-colors text-sm"
               >
                 <FileText className="w-4 h-4 mr-2" />
@@ -968,41 +1043,6 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
           </div>
 
           {/* Expandable Sections for Features */}
-          {expandedSections.has('comparison') && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="mt-6 p-6 bg-yellow-500/10 border border-yellow-500/30 rounded-lg"
-            >
-              <h3 className="text-lg font-semibold text-white mb-4">Document Comparison</h3>
-              <div className="space-y-4">
-                <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
-                  <h4 className="font-medium text-white mb-2">Upload Second Document</h4>
-                  <input
-                    type="file"
-                    accept=".pdf,.doc,.docx,.txt"
-                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-cyan-500 file:text-white hover:file:bg-cyan-600"
-                  />
-                </div>
-                <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
-                  <p className="text-slate-300 text-sm">
-                    Compare this document with another to identify differences in risk levels, clauses, and terms. 
-                    This feature helps you understand variations between similar documents.
-                  </p>
-                </div>
-                <button
-                  className="w-full px-4 py-2 bg-yellow-500/20 text-yellow-400 border border-yellow-500/50 rounded-lg hover:bg-yellow-500/30 transition-colors"
-                  onClick={() => {
-                    notificationService.info('Document comparison feature is being prepared. This will allow side-by-side analysis of multiple documents.');
-                  }}
-                >
-                  Start Comparison Analysis
-                </button>
-              </div>
-            </motion.div>
-          )}
-
           {expandedSections.has('nlAnalysis') && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}
@@ -1194,6 +1234,17 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
       isOpen={isStatusOpen}
       onClose={() => setIsStatusOpen(false)}
     />
+
+    {analysis && (
+      <DocumentComparison
+        isOpen={isComparisonOpen}
+        onClose={() => setIsComparisonOpen(false)}
+        currentDocument={{
+          text: '', // We'll need to pass the original document text from props
+          type: 'general_contract'
+        }}
+      />
+    )}
     </>
   );
 });

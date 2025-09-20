@@ -76,7 +76,7 @@ class ValidationService {
     const rules: Record<string, ValidationRule> = {
       documentContent: {
         required: true,
-        custom: (_value) => {
+        custom: () => {
           // Either file or text must be provided
           if (!documentFile && (!documentText || documentText.trim().length < 100)) {
             return 'Please provide a document file or text (minimum 100 characters)';

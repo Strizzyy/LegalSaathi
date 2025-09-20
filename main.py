@@ -1,0 +1,442 @@
+"""
+FastAPI main application for Legal Saathi Document Advisor
+Replaces Flask app.py with modern async architecture and MVC pattern
+"""
+
+import os
+import time
+import logging
+from contextlib import asynccontextmanager
+from datetime import datetime
+from typing import Dict, Any
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+
+from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form, BackgroundTasks
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+
+# Import models
+from models.document_models import (
+    DocumentAnalysisRequest, DocumentAnalysisResponse,
+    AnalysisStatusResponse, ErrorResponse, SuccessResponse
+)
+from models.translation_models import (
+    TranslationRequest, TranslationResponse,
+    ClauseTranslationRequest, ClauseTranslationResponse,
+    SupportedLanguagesResponse as TranslationLanguagesResponse
+)
+from models.speech_models import (
+    SpeechToTextRequest, SpeechToTextResponse,
+    TextToSpeechRequest, TextToSpeechResponse,
+    SupportedLanguagesResponse as SpeechLanguagesResponse
+)
+from models.ai_models import (
+    ClarificationRequest, ClarificationResponse,
+    ConversationSummaryResponse, HealthCheckResponse
+)
+from models.comparison_models import (
+    DocumentComparisonRequest, DocumentComparisonResponse,
+    ComparisonSummaryResponse
+)
+from models.support_models import (
+    SupportTicketRequest, SupportTicketResponse,
+    ExpertsListResponse, TicketStatusResponse,
+    SupportTicket
+)
+
+# Import controllers
+from controllers.document_controller import DocumentController
+from controllers.translation_controller import TranslationController
+from controllers.speech_controller import SpeechController
+from controllers.health_controller import HealthController
+from controllers.ai_controller import AIController
+from controllers.comparison_controller import ComparisonController
+from controllers.export_controller import ExportController
+from controllers.support_controller import router as support_router
+
+# Import services for cleanup
+from services.cache_service import CacheService
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('legal_saathi.log'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
+
+# Initialize rate limiter
+limiter = Limiter(key_func=get_remote_address)
+
+# Initialize cache service for cleanup
+cache_service = CacheService()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan events"""
+    # Startup
+    logger.info("Starting Legal Saathi FastAPI application")
+    
+    # Initialize services
+    try:
+        # Any startup initialization can go here
+        logger.info("All services initialized successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize services: {e}")
+    
+    yield
+    
+    # Shutdown
+    logger.info("Shutting down Legal Saathi FastAPI application")
+    
+    # Cleanup
+    try:
+        cache_service.clear_expired_cache()
+        logger.info("Cleanup completed successfully")
+    except Exception as e:
+        logger.error(f"Cleanup failed: {e}")
+
+
+# Create FastAPI application
+app = FastAPI(
+    title="Legal Saathi Document Advisor API",
+    description="AI-powered legal document analysis platform with FastAPI backend",
+    version="2.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    lifespan=lifespan
+)
+
+# Add rate limiting middleware
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "https://legalsaathi-document-advisor.onrender.com"
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Add compression middleware
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+# Initialize controllers
+document_controller = DocumentController()
+translation_controller = TranslationController()
+speech_controller = SpeechController()
+health_controller = HealthController()
+ai_controller = AIController()
+comparison_controller = ComparisonController()
+export_controller = ExportController()
+
+# Include routers
+app.include_router(support_router)
+
+
+# Middleware for request logging and performance monitoring
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    """Log requests and add performance monitoring"""
+    start_time = time.time()
+    
+    # Log request
+    logger.info(f"Request: {request.method} {request.url.path}")
+    
+    # Process request
+    response = await call_next(request)
+    
+    # Calculate processing time
+    process_time = time.time() - start_time
+    
+    # Add performance headers
+    response.headers["X-Process-Time"] = str(process_time)
+    
+    # Add cache headers for API responses
+    if request.url.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "public, max-age=300"  # 5 minutes
+    
+    # Log response
+    logger.info(f"Response: {response.status_code} - {process_time:.3f}s")
+    
+    return response
+
+
+# Exception handlers
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    """Handle HTTP exceptions with structured error responses"""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "error": f"HTTP {exc.status_code}",
+            "message": exc.detail,
+            "error_code": str(exc.status_code),
+            "timestamp": datetime.now().isoformat()
+        }
+    )
+
+
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception):
+    """Handle general exceptions"""
+    logger.error(f"Unhandled exception: {exc}")
+    return JSONResponse(
+        status_code=500,
+        content={
+            "error": "Internal Server Error",
+            "message": "An unexpected error occurred",
+            "error_code": "500",
+            "timestamp": datetime.now().isoformat()
+        }
+    )
+
+
+# Health check endpoints
+@app.get("/health", response_model=HealthCheckResponse)
+async def health_check():
+    """Basic health check endpoint"""
+    return await health_controller.health_check()
+
+
+@app.get("/api/health/detailed")
+async def detailed_health_check():
+    """Detailed health check with service information"""
+    return await health_controller.detailed_health_check()
+
+
+@app.get("/api/health/metrics")
+async def service_metrics():
+    """Get service performance metrics"""
+    return await health_controller.service_metrics()
+
+
+# Document analysis endpoints
+@app.post("/api/analyze", response_model=DocumentAnalysisResponse)
+@limiter.limit("10/minute")
+async def analyze_document(request: Request, analysis_request: DocumentAnalysisRequest):
+    """Analyze legal document text"""
+    return await document_controller.analyze_document(analysis_request)
+
+
+@app.post("/api/analyze/file", response_model=DocumentAnalysisResponse)
+@limiter.limit("5/minute")
+async def analyze_document_file(
+    request: Request,
+    file: UploadFile = File(...),
+    document_type: str = Form(...),
+    user_expertise_level: str = Form("beginner")
+):
+    """Analyze uploaded document file"""
+    return await document_controller.analyze_document_file(
+        file=file,
+        document_type=document_type,
+        user_expertise_level=user_expertise_level
+    )
+
+
+@app.post("/api/analyze/async")
+@limiter.limit("5/minute")
+async def start_async_analysis(request: Request, analysis_request: DocumentAnalysisRequest):
+    """Start async document analysis"""
+    return await document_controller.start_async_analysis(analysis_request)
+
+
+@app.get("/api/analysis/status/{analysis_id}", response_model=AnalysisStatusResponse)
+async def get_analysis_status(analysis_id: str):
+    """Get status of ongoing analysis"""
+    return await document_controller.get_analysis_status(analysis_id)
+
+
+@app.post("/api/analysis/{analysis_id}/export")
+async def export_analysis(analysis_id: str, format: str = "pdf"):
+    """Export analysis results"""
+    return await document_controller.export_analysis(analysis_id, format)
+
+
+# Translation endpoints
+@app.post("/api/translate", response_model=TranslationResponse)
+@limiter.limit("20/minute")
+async def translate_text(request: Request, translation_request: TranslationRequest):
+    """Translate text to target language"""
+    return await translation_controller.translate_text(translation_request)
+
+
+@app.post("/api/translate/clause", response_model=ClauseTranslationResponse)
+@limiter.limit("15/minute")
+async def translate_clause(request: Request, clause_request: ClauseTranslationRequest):
+    """Translate legal clause with context"""
+    return await translation_controller.translate_clause(clause_request)
+
+
+@app.get("/api/translate/languages", response_model=TranslationLanguagesResponse)
+async def get_translation_languages():
+    """Get supported languages for translation"""
+    return await translation_controller.get_supported_languages()
+
+
+# Speech endpoints
+@app.post("/api/speech/speech-to-text", response_model=SpeechToTextResponse)
+@limiter.limit("10/minute")
+async def speech_to_text(
+    request: Request,
+    audio_file: UploadFile = File(...),
+    language_code: str = Form("en-US"),
+    enable_punctuation: bool = Form(True)
+):
+    """Convert speech to text"""
+    return await speech_controller.speech_to_text(
+        audio_file=audio_file,
+        language_code=language_code,
+        enable_punctuation=enable_punctuation
+    )
+
+
+@app.post("/api/speech/text-to-speech")
+@limiter.limit("10/minute")
+async def text_to_speech(request: Request, tts_request: TextToSpeechRequest):
+    """Convert text to speech"""
+    return await speech_controller.text_to_speech(tts_request)
+
+
+@app.post("/api/speech/text-to-speech/info", response_model=TextToSpeechResponse)
+@limiter.limit("15/minute")
+async def text_to_speech_info(request: Request, tts_request: TextToSpeechRequest):
+    """Get text-to-speech metadata without audio"""
+    return await speech_controller.get_text_to_speech_info(tts_request)
+
+
+@app.get("/api/speech/languages", response_model=SpeechLanguagesResponse)
+async def get_speech_languages():
+    """Get supported languages for speech services"""
+    return await speech_controller.get_supported_languages()
+
+
+# AI clarification endpoints
+@app.post("/api/ai/clarify", response_model=ClarificationResponse)
+@limiter.limit("15/minute")
+async def get_ai_clarification(request: Request, clarification_request: ClarificationRequest):
+    """Get AI-powered clarification"""
+    return await ai_controller.get_clarification(clarification_request)
+
+
+@app.get("/api/ai/conversation/summary", response_model=ConversationSummaryResponse)
+async def get_conversation_summary():
+    """Get conversation summary and analytics"""
+    return await ai_controller.get_conversation_summary()
+
+
+@app.delete("/api/ai/conversation/clear")
+async def clear_conversation_history():
+    """Clear conversation history"""
+    return await ai_controller.clear_conversation_history()
+
+
+# Document comparison endpoints
+@app.post("/api/compare", response_model=DocumentComparisonResponse)
+@limiter.limit("5/minute")
+async def compare_documents(request: Request, comparison_request: DocumentComparisonRequest):
+    """Compare two legal documents"""
+    return await comparison_controller.compare_documents(comparison_request)
+
+
+@app.get("/api/compare/{comparison_id}/summary", response_model=ComparisonSummaryResponse)
+async def get_comparison_summary(comparison_id: str):
+    """Get summary of a previous comparison"""
+    return await comparison_controller.get_comparison_summary(comparison_id)
+
+
+# Export endpoints
+@app.post("/api/export/pdf")
+@limiter.limit("5/minute")
+async def export_to_pdf(request: Request, data: dict):
+    """Export analysis results to PDF"""
+    return await export_controller.export_to_pdf(data)
+
+
+@app.post("/api/export/word")
+@limiter.limit("5/minute")
+async def export_to_word(request: Request, data: dict):
+    """Export analysis results to Word document"""
+    return await export_controller.export_to_word(data)
+
+
+# Background tasks endpoint
+@app.post("/api/tasks/cleanup")
+async def cleanup_cache(background_tasks: BackgroundTasks):
+    """Trigger cache cleanup"""
+    background_tasks.add_task(cache_service.clear_expired_cache)
+    return SuccessResponse(message="Cache cleanup scheduled").dict()
+
+
+# Static file serving for React frontend
+if os.path.exists("client/dist"):
+    app.mount("/static", StaticFiles(directory="client/dist/assets"), name="static")
+    
+    @app.get("/")
+    async def serve_frontend():
+        """Serve React frontend"""
+        return FileResponse("client/dist/index.html")
+    
+    @app.get("/{path:path}")
+    async def serve_frontend_routes(path: str):
+        """Serve React frontend for all routes (SPA)"""
+        # Check if it's an API route
+        if path.startswith("api/") or path.startswith("docs") or path.startswith("redoc"):
+            raise HTTPException(status_code=404, detail="Not found")
+        
+        # Serve static files if they exist
+        static_file_path = f"client/dist/{path}"
+        if os.path.exists(static_file_path) and os.path.isfile(static_file_path):
+            return FileResponse(static_file_path)
+        
+        # Otherwise serve the React app
+        return FileResponse("client/dist/index.html")
+
+
+# Root API endpoint
+@app.get("/api")
+async def api_root():
+    """API root endpoint with information"""
+    return {
+        "name": "Legal Saathi Document Advisor API",
+        "version": "2.0.0",
+        "description": "AI-powered legal document analysis platform",
+        "docs_url": "/docs",
+        "redoc_url": "/redoc",
+        "health_check": "/health",
+        "timestamp": datetime.now().isoformat()
+    }
+
+
+if __name__ == "__main__":
+    import uvicorn
+    
+    # Development server
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=int(os.getenv("PORT", 8000)),
+        reload=True,
+        log_level="info"
+    )

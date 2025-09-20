@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 
@@ -7,7 +7,7 @@ interface ModalProps {
   onClose: () => void;
   title: string;
   children: React.ReactNode;
-  maxWidth?: 'sm' | 'md' | 'lg' | 'xl';
+  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '4xl';
 }
 
 export function Modal({ isOpen, onClose, title, children, maxWidth = 'md' }: ModalProps) {
@@ -33,19 +33,20 @@ export function Modal({ isOpen, onClose, title, children, maxWidth = 'md' }: Mod
     sm: 'max-w-sm',
     md: 'max-w-md',
     lg: 'max-w-lg',
-    xl: 'max-w-xl'
+    xl: 'max-w-xl',
+    '4xl': 'max-w-4xl'
   };
 
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-start justify-center p-4 overflow-y-auto">
           {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm"
             onClick={onClose}
           />
           
@@ -54,10 +55,10 @@ export function Modal({ isOpen, onClose, title, children, maxWidth = 'md' }: Mod
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className={`relative w-full ${maxWidthClasses[maxWidth]} bg-slate-800 border border-slate-700 rounded-2xl shadow-xl`}
+            className={`relative w-full ${maxWidthClasses[maxWidth]} bg-slate-800 border border-slate-700 rounded-2xl shadow-xl my-8 max-h-[calc(100vh-4rem)]`}
           >
             {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-slate-700">
+            <div className="flex items-center justify-between p-6 border-b border-slate-700 flex-shrink-0">
               <h2 className="text-xl font-bold text-white">{title}</h2>
               <button
                 onClick={onClose}
@@ -68,7 +69,7 @@ export function Modal({ isOpen, onClose, title, children, maxWidth = 'md' }: Mod
             </div>
             
             {/* Content */}
-            <div className="p-6">
+            <div className="p-6 overflow-y-auto max-h-[calc(100vh-12rem)]">
               {children}
             </div>
           </motion.div>

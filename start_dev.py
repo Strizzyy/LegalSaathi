@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-Development startup script for LegalSaathi React + Flask app
+Development startup script for LegalSaathi React + FastAPI app
+Runs both servers in a single script with proper process management
 """
 
 import os
@@ -9,6 +10,7 @@ import subprocess
 import time
 import webbrowser
 import signal
+import threading
 from pathlib import Path
 
 def check_dependencies():
@@ -17,10 +19,11 @@ def check_dependencies():
     
     # Check Python dependencies first
     try:
-        import flask
-        print("✅ Flask available")
+        import fastapi
+        import uvicorn
+        print("✅ FastAPI and Uvicorn available")
     except ImportError:
-        print("❌ Flask not found. Please install requirements: pip install -r requirements.txt")
+        print("❌ FastAPI/Uvicorn not found. Please install requirements: pip install -r requirements.txt")
         return False
     
     # Check if client directory exists
@@ -57,36 +60,38 @@ def check_dependencies():
     
     return True
 
-def start_flask_server():
-    """Start the Flask API server"""
-    print("🚀 Starting Flask API server...")
+def start_fastapi_server():
+    """Start the FastAPI server with Uvicorn as subprocess"""
+    print("🚀 Starting FastAPI server...")
     
     # Set environment variables
-    os.environ['FLASK_ENV'] = 'development'
-    os.environ['FLASK_DEBUG'] = 'true'
+    os.environ['ENVIRONMENT'] = 'development'
     
     try:
-        # Import and run the Flask app
-        from app import app
-        
-        print("✅ Flask API server loaded successfully")
-        print("🔧 API server available at: http://localhost:5000")
+        print("✅ FastAPI server loaded successfully")
+        print("🔧 API server available at: http://localhost:8000")
         print("📡 API endpoints:")
-        print("   • POST /analyze - Document analysis")
+        print("   • POST /api/analyze - Document analysis")
         print("   • POST /api/translate - Translation service")
-        print("   • POST /api/clarify - AI clarification")
+        print("   • POST /api/ai/clarify - AI clarification")
         print("   • GET /health - Health check")
+        print("   • GET /docs - Interactive API documentation")
         print("\n🛑 Press Ctrl+C to stop the API server")
         
-        # Start the Flask app (API only)
-        app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False)
+        # Start the FastAPI app with Uvicorn as subprocess
+        fastapi_process = subprocess.Popen([
+            sys.executable, "-m", "uvicorn", "main:app",
+            "--host", "0.0.0.0",
+            "--port", "8000",
+            "--reload",
+            "--log-level", "info"
+        ], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True, bufsize=1)
         
-    except ImportError as e:
-        print(f"❌ Failed to import Flask app: {e}")
-        return False
+        return fastapi_process
+        
     except Exception as e:
         print(f"❌ Failed to start API server: {e}")
-        return False
+        return None
 
 def start_react_dev():
     """Start the React development server"""
@@ -104,10 +109,7 @@ def start_react_dev():
         return False
 
 def start_both_servers():
-    """Start both Flask API and React dev servers"""
-    import threading
-    import signal
-    
+    """Start both FastAPI and React dev servers"""
     print("🎯 Starting LegalSaathi Development Environment")
     print("=" * 50)
     
@@ -117,29 +119,54 @@ def start_both_servers():
     def signal_handler(sig, frame):
         print("\n\n🛑 Shutting down servers...")
         for proc in processes:
-            if proc.poll() is None:  # Process is still running
-                proc.terminate()
+            if proc and proc.poll() is None:  # Process is still running
+                try:
+                    proc.terminate()
+                    proc.wait(timeout=5)  # Wait up to 5 seconds for graceful shutdown
+                except subprocess.TimeoutExpired:
+                    proc.kill()  # Force kill if it doesn't terminate gracefully
+                except:
+                    pass
         print("👋 Development servers stopped.")
         sys.exit(0)
     
-    # Register signal handler for graceful shutdown
+    # Register signal handler for graceful shutdown (in main thread)
     signal.signal(signal.SIGINT, signal_handler)
     
-    # Start Flask API server in a separate thread
-    flask_thread = threading.Thread(target=start_flask_server)
-    flask_thread.daemon = True
-    flask_thread.start()
+    # Start FastAPI server as subprocess
+    print("🚀 Starting FastAPI server...")
+    fastapi_process = subprocess.Popen([
+        sys.executable, "-m", "uvicorn", "main:app",
+        "--host", "0.0.0.0",
+        "--port", "8000",
+        "--reload",
+        "--log-level", "info"
+    ])
     
-    # Wait a moment for Flask to start
+    if fastapi_process:
+        processes.append(fastapi_process)
+        print("✅ FastAPI server started")
+    
+    # Wait a moment for FastAPI to start
     time.sleep(3)
     
+    # Start React dev server as subprocess
+    print("🚀 Starting React development server...")
+    react_process = subprocess.Popen([
+        'npm', 'run', 'dev'
+    ], cwd='client', shell=True)
+    
+    if react_process:
+        processes.append(react_process)
+        print("✅ React dev server started")
+    
     print("\n" + "=" * 50)
-    print("🌐 React dev server will be available at: http://localhost:3000")
-    print("🔧 Flask API server running at: http://localhost:5000")
-    print("📱 React app with hot reload and API proxy")
+    print("🌐 React dev server: http://localhost:3000")
+    print("🔧 FastAPI server: http://localhost:8000")
+    print("📖 API documentation: http://localhost:8000/docs")
     print("\n💡 Development features:")
     print("   • Hot module replacement for React")
-    print("   • API proxy to Flask backend")
+    print("   • API proxy to FastAPI backend")
     print("   • Real-time code changes")
     print("   • TypeScript error checking")
     print("\n🛑 Press Ctrl+C to stop both servers")
@@ -147,34 +174,34 @@ def start_both_servers():
     # Open browser after a short delay
     def open_browser():
         time.sleep(5)
-        webbrowser.open('http://localhost:3000')
+        try:
+            webbrowser.open('http://localhost:3000')
+            print("🌐 Opened browser to http://localhost:3000")
+        except:
+            print("💡 Please open http://localhost:3000 in your browser")
     
     browser_thread = threading.Thread(target=open_browser)
     browser_thread.daemon = True
     browser_thread.start()
     
-    # Start React dev server as subprocess (non-blocking)
+    # Monitor both processes
     try:
-        print("🚀 Starting React development server...")
-        react_process = subprocess.Popen(
-            ['npm', 'run', 'dev'], 
-            cwd='client',
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            universal_newlines=True,
-            bufsize=1,
-            shell=True
-        )
-        processes.append(react_process)
-        
-        # Stream React dev server output
-        for line in iter(react_process.stdout.readline, ''):
-            if line:
-                print(f"[React] {line.rstrip()}")
+        while True:
+            # Check if processes are still running
+            if fastapi_process.poll() is not None:
+                print("❌ FastAPI process stopped unexpectedly")
+                break
+            if react_process.poll() is not None:
+                print("❌ React process stopped unexpectedly")
+                break
+            
+            time.sleep(1)  # Check every second
                 
+    except KeyboardInterrupt:
+        signal_handler(signal.SIGINT, None)
     except Exception as e:
-        print(f"❌ Failed to start React dev server: {e}")
-        return False
+        print(f"❌ Error monitoring processes: {e}")
+        signal_handler(signal.SIGINT, None)
 
 def check_node_availability():
     """Check if Node.js/npm is available"""
@@ -202,7 +229,7 @@ def check_node_availability():
             return False
 
 def main():
-    """Main function - Automatically starts both React and Flask"""
+    """Main function - Automatically starts both React and FastAPI"""
     print("🚀 LegalSaathi - Starting Full Development Environment")
     print("=" * 55)
     
@@ -225,7 +252,7 @@ def main():
         sys.exit(1)
     
     print("\n✅ All dependencies ready!")
-    print("🚀 Starting both React frontend and Flask API...")
+    print("🚀 Starting both React frontend and FastAPI...")
     print("=" * 55)
     
     try:

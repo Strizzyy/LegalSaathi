@@ -15,6 +15,9 @@ export interface ClauseContext {
   explanation: string;
   implications: string[];
   recommendations: string[];
+  riskScore?: number;
+  confidencePercentage?: number;
+  riskCategories?: Record<string, number>;
 }
 
 export interface DocumentContext {

@@ -1,4 +1,5 @@
 import { notificationService } from './notificationService';
+import { apiService } from './apiService';
 import type { 
   SupportRequest, 
   SupportTicket, 
@@ -11,98 +12,110 @@ import type {
 class SupportService {
   private requests: Map<string, SupportRequest> = new Map();
   private tickets: Map<string, SupportTicket> = new Map();
-  
-  // Mock expert profiles - in real implementation, this would come from backend
-  private experts: ExpertProfile[] = [
-    {
-      id: 'expert_1',
-      name: 'Sarah Chen',
-      specialty: ['Contract Law', 'Employment Law', 'Business Agreements'],
-      rating: 4.9,
-      responseTime: '< 2 hours',
-      availability: 'available'
-    },
-    {
-      id: 'expert_2', 
-      name: 'Michael Rodriguez',
-      specialty: ['Real Estate', 'Property Law', 'Lease Agreements'],
-      rating: 4.8,
-      responseTime: '< 4 hours',
-      availability: 'available'
-    },
-    {
-      id: 'expert_3',
-      name: 'Dr. Priya Sharma',
-      specialty: ['Intellectual Property', 'Technology Law', 'Privacy'],
-      rating: 4.9,
-      responseTime: '< 1 hour',
-      availability: 'busy'
-    }
-  ];
+  private expertsCache: ExpertProfile[] = [];
+  private expertsCacheExpiry: number = 0;
 
-  // Create a support request
-  createSupportRequest(
+  // Get available experts (static list)
+  async getAvailableExperts(): Promise<ExpertProfile[]> {
+    // Return static list of experts
+    const staticExperts: ExpertProfile[] = [
+      {
+        id: 'expert_1',
+        name: 'Sarah Chen',
+        specialty: ['Contract Law', 'Employment Law'],
+        rating: 4.9,
+        responseTime: '2-4 hours',
+        availability: 'available'
+      },
+      {
+        id: 'expert_2',
+        name: 'Michael Rodriguez',
+        specialty: ['Real Estate Law', 'Rental Agreements'],
+        rating: 4.8,
+        responseTime: '1-3 hours',
+        availability: 'available'
+      },
+      {
+        id: 'expert_3',
+        name: 'Dr. Priya Sharma',
+        specialty: ['Corporate Law', 'Partnership Agreements'],
+        rating: 4.9,
+        responseTime: '4-6 hours',
+        availability: 'busy'
+      }
+    ];
+
+    this.expertsCache = staticExperts;
+    return staticExperts.filter(expert => expert.availability === 'available');
+  }
+
+  // Create a support request (static response)
+  async createSupportRequest(
     documentContext: DocumentContext,
     clauseContext: ClauseContext | undefined,
     userQuestion: string,
     chatHistory: ChatMessage[],
     urgencyLevel: 'low' | 'medium' | 'high' = 'medium'
-  ): SupportRequest {
-    const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
-    const category = this.categorizeRequest(userQuestion, clauseContext);
-    const specificConcerns = this.extractConcerns(userQuestion, chatHistory);
-    
-    const request: SupportRequest = {
-      id: requestId,
-      documentId: `doc_${Date.now()}`, // In real app, this would be actual document ID
-      clauseId: clauseContext?.clauseId || undefined,
-      userQuestion,
-      chatHistory: chatHistory.slice(-10), // Last 10 messages for context
-      urgencyLevel,
-      category,
-      userContext: {
-        documentType: documentContext.documentType,
-        specificConcerns
-      },
-      createdAt: new Date()
-    };
+  ): Promise<SupportRequest> {
+    try {
+      const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      const category = this.categorizeRequest(userQuestion, clauseContext);
+      const specificConcerns = this.extractConcerns(userQuestion, chatHistory);
+      
+      const request: SupportRequest = {
+        id: requestId,
+        documentId: `doc_${Date.now()}`,
+        clauseId: clauseContext?.clauseId || undefined,
+        userQuestion,
+        chatHistory: chatHistory.slice(-10),
+        urgencyLevel,
+        category,
+        userContext: {
+          documentType: documentContext.documentType,
+          specificConcerns
+        },
+        createdAt: new Date()
+      };
 
-    this.requests.set(requestId, request);
-    
-    // Automatically create a ticket
-    this.createTicket(request);
-    
-    return request;
+      this.requests.set(requestId, request);
+      
+      // Create a static support ticket
+      const staticTicket = this.createStaticSupportResponse(request, documentContext, clauseContext);
+      
+      // Show static response
+      notificationService.success(
+        'Thank you for your request! A human expert will review your question and respond within 4-5 hours. You will be contacted directly with detailed legal guidance.'
+      );
+      
+      return request;
+    } catch (error) {
+      console.error('Error creating support request:', error);
+      throw new Error('Failed to create support request');
+    }
   }
 
-  // Create a support ticket from a request
-  private createTicket(request: SupportRequest): SupportTicket {
-    const ticketId = `ticket_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
-    // Find best available expert
-    const expert = this.findBestExpert(request);
-    const priority = this.determinePriority(request);
-    const estimatedResponse = this.calculateEstimatedResponse(priority, expert);
+  // Static support response (no backend API call)
+  private createStaticSupportResponse(
+    request: SupportRequest, 
+    documentContext: DocumentContext, 
+    clauseContext?: ClauseContext
+  ): SupportTicket {
+    const ticketId = `ticket_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
     
     const ticket: SupportTicket = {
       id: ticketId,
       requestId: request.id,
-      status: expert ? 'assigned' : 'pending',
-      priority,
-      estimatedResponse,
-      expertId: expert?.id || undefined,
-      expertName: expert?.name || undefined,
-      expertSpecialty: expert?.specialty.join(', ') || undefined,
+      status: 'assigned',
+      priority: request.urgencyLevel,
+      estimatedResponse: '4-5 hours',
+      expertName: 'Human Expert Team',
+      expertSpecialty: 'Legal Document Review',
       createdAt: new Date(),
       updatedAt: new Date()
     };
 
     this.tickets.set(ticketId, ticket);
-    
-    // Notify user
-    this.notifyTicketCreated(ticket, expert);
-    
     return ticket;
   }
 
@@ -153,145 +166,26 @@ class SupportService {
     return [...new Set(concerns)]; // Remove duplicates
   }
 
-  // Find the best available expert for the request
-  private findBestExpert(request: SupportRequest): ExpertProfile | null {
-    const availableExperts = this.experts.filter(expert => 
-      expert.availability === 'available' || expert.availability === 'busy'
-    );
-    
-    if (availableExperts.length === 0) return null;
-    
-    // Score experts based on specialty match and availability
-    const scoredExperts = availableExperts.map(expert => {
-      let score = expert.rating * 10; // Base score from rating
-      
-      // Bonus for specialty match
-      const specialtyMatch = expert.specialty.some(specialty => 
-        this.matchesSpecialty(specialty, request)
-      );
-      if (specialtyMatch) score += 20;
-      
-      // Penalty for being busy
-      if (expert.availability === 'busy') score -= 10;
-      
-      // Bonus for fast response time
-      if (expert.responseTime.includes('< 1 hour')) score += 15;
-      else if (expert.responseTime.includes('< 2 hour')) score += 10;
-      
-      return { expert, score };
-    });
-    
-    // Sort by score and return best match
-    scoredExperts.sort((a, b) => b.score - a.score);
-    return scoredExperts[0]?.expert || null;
-  }
 
-  // Check if expert specialty matches request
-  private matchesSpecialty(specialty: string, request: SupportRequest): boolean {
-    const specialtyLower = specialty.toLowerCase();
-    const docType = request.userContext.documentType.toLowerCase();
-    const category = request.category.toLowerCase();
-    
-    if (specialtyLower.includes('contract') && (docType.includes('contract') || docType.includes('agreement'))) return true;
-    if (specialtyLower.includes('employment') && docType.includes('employment')) return true;
-    if (specialtyLower.includes('real estate') && (docType.includes('lease') || docType.includes('property'))) return true;
-    if (specialtyLower.includes('intellectual property') && docType.includes('ip')) return true;
-    if (category.includes('legal') && specialtyLower.includes('law')) return true;
-    
-    return false;
-  }
 
-  // Determine ticket priority
-  private determinePriority(request: SupportRequest): SupportTicket['priority'] {
-    if (request.urgencyLevel === 'high') return 'urgent';
-    if (request.urgencyLevel === 'medium') return 'high';
-    
-    // Check for high-risk indicators
-    const hasHighRiskConcerns = request.userContext.specificConcerns.some(concern =>
-      concern.includes('Risk') || concern.includes('Legal') || concern.includes('Penalty')
-    );
-    
-    if (hasHighRiskConcerns) return 'high';
-    
-    return request.urgencyLevel === 'low' ? 'low' : 'medium';
-  }
-
-  // Calculate estimated response time
-  private calculateEstimatedResponse(
-    priority: SupportTicket['priority'], 
-    expert: ExpertProfile | null
-  ): string {
-    if (!expert) return '24-48 hours (pending expert assignment)';
-    
-    const baseTime = expert.responseTime;
-    
-    switch (priority) {
-      case 'urgent':
-        return '< 30 minutes';
-      case 'high':
-        return '< 1 hour';
-      case 'medium':
-        return baseTime;
-      case 'low':
-        return '4-8 hours';
-      default:
-        return baseTime;
-    }
-  }
-
-  // Notify user about ticket creation
-  private notifyTicketCreated(ticket: SupportTicket, expert: ExpertProfile | null): void {
-    if (expert) {
-      notificationService.success(
-        `Support request submitted! ${expert.name} (${expert.specialty[0]} specialist) will respond within ${ticket.estimatedResponse}.`
-      );
-    } else {
-      notificationService.info(
-        `Support request submitted! We're finding the best expert for your question. Estimated response: ${ticket.estimatedResponse}.`
-      );
-    }
-  }
-
-  // Get ticket status
-  getTicketStatus(ticketId: string): SupportTicket | null {
+  // Get ticket status (static - returns local ticket)
+  async getTicketStatus(ticketId: string): Promise<SupportTicket | null> {
     return this.tickets.get(ticketId) || null;
   }
 
-  // Get all tickets for user (in real app, would filter by user ID)
-  getUserTickets(): SupportTicket[] {
+  // Get all tickets for user (static - returns local tickets only)
+  async getUserTickets(): Promise<SupportTicket[]> {
+    // Return local tickets sorted by creation date
     return Array.from(this.tickets.values()).sort(
-      (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
   }
 
-  // Get available experts
-  getAvailableExperts(): ExpertProfile[] {
-    return this.experts.filter(expert => expert.availability !== 'offline');
-  }
-
-  // Simulate expert response (in real app, this would be handled by backend)
-  simulateExpertResponse(ticketId: string): void {
-    const ticket = this.tickets.get(ticketId);
-    if (!ticket) return;
-    
-    // Simulate response after estimated time
-    setTimeout(() => {
-      ticket.status = 'resolved';
-      ticket.updatedAt = new Date();
-      ticket.resolution = {
-        summary: 'Your question has been reviewed by our legal expert.',
-        recommendations: [
-          'Consider consulting with a local attorney for jurisdiction-specific advice',
-          'Review the clause with the other party before signing',
-          'Keep documentation of all communications regarding this agreement'
-        ],
-        followUpRequired: false
-      };
-      
-      notificationService.success(
-        `Expert response received for your support request! Check your ticket for detailed recommendations.`
-      );
-    }, 5000); // 5 seconds for demo purposes
+  // Poll for ticket updates (static - no actual polling)
+  async pollTicketUpdates(ticketId: string): Promise<void> {
+    // Static implementation - no actual polling needed
+    // The ticket status remains as created with the static message
+    return;
   }
 
   // Check if user should be offered human support

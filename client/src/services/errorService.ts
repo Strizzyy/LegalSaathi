@@ -22,8 +22,8 @@ class ErrorService {
       timestamp: new Date().toISOString(),
       level,
       message,
-      stack: error?.stack || '',
-      context: context || {},
+      ...(error?.stack && { stack: error.stack }),
+      ...(context && { context }),
       userAgent: navigator.userAgent,
       url: window.location.href,
     };

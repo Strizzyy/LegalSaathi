@@ -93,15 +93,17 @@ export function HumanSupport({
         urgency
       );
       
-      const tickets = supportService.getUserTickets();
-      const newTicket = tickets[0]; // Most recent ticket
+      const tickets = await supportService.getUserTickets();
+      const newTicket = tickets.length > 0 ? tickets[0] : null; // Most recent ticket
       
-      setTicket(newTicket);
-      setCurrentStep('ticket');
-      
-      // Simulate expert response for demo
       if (newTicket) {
-        supportService.simulateExpertResponse(newTicket.id);
+        setTicket(newTicket);
+        setCurrentStep('ticket');
+        
+        // Simulate expert response for demo (if method exists)
+        if ('simulateExpertResponse' in supportService) {
+          (supportService as any).simulateExpertResponse(newTicket.id);
+        }
       }
     } catch (error) {
       console.error('Support request error:', error);

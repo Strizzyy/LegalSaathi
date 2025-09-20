@@ -22,7 +22,8 @@ interface DocumentSummaryProps {
 export function DocumentSummary({ analysis, className = '' }: DocumentSummaryProps) {
   const [summary, setSummary] = useState<SummaryData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [expandedSection, setExpandedSection] = useState<string | null>('overview');
+  const [expandedSection, setExpandedSection] = useState<string | null>(null);
+  const [allExpanded, setAllExpanded] = useState(true);
 
   useEffect(() => {
     const unsubscribe = summarizationService.subscribe(() => {
@@ -51,7 +52,17 @@ export function DocumentSummary({ analysis, className = '' }: DocumentSummaryPro
   };
 
   const toggleSection = (section: string) => {
-    setExpandedSection(expandedSection === section ? null : section);
+    if (allExpanded) {
+      setAllExpanded(false);
+      setExpandedSection(section);
+    } else {
+      setExpandedSection(expandedSection === section ? null : section);
+    }
+  };
+
+  const toggleAllSections = () => {
+    setAllExpanded(!allExpanded);
+    setExpandedSection(null);
   };
 
   if (isLoading) {
@@ -107,13 +118,21 @@ export function DocumentSummary({ analysis, className = '' }: DocumentSummaryPro
             </div>
           </div>
           
-          <button
-            onClick={handleRefreshSummary}
-            className="inline-flex items-center px-3 py-2 bg-slate-700 text-slate-300 rounded-lg hover:bg-slate-600 transition-colors text-sm"
-          >
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Refresh
-          </button>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={toggleAllSections}
+              className="inline-flex items-center px-3 py-2 bg-slate-700 text-slate-300 rounded-lg hover:bg-slate-600 transition-colors text-sm"
+            >
+              {allExpanded ? 'Collapse All' : 'Expand All'}
+            </button>
+            <button
+              onClick={handleRefreshSummary}
+              className="inline-flex items-center px-3 py-2 bg-slate-700 text-slate-300 rounded-lg hover:bg-slate-600 transition-colors text-sm"
+            >
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Refresh
+            </button>
+          </div>
         </div>
 
         {/* Summary Sections */}
@@ -133,7 +152,7 @@ export function DocumentSummary({ analysis, className = '' }: DocumentSummaryPro
               </div>
             </button>
             
-            {expandedSection === 'overview' && (
+            {(allExpanded || expandedSection === 'overview') && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
@@ -162,7 +181,7 @@ export function DocumentSummary({ analysis, className = '' }: DocumentSummaryPro
               </div>
             </button>
             
-            {expandedSection === 'keyPoints' && (
+            {(allExpanded || expandedSection === 'keyPoints') && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
@@ -195,7 +214,7 @@ export function DocumentSummary({ analysis, className = '' }: DocumentSummaryPro
               </div>
             </button>
             
-            {expandedSection === 'risks' && (
+            {(allExpanded || expandedSection === 'risks') && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
@@ -224,7 +243,7 @@ export function DocumentSummary({ analysis, className = '' }: DocumentSummaryPro
               </div>
             </button>
             
-            {expandedSection === 'recommendations' && (
+            {(allExpanded || expandedSection === 'recommendations') && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
@@ -259,7 +278,7 @@ export function DocumentSummary({ analysis, className = '' }: DocumentSummaryPro
               </div>
             </button>
             
-            {expandedSection === 'simplified' && (
+            {(allExpanded || expandedSection === 'simplified') && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}

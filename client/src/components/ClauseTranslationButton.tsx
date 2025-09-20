@@ -65,10 +65,15 @@ export function ClauseTranslationButton({ clauseData, className = '' }: ClauseTr
     <div className={`clause-translation-container ${className}`}>
       {/* Translation Button */}
       <div className="flex items-center space-x-2 mb-2">
+        <label htmlFor={`language-select-${clauseData.id}`} className="sr-only">
+          Select translation language for clause {clauseData.index + 1}
+        </label>
         <select
+          id={`language-select-${clauseData.id}`}
           value={selectedLanguage}
           onChange={(e) => setSelectedLanguage(e.target.value)}
           className="px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs focus:border-cyan-500 focus:outline-none"
+          aria-label={`Select translation language for clause ${clauseData.index + 1}`}
         >
           {availableLanguages.map((lang) => (
             <option key={lang.code} value={lang.code}>

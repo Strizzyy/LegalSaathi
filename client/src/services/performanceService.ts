@@ -14,7 +14,7 @@ class PerformanceService {
     const metric: PerformanceMetric = {
       name,
       startTime: performance.now(),
-      metadata: metadata || {},
+      ...(metadata && { metadata }),
     };
     
     this.metrics.set(name, metric);

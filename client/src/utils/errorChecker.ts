@@ -5,7 +5,6 @@
 
 export class ErrorChecker {
   private static instance: ErrorChecker;
-  // Error tracking for future use - currently unused but available for expansion
 
   static getInstance(): ErrorChecker {
     if (!ErrorChecker.instance) {
