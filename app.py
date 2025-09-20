@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, send_file, make_response, g
+from flask import Flask, render_template, request, jsonify, send_file, make_response, g, send_from_directory
 from dataclasses import dataclass
 from typing import List, Dict, Any, Optional
 import time
@@ -389,11 +389,7 @@ class DocumentAnalysis:
     summary: str
     processing_time: float
 
-# Routes
-@app.route('/')
-def home():
-    """Home page with document input interface"""
-    return render_template('index.html')
+# API-only Flask app - React served separately
 
 @app.route('/health')
 @performance_monitor
@@ -1073,9 +1069,11 @@ def analyze_document():
             file_result = file_processor.process_uploaded_file(file)
             
             if not file_result.success:
-                return render_template('index.html', 
-                                     error=file_result.error_message,
-                                     document_text=request.form.get('document_text', ''))
+                return jsonify({
+                    'success': False,
+                    'error': file_result.error_message,
+                    'document_text': request.form.get('document_text', '')
+                }), 400
             
             document_text = file_result.text_content
             file_info = file_result.file_info
@@ -1089,10 +1087,12 @@ def analyze_document():
         is_valid, error_message = validate_document_input(document_text)
         
         if not is_valid:
-            return render_template('index.html', 
-                                 error=error_message, 
-                                 document_text=document_text,
-                                 file_info=file_info)
+            return jsonify({
+                'success': False,
+                'error': error_message,
+                'document_text': document_text,
+                'file_info': file_info.__dict__ if file_info else None
+            }), 400
         
         # Classify document type
         classification = document_classifier.classify_document(document_text)
@@ -1137,12 +1137,16 @@ def analyze_document():
             cached_analysis['classification'] = classification
             cached_analysis['expertise_profile'] = expertise_profile
             
-            return render_template('results.html', 
-                                 analysis=type('Analysis', (), cached_analysis)(),
-                                 file_info=file_info,
-                                 warnings=warnings,
-                                 classification=classification,
-                                 expertise_profile=expertise_profile)
+            return jsonify({
+                'success': True,
+                'analysis': cached_analysis,
+                'file_info': file_info.__dict__ if file_info else None,
+                'warnings': warnings,
+                'classification': {
+                    'document_type': {'value': classification.document_type.value},
+                    'confidence': classification.confidence
+                } if classification else None
+            })
         
         # Perform enhanced AI-powered legal document analysis with Google Cloud AI services
         try:
@@ -1228,19 +1232,23 @@ def analyze_document():
             logger.error(f"Connection error during analysis: {str(e)}")
             metrics_tracker.record_analysis(False, time.time() - start_time, error_type="ConnectionError")
             error_msg = "Unable to connect to AI analysis service. Please try again in a few moments."
-            return render_template('index.html', 
-                                 error=error_msg, 
-                                 document_text=document_text,
-                                 file_info=file_info)
+            return jsonify({
+                'success': False,
+                'error': error_msg,
+                'document_text': document_text,
+                'file_info': file_info.__dict__ if file_info else None
+            }), 500
         
         except TimeoutError as e:
             logger.error(f"Timeout error during analysis: {str(e)}")
             metrics_tracker.record_analysis(False, time.time() - start_time, error_type="TimeoutError")
             error_msg = "Analysis service timed out. Please try again with a shorter document or try again later."
-            return render_template('index.html', 
-                                 error=error_msg, 
-                                 document_text=document_text,
-                                 file_info=file_info)
+            return jsonify({
+                'success': False,
+                'error': error_msg,
+                'document_text': document_text,
+                'file_info': file_info.__dict__ if file_info else None
+            }), 500
         
         except Exception as e:
             logger.error(f"Analysis error: {str(e)}")
@@ -1265,26 +1273,73 @@ def analyze_document():
             
             # If we couldn't create fallback analysis, show error
             if 'analysis' not in locals():
-                return render_template('index.html', 
-                                     error=error_msg, 
-                                     document_text=document_text,
-                                     file_info=file_info)
+                if request.headers.get('Accept') == 'application/json' or request.headers.get('Content-Type') == 'application/json':
+                    return jsonify({
+                        'success': False,
+                        'error': error_msg,
+                        'document_text': document_text,
+                        'file_info': file_info.__dict__ if file_info else None
+                    }), 500
+                return jsonify({
+                    'success': False,
+                    'error': error_msg,
+                    'document_text': document_text,
+                    'file_info': file_info.__dict__ if file_info else None
+                }), 500
         
-        return render_template('results.html', 
-                             analysis=analysis, 
-                             file_info=file_info,
-                             warnings=warnings,
-                             classification=classification,
-                             translation_service=translation_service,
-                             ai_clarification_service=ai_clarification_service)
+        # Return JSON response (API-only)
+        return jsonify({
+            'success': True,
+            'analysis': {
+                'document_id': analysis.document_id,
+                'analysis_results': [
+                    {
+                        'clause_id': r.clause_id,
+                        'risk_level': {
+                            'level': r.risk_level.level,
+                            'score': r.risk_level.score,
+                            'reasons': r.risk_level.reasons,
+                            'severity': r.risk_level.severity,
+                            'confidence_percentage': r.risk_level.confidence_percentage,
+                            'risk_categories': r.risk_level.risk_categories,
+                            'low_confidence_warning': r.risk_level.low_confidence_warning
+                        },
+                        'plain_explanation': r.plain_explanation,
+                        'legal_implications': r.legal_implications,
+                        'recommendations': r.recommendations
+                    } for r in analysis.analysis_results
+                ],
+                'overall_risk': {
+                    'level': analysis.overall_risk.level,
+                    'score': analysis.overall_risk.score,
+                    'reasons': analysis.overall_risk.reasons,
+                    'severity': analysis.overall_risk.severity,
+                    'confidence_percentage': analysis.overall_risk.confidence_percentage,
+                    'risk_categories': analysis.overall_risk.risk_categories,
+                    'low_confidence_warning': analysis.overall_risk.low_confidence_warning
+                },
+                'summary': analysis.summary,
+                'processing_time': analysis.processing_time,
+                'severity_indicators': getattr(analysis, 'severity_indicators', []),
+                'enhanced_insights': getattr(analysis, 'enhanced_insights', {})
+            },
+            'file_info': file_info.__dict__ if file_info else None,
+            'warnings': warnings,
+            'classification': {
+                'document_type': {'value': classification.document_type.value},
+                'confidence': classification.confidence
+            } if classification else None
+        })
     
     except Exception as e:
         # Catch-all error handler
         print(f"Unexpected error in analyze_document: {str(e)}")
         error_msg = "An unexpected error occurred. Please try again or contact support if the problem persists."
-        return render_template('index.html', 
-                             error=error_msg, 
-                             document_text=request.form.get('document_text', ''))
+        return jsonify({
+            'success': False,
+            'error': error_msg,
+            'document_text': request.form.get('document_text', '')
+        }), 500
 
 @app.route('/api/translate', methods=['POST'])
 def translate_text():
@@ -1494,6 +1549,82 @@ def export_analysis(format_type, document_id):
         return jsonify({
             'success': False,
             'error': f'Export failed: {str(e)}'
+        }), 500
+
+@app.route('/api/export/pdf', methods=['POST'])
+def export_analysis_pdf():
+    """Export analysis results to PDF format"""
+    try:
+        data = request.get_json()
+        if not data or 'analysis' not in data:
+            return jsonify({
+                'success': False,
+                'error': 'Analysis data required'
+            }), 400
+        
+        if 'pdf' not in report_exporter.available_formats:
+            return jsonify({
+                'success': False,
+                'error': 'PDF export not available. Missing required libraries.'
+            }), 503
+        
+        # Convert data to DocumentAnalysis object
+        analysis_data = data['analysis']
+        analysis = type('DocumentAnalysis', (), analysis_data)()
+        
+        # Generate PDF
+        buffer = report_exporter.export_analysis_to_pdf(analysis)
+        
+        return send_file(
+            buffer,
+            mimetype='application/pdf',
+            as_attachment=True,
+            download_name='legal_analysis_report.pdf'
+        )
+        
+    except Exception as e:
+        logger.error(f"PDF export error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'PDF export failed: {str(e)}'
+        }), 500
+
+@app.route('/api/export/word', methods=['POST'])
+def export_analysis_word():
+    """Export analysis results to Word format"""
+    try:
+        data = request.get_json()
+        if not data or 'analysis' not in data:
+            return jsonify({
+                'success': False,
+                'error': 'Analysis data required'
+            }), 400
+        
+        if 'docx' not in report_exporter.available_formats:
+            return jsonify({
+                'success': False,
+                'error': 'Word export not available. Missing required libraries.'
+            }), 503
+        
+        # Convert data to DocumentAnalysis object
+        analysis_data = data['analysis']
+        analysis = type('DocumentAnalysis', (), analysis_data)()
+        
+        # Generate Word document
+        buffer = report_exporter.export_analysis_to_docx(analysis)
+        
+        return send_file(
+            buffer,
+            mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            as_attachment=True,
+            download_name='legal_analysis_report.docx'
+        )
+        
+    except Exception as e:
+        logger.error(f"Word export error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Word export failed: {str(e)}'
         }), 500
 
 @app.route('/api/metrics')

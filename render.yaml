@@ -3,7 +3,13 @@ services:
     name: legalsaathi-document-advisor
     env: python
     plan: free
-    buildCommand: pip install -r requirements.txt
+    buildCommand: |
+      # Install Node.js and build frontend
+      curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+      sudo apt-get install -y nodejs
+      cd client && npm ci && npm run build && cd ..
+      # Install Python dependencies
+      pip install -r requirements.txt
     startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 120 app:app
     envVars:
       - key: FLASK_ENV
