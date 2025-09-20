@@ -4,9 +4,7 @@ services:
     env: python
     plan: free
     buildCommand: |
-      # Install Node.js and build frontend
-      curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-      sudo apt-get install -y nodejs
+      # Build frontend
       cd client && npm ci && npm run build && cd ..
       # Install Python dependencies
       pip install -r requirements.txt

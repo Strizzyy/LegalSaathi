@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, CheckCircle, AlertCircle, AlertTriangle, Info } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { cn } from '../utils';
 import { notificationService } from '../services/notificationService';
 import type { NotificationOptions } from '../services/notificationService';
 
