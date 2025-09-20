@@ -11,7 +11,7 @@ import {
   Shield,
   Globe
 } from 'lucide-react';
-import { cn, formatFileSize } from '../lib/utils';
+import { cn, formatFileSize } from '../utils';
 import { notificationService } from '../services/notificationService';
 import { validationService } from '../services/validationService';
 import { VoiceInput } from './VoiceInput';

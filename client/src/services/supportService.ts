@@ -1,5 +1,4 @@
 import { notificationService } from './notificationService';
-import { apiService } from './apiService';
 import type { 
   SupportRequest, 
   SupportTicket, 
@@ -12,8 +11,6 @@ import type {
 class SupportService {
   private requests: Map<string, SupportRequest> = new Map();
   private tickets: Map<string, SupportTicket> = new Map();
-  private expertsCache: ExpertProfile[] = [];
-  private expertsCacheExpiry: number = 0;
 
   // Get available experts (static list)
   async getAvailableExperts(): Promise<ExpertProfile[]> {
@@ -45,7 +42,6 @@ class SupportService {
       }
     ];
 
-    this.expertsCache = staticExperts;
     return staticExperts.filter(expert => expert.availability === 'available');
   }
 
@@ -80,8 +76,8 @@ class SupportService {
 
       this.requests.set(requestId, request);
       
-      // Create a static support ticket
-      const staticTicket = this.createStaticSupportResponse(request, documentContext, clauseContext);
+      // Create a static support ticket and store it
+      this.createStaticSupportResponse(request);
       
       // Show static response
       notificationService.success(
@@ -97,9 +93,7 @@ class SupportService {
 
   // Static support response (no backend API call)
   private createStaticSupportResponse(
-    request: SupportRequest, 
-    documentContext: DocumentContext, 
-    clauseContext?: ClauseContext
+    request: SupportRequest
   ): SupportTicket {
     const ticketId = `ticket_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
     
@@ -182,7 +176,7 @@ class SupportService {
   }
 
   // Poll for ticket updates (static - no actual polling)
-  async pollTicketUpdates(ticketId: string): Promise<void> {
+  async pollTicketUpdates(_ticketId: string): Promise<void> {
     // Static implementation - no actual polling needed
     // The ticket status remains as created with the static message
     return;
