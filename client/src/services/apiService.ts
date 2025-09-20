@@ -132,6 +132,22 @@ class APIService {
       const response = await fetch(endpoint, requestOptions);
       console.log('Fetch response status:', response.status, response.statusText);
 
+      if (response.status === 422) {
+        const errorData = await response.json();
+        return {
+          success: false,
+          error: errorData.detail || 'Invalid file format or size. Please ensure your document is in PDF, DOC, DOCX, or TXT format and under 10MB.'
+        };
+      }
+
+      if (!response.ok) {
+        const errorMessage = await response.text().catch(() => 'Unknown error');
+        return {
+          success: false,
+          error: `Error analyzing document (${response.status}): ${errorMessage}`
+        };
+      }
+
       const backendResponse = await this.handleResponse<any>(response);
       const requestId = Math.random().toString(36).substring(2, 15);
       console.log(`[${requestId}] Backend response received at`, new Date().toISOString(), ':', backendResponse);

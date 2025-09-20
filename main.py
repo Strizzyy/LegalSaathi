@@ -14,7 +14,17 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
+import json
+import tempfile
+
 from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form, BackgroundTasks
+
+# Setup Google Cloud credentials from environment variable in production
+if os.getenv('GOOGLE_APPLICATION_CREDENTIALS_JSON'):
+    # Create a temporary file to store the credentials
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        f.write(os.getenv('GOOGLE_APPLICATION_CREDENTIALS_JSON', '{}'))
+        os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = f.name
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse, FileResponse
@@ -23,6 +33,16 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('legal_saathi.log'),
+        logging.StreamHandler()
+    ]
+)
 
 # Import models
 from models.document_models import (
@@ -388,6 +408,20 @@ async def cleanup_cache(background_tasks: BackgroundTasks):
     background_tasks.add_task(cache_service.clear_expired_cache)
     return SuccessResponse(message="Cache cleanup scheduled").dict()
 
+
+# Logging endpoint
+@app.get("/api/logs")
+async def get_logs(request: Request, lines: int = 100):
+    """Get recent application logs"""
+    try:
+        with open('legal_saathi.log', 'r') as f:
+            # Read last N lines
+            all_lines = f.readlines()
+            recent_logs = all_lines[-lines:] if len(all_lines) > lines else all_lines
+            return {"logs": recent_logs}
+    except Exception as e:
+        logger.error(f"Error reading logs: {e}")
+        raise HTTPException(status_code=500, detail="Failed to read logs")
 
 # Static file serving for React frontend
 if os.path.exists("client/dist"):

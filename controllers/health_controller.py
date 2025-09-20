@@ -28,16 +28,40 @@ class HealthController:
     async def health_check(self) -> HealthCheckResponse:
         """Comprehensive health check for all services"""
         try:
-            # Check core services (removed risk_classification and ai_clarification from status display)
-            services_status = {
-                'translation': self.translation_service.enabled,
-                'file_processing': True,  # Always available
-                'document_analysis': True,  # Always available
-                'google_document_ai': document_ai_service.enabled,
-                'google_natural_language': natural_language_service.enabled,
-                'google_speech': speech_service.enabled,
-                'export': True  # Export functionality available
-            }
+            # Only show Google Cloud services status with proper verification
+            services_status = {}
+            
+            # Check Google Translate service
+            try:
+                translation_enabled = await self.translation_service.verify_credentials()
+                services_status['google_translate'] = translation_enabled
+            except Exception as e:
+                logger.error(f"Translation service check failed: {e}")
+                services_status['google_translate'] = False
+
+            # Check Document AI service
+            try:
+                doc_ai_enabled = await document_ai_service.verify_credentials()
+                services_status['google_document_ai'] = doc_ai_enabled
+            except Exception as e:
+                logger.error(f"Document AI service check failed: {e}")
+                services_status['google_document_ai'] = False
+
+            # Check Natural Language service
+            try:
+                nl_enabled = await natural_language_service.verify_credentials()
+                services_status['google_natural_language'] = nl_enabled
+            except Exception as e:
+                logger.error(f"Natural Language service check failed: {e}")
+                services_status['google_natural_language'] = False
+
+            # Check Speech service
+            try:
+                speech_enabled = await speech_service.verify_credentials()
+                services_status['google_speech'] = speech_enabled
+            except Exception as e:
+                logger.error(f"Speech service check failed: {e}")
+                services_status['google_speech'] = False
             
             # Get cache statistics
             cache_stats = self.cache_service.get_cache_stats()

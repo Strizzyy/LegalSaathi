@@ -17,14 +17,12 @@ interface ServiceStatus {
 export function StatusModal({ isOpen, onClose }: StatusModalProps) {
   const [services, setServices] = useState<ServiceStatus>({});
   const [isLoading, setIsLoading] = useState(false);
-  const [lastChecked, setLastChecked] = useState<Date | null>(null);
 
   const checkStatus = async () => {
     setIsLoading(true);
     try {
       const result = await apiService.checkHealth();
       setServices(result.services || {});
-      setLastChecked(new Date());
       notificationService.info('AI services status updated');
     } catch (error) {
       console.error('Status check error:', error);
@@ -42,14 +40,10 @@ export function StatusModal({ isOpen, onClose }: StatusModalProps) {
 
   const getServiceDisplayName = (serviceName: string): string => {
     const displayNames: { [key: string]: string } = {
-      'document_ai': 'Document AI Processing',
-      'natural_language': 'Natural Language Analysis',
-      'translation': 'Translation Service',
-      'risk_analysis': 'Risk Assessment Engine',
-      'export': 'Export Services',
-      'database': 'Database Connection',
-      'gemini_api': 'Gemini AI API',
-      'groq_api': 'Groq AI API (Legacy)',
+      'google_document_ai': 'Google Document AI',
+      'google_natural_language': 'Google Natural Language',
+      'google_translate': 'Google Translation',
+      'google_speech': 'Google Speech',
     };
     return displayNames[serviceName] || serviceName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   };
@@ -69,7 +63,7 @@ export function StatusModal({ isOpen, onClose }: StatusModalProps) {
   const overallStatus = getOverallStatus();
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="AI Services Status" maxWidth="md">
+    <Modal isOpen={isOpen} onClose={onClose} title="Google Cloud Services Status" maxWidth="md">
       <div className="space-y-6">
         {/* Overall Status */}
         <div className={`p-4 rounded-lg border ${
@@ -166,15 +160,6 @@ export function StatusModal({ isOpen, onClose }: StatusModalProps) {
             </div>
           )}
         </div>
-
-        {/* Last Checked */}
-        {lastChecked && (
-          <div className="text-center">
-            <p className="text-xs text-slate-500">
-              Last checked: {lastChecked.toLocaleString()}
-            </p>
-          </div>
-        )}
 
         {/* Loading State */}
         {isLoading && (

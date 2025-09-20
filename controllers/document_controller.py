@@ -71,14 +71,42 @@ class DocumentController:
             if not file.filename:
                 raise HTTPException(status_code=400, detail="No file provided")
             
-            # Read file content
-            file_content = await file.read()
+            # Validate file type
+            allowed_types = [
+                'application/pdf',
+                'application/msword',
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                'text/plain'
+            ]
+            
+            content_type = file.content_type or 'application/octet-stream'
+            if content_type not in allowed_types:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"Unsupported file type: {content_type}. Supported types: PDF, DOC, DOCX, TXT"
+                )
+            
+            try:
+                # Read file content with size limit (10MB)
+                file_content = await file.read(10 * 1024 * 1024)  # 10MB limit
+                if len(file_content) == 10 * 1024 * 1024:
+                    # File might be larger than 10MB
+                    raise HTTPException(
+                        status_code=422,
+                        detail="File size exceeds maximum limit of 10MB"
+                    )
+            except Exception as e:
+                logger.error(f"Error reading file: {e}")
+                raise HTTPException(
+                    status_code=422,
+                    detail="Error reading file. Please ensure the file is not corrupted."
+                )
             
             # Process file using file service
             processing_result = self.file_service.process_file_content(
                 file_content, 
                 file.filename, 
-                file.content_type
+                content_type
             )
             
             if not processing_result.success:
