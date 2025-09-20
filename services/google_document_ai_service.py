@@ -235,6 +235,24 @@ class GoogleDocumentAIService:
             'confidence_scores': {'overall_extraction': 0.0},
             'error': 'Google Document AI not available - using basic text processing'
         }
+        
+    async def verify_credentials(self) -> bool:
+        """Verify if Google Cloud Document AI credentials are valid and service is accessible"""
+        if not self.enabled:
+            return False
+            
+        if not self.project_id or not self.processor_id:
+            logger.warning("Document AI not properly configured - missing project ID or processor ID")
+            return False
+            
+        try:
+            # Check if we can access the processor
+            name = self.client.processor_path(self.project_id, self.location, self.processor_id)
+            self.client.get_processor(name=name)
+            return True
+        except Exception as e:
+            logger.error(f"Document AI service verification failed: {e}")
+            return False
 
 # Global instance
 document_ai_service = GoogleDocumentAIService()

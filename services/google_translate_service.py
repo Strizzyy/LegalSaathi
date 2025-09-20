@@ -326,6 +326,19 @@ class GoogleTranslateService:
     def is_language_supported(self, language_code: str) -> bool:
         """Check if a language code is supported"""
         return language_code in self.supported_languages
+        
+    async def verify_credentials(self) -> bool:
+        """Verify if Google Cloud Translate credentials are valid and service is accessible"""
+        if not self.cloud_enabled:
+            return False
+            
+        try:
+            # Try to translate a simple test string
+            test_result = self.translate_text('test', 'fr')
+            return test_result.get('success', False)
+        except Exception as e:
+            logger.error(f"Translation service verification failed: {e}")
+            return False
     
     def get_language_name(self, language_code: str) -> str:
         """Get the display name for a language code"""

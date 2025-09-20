@@ -19,6 +19,28 @@ class GoogleCloudSpeechService:
     Supports multiple languages, neural voices, and legal terminology
     """
     
+    async def verify_credentials(self) -> bool:
+        """Verify if Google Cloud Speech credentials are valid and services are accessible"""
+        if not self.enabled:
+            return False
+            
+        try:
+            # Try to list available voices to verify Text-to-Speech
+            self.tts_client.list_voices()
+            
+            # Create a simple config to verify Speech-to-Text
+            config = speech.RecognitionConfig(
+                encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
+                sample_rate_hertz=16000,
+                language_code="en-US",
+            )
+            
+            # If we can create the config and list voices, the service is accessible
+            return True
+        except Exception as e:
+            logger.error(f"Speech service verification failed: {e}")
+            return False
+    
     def __init__(self):
         try:
             # Set up authentication

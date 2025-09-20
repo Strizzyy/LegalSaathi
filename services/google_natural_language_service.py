@@ -16,6 +16,23 @@ class GoogleNaturalLanguageService:
     Provides sentiment analysis, entity extraction, and content classification
     """
     
+    async def verify_credentials(self) -> bool:
+        """Verify if Google Cloud Natural Language credentials are valid and service is accessible"""
+        if not self.enabled:
+            return False
+            
+        try:
+            # Try to analyze a simple test string
+            document = language_v1.Document(
+                content='Test document.',
+                type_=language_v1.Document.Type.PLAIN_TEXT
+            )
+            self.client.analyze_sentiment(document=document)
+            return True
+        except Exception as e:
+            logger.error(f"Natural Language service verification failed: {e}")
+            return False
+    
     def __init__(self):
         try:
             # Set up authentication
