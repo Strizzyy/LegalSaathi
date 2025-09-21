@@ -12,10 +12,17 @@ import {
   Shield
 } from 'lucide-react';
 import { summarizationService, type ClauseSummary } from '../services/summarizationService';
+import { ProgressBar } from './ProgressBar';
+import { cn } from '../utils';
 
 interface ClauseSummaryProps {
   clauseId: string;
-  clauseData: any;
+  clauseData: {
+    risk_level: {
+      level: 'RED' | 'YELLOW' | 'GREEN';
+      severity: string;
+    };
+  };
   className?: string;
 }
 
@@ -53,7 +60,14 @@ export function ClauseSummary({ clauseId, clauseData, className = '' }: ClauseSu
       <button
         onClick={handleToggleExpanded}
         disabled={isLoading}
-        className="inline-flex items-center px-3 py-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:from-purple-400 hover:to-pink-400 transition-all text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+        className={cn(
+          "inline-flex items-center px-3 py-1 text-white rounded-lg transition-all text-xs disabled:opacity-50 disabled:cursor-not-allowed",
+          clauseData.risk_level.level === 'RED' ? 
+            "bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-400 hover:to-pink-400" :
+          clauseData.risk_level.level === 'YELLOW' ?
+            "bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-400 hover:to-orange-400" :
+            "bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-400 hover:to-emerald-400"
+        )}
       >
         {isLoading ? (
           <>
@@ -62,7 +76,12 @@ export function ClauseSummary({ clauseId, clauseData, className = '' }: ClauseSu
           </>
         ) : (
           <>
-            <Lightbulb className="w-3 h-3 mr-1" />
+            <div className={cn(
+              "w-2 h-2 rounded-full mr-1",
+              clauseData.risk_level.level === 'RED' ? "bg-red-400" :
+              clauseData.risk_level.level === 'YELLOW' ? "bg-yellow-400" :
+              "bg-green-400"
+            )} />
             {summary ? 'View Summary' : 'Get Summary'}
             {summary && (
               isExpanded ? (
@@ -84,15 +103,45 @@ export function ClauseSummary({ clauseId, clauseData, className = '' }: ClauseSu
             exit={{ opacity: 0, height: 0 }}
             className="mt-3"
           >
-            <div className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/30 rounded-lg p-4 space-y-4">
+            <div className={cn(
+                "rounded-lg p-4 space-y-4 border",
+                clauseData.risk_level.level === 'RED' ? 
+                  "bg-red-500/10 border-red-500/30" :
+                clauseData.risk_level.level === 'YELLOW' ?
+                  "bg-yellow-500/10 border-yellow-500/30" :
+                  "bg-green-500/10 border-green-500/30"
+              )}>
+              {/* Risk Level Indicator */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <div className={cn(
+                    "px-2 py-1 rounded text-xs font-medium flex items-center space-x-1",
+                    clauseData.risk_level.level === 'RED' ? "bg-red-500/20 text-red-400 border border-red-500/30" :
+                    clauseData.risk_level.level === 'YELLOW' ? "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30" :
+                    "bg-green-500/20 text-green-400 border border-green-500/30"
+                  )}>
+                    <Shield className="w-3 h-3" />
+                    <span>{clauseData.risk_level.level} RISK</span>
+                  </div>
+                  <span className="text-sm text-slate-400">
+                    {clauseData.risk_level.severity} severity
+                  </span>
+                </div>
+              </div>
+
               {/* Plain Language Explanation */}
               <div>
                 <div className="flex items-center space-x-2 mb-2">
-                  <FileText className="w-4 h-4 text-purple-400" />
+                  <FileText className="w-4 h-4 text-white" />
                   <h4 className="text-sm font-semibold text-white">In Simple Terms</h4>
                 </div>
-                <div className="bg-purple-500/10 border border-purple-500/20 rounded p-3">
-                  <p className="text-sm text-purple-100 leading-relaxed">{summary.plainLanguage}</p>
+                <div className={cn(
+                  "rounded p-3 border",
+                  clauseData.risk_level.level === 'RED' ? "bg-red-500/5 border-red-500/20" :
+                  clauseData.risk_level.level === 'YELLOW' ? "bg-yellow-500/5 border-yellow-500/20" :
+                  "bg-green-500/5 border-green-500/20"
+                )}>
+                  <p className="text-sm text-slate-200 leading-relaxed">{summary.plainLanguage}</p>
                 </div>
               </div>
 
@@ -100,16 +149,31 @@ export function ClauseSummary({ clauseId, clauseData, className = '' }: ClauseSu
               {summary.keyRisks.length > 0 && (
                 <div>
                   <div className="flex items-center space-x-2 mb-2">
-                    <Shield className="w-4 h-4 text-orange-400" />
+                    <AlertTriangle className={cn(
+                      "w-4 h-4",
+                      clauseData.risk_level.level === 'RED' ? "text-red-400" :
+                      clauseData.risk_level.level === 'YELLOW' ? "text-yellow-400" :
+                      "text-green-400"
+                    )} />
                     <h4 className="text-sm font-semibold text-white">Key Risks</h4>
-                    <span className="text-xs bg-orange-500/20 text-orange-400 px-2 py-1 rounded-full">
+                    <span className={cn(
+                      "text-xs px-2 py-1 rounded-full",
+                      clauseData.risk_level.level === 'RED' ? "bg-red-500/20 text-red-400" :
+                      clauseData.risk_level.level === 'YELLOW' ? "bg-yellow-500/20 text-yellow-400" :
+                      "bg-green-500/20 text-green-400"
+                    )}>
                       {summary.keyRisks.length}
                     </span>
                   </div>
                   <div className="space-y-2">
                     {summary.keyRisks.slice(0, 3).map((risk, index) => (
                       <div key={index} className="flex items-start space-x-2">
-                        <AlertTriangle className="w-3 h-3 text-orange-400 mt-1 flex-shrink-0" />
+                        <Shield className={cn(
+                          "w-3 h-3 mt-1 flex-shrink-0",
+                          clauseData.risk_level.level === 'RED' ? "text-red-400" :
+                          clauseData.risk_level.level === 'YELLOW' ? "text-yellow-400" :
+                          "text-green-400"
+                        )} />
                         <span className="text-xs text-slate-300">{risk}</span>
                       </div>
                     ))}
@@ -171,9 +235,12 @@ export function ClauseSummary({ clauseId, clauseData, className = '' }: ClauseSu
           className="mt-3"
         >
           <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
-            <div className="flex items-center justify-center space-x-3">
-              <Loader2 className="w-5 h-5 text-purple-400 animate-spin" />
-              <span className="text-sm text-slate-300">Generating clause summary...</span>
+            <div className="flex flex-col items-center space-y-4">
+              <div className="flex items-center space-x-3">
+                <Loader2 className="w-5 h-5 text-purple-400 animate-spin" />
+                <span className="text-sm text-slate-300">Generating clause summary...</span>
+              </div>
+              <ProgressBar isLoading={isLoading} className="max-w-md" />
             </div>
           </div>
         </motion.div>

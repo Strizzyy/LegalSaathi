@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Upload, 
@@ -20,20 +20,28 @@ interface DocumentUploadProps {
   onSubmit: (formData: FormData) => void;
 }
 
-import React from 'react';
-
 export const DocumentUpload = React.memo(function DocumentUpload({ onSubmit }: DocumentUploadProps) {
   const [documentText, setDocumentText] = useState('');
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFile, setSelectedFile] = useState<globalThis.File | null>(null);
   const [expertiseLevel, setExpertiseLevel] = useState('beginner');
   const [userQuestions, setUserQuestions] = useState('');
   const [isDragOver, setIsDragOver] = useState(false);
-
+  const [_dragCounter, setDragCounter] = useState(0);
   const [charCount, setCharCount] = useState(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Cleanup effect
+  useEffect(() => {
+    return () => {
+      // Clean up any object URLs if we were using them
+      if (selectedFile && typeof selectedFile === 'object') {
+        console.log('Cleaning up file references');
+      }
+    };
+  }, [selectedFile]);
 
   // Demo samples
   const demoSamples = {
@@ -85,53 +93,100 @@ CONFIDENTIALITY TERMS:
   };
 
   const handleFileSelect = useCallback((file: File) => {
-    // Validate file size
-    const sizeError = validationService.validateFileSize(file, 10 * 1024 * 1024);
-    if (sizeError) {
-      setErrors({ file: sizeError });
-      notificationService.error(sizeError);
-      return;
-    }
+    try {
+      console.log('File selected:', { name: file.name, size: file.size, type: file.type });
+      
+      // Validate file size
+      const sizeError = validationService.validateFileSize(file, 10 * 1024 * 1024);
+      if (sizeError) {
+        console.warn('File size validation failed:', sizeError);
+        setErrors(prev => ({ ...prev, file: sizeError }));
+        notificationService.error(sizeError);
+        // Focus the file input for screen reader users
+        setTimeout(() => {
+          fileInputRef.current?.focus();
+        }, 100);
+        return;
+      }
 
-    // Validate file type
-    const typeError = validationService.validateFileType(file, ['application/pdf', 'text/plain']);
-    if (typeError) {
-      setErrors({ file: typeError });
-      notificationService.error(typeError);
-      return;
-    }
+      // Validate file type
+      const typeError = validationService.validateFileType(file, [
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'text/plain'
+      ]);
+      if (typeError) {
+        console.warn('File type validation failed:', typeError);
+        setErrors(prev => ({ ...prev, file: typeError }));
+        notificationService.error(typeError);
+        // Focus the file input for screen reader users
+        setTimeout(() => {
+          fileInputRef.current?.focus();
+        }, 100);
+        return;
+      }
 
-    setSelectedFile(file);
-    setErrors({ ...errors, file: '' });
-    notificationService.success(`File "${file.name}" selected successfully`);
-  }, [errors]);
+      setSelectedFile(file);
+      setErrors(prev => ({ ...prev, file: '' }));
+      notificationService.success(`File "${file.name}" selected successfully`);
+      console.log('File selection successful');
+    } catch (error) {
+      console.error('Error in handleFileSelect:', error);
+      notificationService.error('Failed to process selected file');
+    }
+  }, []);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
+    setDragCounter(0);
     
     const files = Array.from(e.dataTransfer.files);
     if (files.length > 0) {
+      // Announce to screen readers
+      const announcement = `File dropped: ${files[0].name}. Processing file...`;
+      notificationService.success(announcement);
       handleFileSelect(files[0]);
+    } else {
+      notificationService.error('No valid files were dropped. Please try again.');
     }
   }, [handleFileSelect]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
-    setIsDragOver(true);
-  }, []);
+    e.dataTransfer.dropEffect = 'copy';
+    if (!isDragOver) {
+      setIsDragOver(true);
+    }
+  }, [isDragOver]);
+
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setDragCounter(prev => prev + 1);
+    if (!isDragOver) {
+      setIsDragOver(true);
+    }
+  }, [isDragOver]);
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault();
-    setIsDragOver(false);
+    setDragCounter(prev => {
+      const newCount = prev - 1;
+      if (newCount <= 0) {
+        setIsDragOver(false);
+        return 0;
+      }
+      return newCount;
+    });
   }, []);
 
-  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
       handleFileSelect(files[0]);
     }
-  };
+  }, [handleFileSelect]);
 
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const text = e.target.value;
@@ -145,50 +200,68 @@ CONFIDENTIALITY TERMS:
     }
   };
 
-  const clearFile = () => {
+  const clearFile = useCallback(() => {
     setSelectedFile(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
-  };
+    // Clear any file-related errors
+    setErrors(prev => ({ ...prev, file: '' }));
+  }, []);
 
-  const loadDemoSample = (sampleType: keyof typeof demoSamples) => {
-    setDocumentText(demoSamples[sampleType]);
-    setCharCount(demoSamples[sampleType].length);
-    clearFile();
-  };
+  const loadDemoSample = useCallback((sampleType: keyof typeof demoSamples) => {
+    try {
+      const sampleText = demoSamples[sampleType];
+      setDocumentText(sampleText);
+      setCharCount(sampleText.length);
+      clearFile();
+      // Clear any text-related errors
+      setErrors(prev => ({ ...prev, text: '', documentContent: '' }));
+      notificationService.success(`${sampleType.charAt(0).toUpperCase() + sampleType.slice(1)} sample loaded`);
+    } catch (error) {
+      console.error('Error loading demo sample:', error);
+      notificationService.error('Failed to load demo sample');
+    }
+  }, [clearFile]);
 
 
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = useCallback((e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     
-    // Create form data
-    const formData = new FormData();
-    
-    if (selectedFile) {
-      formData.append('document_file', selectedFile);
-    }
-    
-    formData.append('document_text', documentText);
-    formData.append('expertise_level', expertiseLevel);
-    formData.append('user_questions', userQuestions);
+    try {
+      // Create form data
+      const formData = new FormData();
+      
+      if (selectedFile) {
+        formData.append('document_file', selectedFile);
+      }
+      
+      formData.append('document_text', documentText);
+      formData.append('expertise_level', expertiseLevel);
+      formData.append('user_questions', userQuestions);
 
-    // Validate form data
-    const validation = validationService.validateDocumentUpload(formData);
-    
-    if (!validation.isValid) {
-      setErrors(validation.errors);
-      // Show first error as notification
-      const firstError = Object.values(validation.errors)[0];
-      notificationService.validationError(firstError);
-      return;
-    }
+      // Validate form data
+      const validation = validationService.validateDocumentUpload(formData);
+      
+      if (!validation.isValid) {
+        setErrors(validation.errors);
+        // Show first error as notification
+        const firstError = Object.values(validation.errors)[0];
+        if (firstError) {
+          notificationService.validationError(firstError);
+        }
+        return;
+      }
 
-    // Clear errors and submit
-    setErrors({});
-    onSubmit(formData);
-  };
+      // Clear errors and submit
+      setErrors({});
+      onSubmit(formData);
+    } catch (error) {
+      console.error('Error submitting form:', error);
+      notificationService.error('Failed to submit document. Please try again.');
+    }
+  }, [selectedFile, documentText, expertiseLevel, userQuestions, onSubmit]);
 
   return (
     <section id="document-upload" className="py-20 relative">
@@ -231,7 +304,12 @@ CONFIDENTIALITY TERMS:
           </div>
 
           {/* Main Form */}
-          <form onSubmit={handleSubmit} className="space-y-8">
+          <form 
+            onSubmit={handleSubmit} 
+            className="space-y-8"
+            aria-label="Legal document analysis form"
+            noValidate
+          >
             {/* File Upload Area */}
             <div className="space-y-4">
               <label className="block text-lg font-semibold text-white">
@@ -241,22 +319,38 @@ CONFIDENTIALITY TERMS:
               
               <div
                 className={cn(
-                  "relative border-2 border-dashed rounded-2xl p-8 transition-all duration-300 cursor-pointer",
+                  "relative border-2 border-dashed rounded-2xl p-8 transition-all duration-300 cursor-pointer focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500",
                   isDragOver 
-                    ? "border-cyan-400 bg-cyan-400/10" 
-                    : "border-slate-600 hover:border-slate-500 bg-slate-800/30"
+                    ? "border-cyan-400 bg-cyan-400/20 scale-105 shadow-lg shadow-cyan-500/25" 
+                    : "border-slate-600 hover:border-slate-500 bg-slate-800/30 hover:bg-slate-800/40"
                 )}
                 onDrop={handleDrop}
                 onDragOver={handleDragOver}
+                onDragEnter={handleDragEnter}
                 onDragLeave={handleDragLeave}
                 onClick={() => fileInputRef.current?.click()}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    fileInputRef.current?.click();
+                  }
+                }}
+                tabIndex={0}
+                role="button"
+                aria-label={selectedFile ? `File selected: ${selectedFile.name}. Click to select a different file or press Enter to change selection.` : "Click to upload document or drag and drop files here. Supported formats: PDF, DOC, DOCX, TXT. Maximum size: 10MB."}
+                aria-describedby="file-upload-description file-upload-status"
+                aria-live="polite"
+                aria-atomic="true"
               >
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept=".pdf,.txt"
+                  accept=".pdf,.doc,.docx,.txt"
                   onChange={handleFileInputChange}
                   className="hidden"
+                  id="document-upload-input"
+                  aria-label="Upload legal document for analysis"
+                  aria-describedby="file-upload-description file-upload-status"
                 />
                 
                 {selectedFile ? (
@@ -265,7 +359,7 @@ CONFIDENTIALITY TERMS:
                     <h3 className="text-xl font-semibold text-white mb-2">
                       {selectedFile.name}
                     </h3>
-                    <p className="text-slate-400 mb-4">
+                    <p className="text-slate-400 mb-4" id="file-upload-status">
                       {formatFileSize(selectedFile.size)} • Ready for analysis
                     </p>
                     <button
@@ -274,7 +368,8 @@ CONFIDENTIALITY TERMS:
                         e.stopPropagation();
                         clearFile();
                       }}
-                      className="inline-flex items-center px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-colors"
+                      className="inline-flex items-center px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                      aria-label={`Remove selected file: ${selectedFile.name}`}
                     >
                       <X className="w-4 h-4 mr-2" />
                       Remove File
@@ -282,28 +377,45 @@ CONFIDENTIALITY TERMS:
                   </div>
                 ) : (
                   <div className="text-center">
-                    <Upload className="w-16 h-16 text-slate-400 mx-auto mb-4" />
-                    <h3 className="text-xl font-semibold text-white mb-2">
-                      Drag & Drop Your Document Here
+                    <Upload className={cn(
+                      "w-16 h-16 mx-auto mb-4 transition-all duration-300",
+                      isDragOver ? "text-cyan-400 scale-110" : "text-slate-400"
+                    )} />
+                    <h3 className={cn(
+                      "text-xl font-semibold mb-2 transition-colors duration-300",
+                      isDragOver ? "text-cyan-300" : "text-white"
+                    )}>
+                      {isDragOver ? "Drop Your Document Here" : "Drag & Drop Your Document Here"}
                     </h3>
-                    <p className="text-slate-400 mb-4">
-                      or click to browse files
+                    <p className={cn(
+                      "mb-4 transition-colors duration-300",
+                      isDragOver ? "text-cyan-300" : "text-slate-400"
+                    )}>
+                      {isDragOver ? "Release to upload" : "or click to browse files"}
                     </p>
-                    <div className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-lg hover:from-cyan-400 hover:to-blue-400 transition-all">
-                      <FileText className="w-5 h-5 mr-2" />
-                      Choose File
+                    {!isDragOver && (
+                      <div className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-lg hover:from-cyan-400 hover:to-blue-400 transition-all">
+                        <FileText className="w-5 h-5 mr-2" />
+                        Choose File
+                      </div>
+                    )}
+                    <p id="file-upload-description" className="text-sm text-slate-500 mt-4">
+                      Supported formats: PDF, DOC, DOCX, TXT (Max 10MB)
+                    </p>
+                    <div id="file-upload-status" className="sr-only" aria-live="polite">
+                      {selectedFile ? `File selected: ${(selectedFile as File).name}` : 'No file selected'}
                     </div>
-                    <p className="text-sm text-slate-500 mt-4">
-                      Supported formats: PDF, TXT (Max 10MB)
-                    </p>
+                    <div id="drag-drop-status" className="sr-only" aria-live="assertive">
+                      {isDragOver ? 'Drop your file here to upload' : ''}
+                    </div>
                   </div>
                 )}
               </div>
               
               {errors.file && (
-                <div className="flex items-center text-red-400 text-sm">
-                  <AlertCircle className="w-4 h-4 mr-2" />
-                  {errors.file}
+                <div className="flex items-center text-red-400 text-sm" role="alert" aria-live="assertive">
+                  <AlertCircle className="w-4 h-4 mr-2" aria-hidden="true" />
+                  <span id="file-error-message">{errors.file}</span>
                 </div>
               )}
             </div>
@@ -336,44 +448,50 @@ CONFIDENTIALITY TERMS:
                   placeholder="Paste your legal document text here (rental agreement, employment contract, NDA, etc.)..."
                   className="w-full h-64 px-4 py-3 bg-slate-800/50 border border-slate-600 rounded-xl text-white placeholder-slate-400 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 focus:outline-none resize-none transition-all"
                   maxLength={50000}
+                  id="document-text-input"
+                  aria-label="Legal document text input"
+                  aria-describedby="text-input-description text-char-count"
+                  aria-invalid={errors.text ? 'true' : 'false'}
                 />
-                
-
               </div>
               
               <div className="flex justify-between items-center text-sm">
-                <span className="text-slate-400">
+                <span className="text-slate-400" id="text-input-description">
                   Please ensure you provide the complete legal document for accurate analysis.
                 </span>
-                <span className={cn(
-                  "font-mono",
-                  charCount > 45000 ? "text-red-400" : "text-slate-400"
-                )}>
+                <span 
+                  className={cn(
+                    "font-mono",
+                    charCount > 45000 ? "text-red-400" : "text-slate-400"
+                  )}
+                  id="text-char-count"
+                  aria-label={`Character count: ${charCount.toLocaleString()} of 50,000 characters used`}
+                >
                   {charCount.toLocaleString()} / 50,000 characters
                 </span>
               </div>
               
               {errors.text && (
-                <div className="flex items-center text-red-400 text-sm">
-                  <AlertCircle className="w-4 h-4 mr-2" />
-                  {errors.text}
+                <div className="flex items-center text-red-400 text-sm" role="alert" aria-live="assertive">
+                  <AlertCircle className="w-4 h-4 mr-2" aria-hidden="true" />
+                  <span id="text-error-message">{errors.text}</span>
                 </div>
               )}
               
               {errors.voice && (
-                <div className="flex items-center text-red-400 text-sm">
-                  <AlertCircle className="w-4 h-4 mr-2" />
-                  {errors.voice}
+                <div className="flex items-center text-red-400 text-sm" role="alert" aria-live="assertive">
+                  <AlertCircle className="w-4 h-4 mr-2" aria-hidden="true" />
+                  <span id="voice-error-message">{errors.voice}</span>
                 </div>
               )}
             </div>
 
             {/* Expertise Level */}
-            <div className="space-y-4">
-              <label className="text-lg font-semibold text-white">
+            <fieldset className="space-y-4">
+              <legend className="text-lg font-semibold text-white">
                 Your Experience Level (Optional)
-              </label>
-              <div className="grid md:grid-cols-3 gap-4">
+              </legend>
+              <div className="grid md:grid-cols-3 gap-4" role="radiogroup" aria-labelledby="expertise-level-description">
                 {[
                   { value: 'beginner', label: 'Beginner', desc: 'New to legal documents' },
                   { value: 'intermediate', label: 'Intermediate', desc: 'Some legal document experience' },
@@ -382,7 +500,7 @@ CONFIDENTIALITY TERMS:
                   <label
                     key={level.value}
                     className={cn(
-                      "flex items-start space-x-3 p-4 rounded-xl border cursor-pointer transition-all",
+                      "flex items-start space-x-3 p-4 rounded-xl border cursor-pointer transition-all focus-within:ring-2 focus-within:ring-cyan-500",
                       expertiseLevel === level.value
                         ? "border-cyan-500 bg-cyan-500/10"
                         : "border-slate-600 bg-slate-800/30 hover:border-slate-500"
@@ -395,32 +513,35 @@ CONFIDENTIALITY TERMS:
                       checked={expertiseLevel === level.value}
                       onChange={(e) => setExpertiseLevel(e.target.value)}
                       className="mt-1 text-cyan-500 focus:ring-cyan-500"
+                      aria-describedby={`expertise-${level.value}-desc`}
                     />
                     <div>
                       <div className="font-semibold text-white">{level.label}</div>
-                      <div className="text-sm text-slate-400">{level.desc}</div>
+                      <div className="text-sm text-slate-400" id={`expertise-${level.value}-desc`}>{level.desc}</div>
                     </div>
                   </label>
                 ))}
               </div>
-              <p className="text-sm text-slate-400 flex items-center">
-                <AlertCircle className="w-4 h-4 mr-2" />
+              <p className="text-sm text-slate-400 flex items-center" id="expertise-level-description">
+                <AlertCircle className="w-4 h-4 mr-2" aria-hidden="true" />
                 This helps us adapt our explanations to your knowledge level
               </p>
-            </div>
+            </fieldset>
 
             {/* User Questions */}
             <div className="space-y-4">
-              <label className="text-lg font-semibold text-white">
+              <label htmlFor="user-questions-input" className="text-lg font-semibold text-white">
                 Any Specific Questions? (Optional)
               </label>
               <textarea
+                id="user-questions-input"
                 value={userQuestions}
                 onChange={(e) => setUserQuestions(e.target.value)}
                 placeholder="e.g., What does this clause mean? Are these terms fair? What are my rights?"
                 className="w-full h-24 px-4 py-3 bg-slate-800/50 border border-slate-600 rounded-xl text-white placeholder-slate-400 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 focus:outline-none resize-none transition-all"
+                aria-describedby="user-questions-description"
               />
-              <p className="text-sm text-slate-400">
+              <p className="text-sm text-slate-400" id="user-questions-description">
                 Ask any questions about legal terms or specific clauses you're concerned about
               </p>
             </div>
@@ -429,11 +550,15 @@ CONFIDENTIALITY TERMS:
             <div className="text-center">
               <button
                 type="submit"
-                className="inline-flex items-center px-8 py-4 text-lg font-semibold text-white bg-gradient-to-r from-cyan-500 to-blue-500 rounded-xl hover:from-cyan-400 hover:to-blue-400 transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-cyan-500/25"
+                className="inline-flex items-center px-8 py-4 text-lg font-semibold text-white bg-gradient-to-r from-cyan-500 to-blue-500 rounded-xl hover:from-cyan-400 hover:to-blue-400 transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-cyan-500/25 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-slate-900"
+                aria-describedby="submit-button-description"
               >
-                <Zap className="w-5 h-5 mr-2" />
+                <Zap className="w-5 h-5 mr-2" aria-hidden="true" />
                 Analyze Document
               </button>
+              <p className="sr-only" id="submit-button-description">
+                Submit your document for AI-powered legal analysis
+              </p>
             </div>
           </form>
 
@@ -447,24 +572,25 @@ CONFIDENTIALITY TERMS:
           >
             <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/30 rounded-2xl p-8">
               <div className="text-center mb-8">
-                <h3 className="text-2xl font-bold text-white mb-2 flex items-center justify-center">
-                  <Play className="w-6 h-6 mr-3" />
+                <h3 className="text-2xl font-bold text-white mb-2 flex items-center justify-center" id="demo-section-title">
+                  <Play className="w-6 h-6 mr-3" aria-hidden="true" />
                   Try Our Demo Mode
                 </h3>
-                <p className="text-slate-300">
+                <p className="text-slate-300" id="demo-section-description">
                   Experience our AI analysis with sample documents
                 </p>
               </div>
               
-              <div className="grid md:grid-cols-3 gap-4 mb-6">
+              <div className="grid md:grid-cols-3 gap-4 mb-6" role="group" aria-labelledby="demo-section-title" aria-describedby="demo-section-description">
                 <button
                   type="button"
                   onClick={() => loadDemoSample('rental')}
-                  className="p-4 bg-red-500/20 border border-red-500/50 rounded-xl hover:bg-red-500/30 transition-all group"
+                  className="p-4 bg-red-500/20 border border-red-500/50 rounded-xl hover:bg-red-500/30 transition-all group focus:outline-none focus:ring-2 focus:ring-red-500"
+                  aria-label="Load rental agreement demo sample with unfavorable lease terms"
                 >
                   <div className="text-center">
                     <div className="w-12 h-12 bg-red-500 rounded-lg flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
-                      <FileText className="w-6 h-6 text-white" />
+                      <FileText className="w-6 h-6 text-white" aria-hidden="true" />
                     </div>
                     <h4 className="font-semibold text-white mb-1">Rental Agreement</h4>
                     <p className="text-sm text-red-400">Unfavorable lease terms</p>
@@ -474,11 +600,12 @@ CONFIDENTIALITY TERMS:
                 <button
                   type="button"
                   onClick={() => loadDemoSample('employment')}
-                  className="p-4 bg-green-500/20 border border-green-500/50 rounded-xl hover:bg-green-500/30 transition-all group"
+                  className="p-4 bg-green-500/20 border border-green-500/50 rounded-xl hover:bg-green-500/30 transition-all group focus:outline-none focus:ring-2 focus:ring-green-500"
+                  aria-label="Load employment contract demo sample with standard terms"
                 >
                   <div className="text-center">
                     <div className="w-12 h-12 bg-green-500 rounded-lg flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
-                      <FileText className="w-6 h-6 text-white" />
+                      <FileText className="w-6 h-6 text-white" aria-hidden="true" />
                     </div>
                     <h4 className="font-semibold text-white mb-1">Employment Contract</h4>
                     <p className="text-sm text-green-400">Standard terms</p>
@@ -488,11 +615,12 @@ CONFIDENTIALITY TERMS:
                 <button
                   type="button"
                   onClick={() => loadDemoSample('nda')}
-                  className="p-4 bg-yellow-500/20 border border-yellow-500/50 rounded-xl hover:bg-yellow-500/30 transition-all group"
+                  className="p-4 bg-yellow-500/20 border border-yellow-500/50 rounded-xl hover:bg-yellow-500/30 transition-all group focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                  aria-label="Load NDA agreement demo sample with overly broad terms"
                 >
                   <div className="text-center">
                     <div className="w-12 h-12 bg-yellow-500 rounded-lg flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
-                      <FileText className="w-6 h-6 text-white" />
+                      <FileText className="w-6 h-6 text-white" aria-hidden="true" />
                     </div>
                     <h4 className="font-semibold text-white mb-1">NDA Agreement</h4>
                     <p className="text-sm text-yellow-400">Overly broad terms</p>

@@ -29,11 +29,13 @@ class FileService:
     MAX_TEXT_LENGTH = 50000  # characters
     
     # Supported file types
-    SUPPORTED_EXTENSIONS = {'.txt', '.pdf'}
+    SUPPORTED_EXTENSIONS = {'.txt', '.pdf', '.doc', '.docx'}
     SUPPORTED_MIME_TYPES = {
         'text/plain',
         'application/pdf',
-        'application/x-pdf'
+        'application/x-pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
     }
     
     def __init__(self):

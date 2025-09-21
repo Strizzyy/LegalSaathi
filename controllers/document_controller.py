@@ -72,19 +72,44 @@ class DocumentController:
                 raise HTTPException(status_code=400, detail="No file provided")
             
             # Validate file type
-            allowed_types = [
-                'application/pdf',
-                'application/msword',
-                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                'text/plain'
-            ]
+            allowed_types = {
+                'pdf': [
+                    'application/pdf',
+                    'application/x-pdf',
+                    'application/acrobat',
+                    'applications/vnd.pdf',
+                    'text/pdf',
+                    'text/x-pdf'
+                ],
+                'doc': [
+                    'application/msword',
+                    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                ],
+                'txt': ['text/plain']
+            }
             
             content_type = file.content_type or 'application/octet-stream'
-            if content_type not in allowed_types:
-                raise HTTPException(
-                    status_code=422,
-                    detail=f"Unsupported file type: {content_type}. Supported types: PDF, DOC, DOCX, TXT"
-                )
+            logger.info(f"File content type: {content_type}")
+            
+            # Check if the content type matches any of our allowed types
+            content_type_allowed = any(
+                content_type in types
+                for types in allowed_types.values()
+            )
+            
+            if not content_type_allowed:
+                logger.warning(f"Unsupported file type received: {content_type}")
+                # Check file extension as fallback
+                file_ext = file.filename.lower().split('.')[-1] if '.' in file.filename else ''
+                if file_ext in allowed_types:
+                    # If extension is valid, assume it's the correct type
+                    logger.info(f"Using file extension {file_ext} to determine type")
+                    content_type = allowed_types[file_ext][0]  # Use the primary MIME type
+                else:
+                    raise HTTPException(
+                        status_code=422,
+                        detail=f"Unsupported file type: {content_type}. Supported types: PDF, DOC, DOCX, TXT"
+                    )
             
             try:
                 # Read file content with size limit (10MB)

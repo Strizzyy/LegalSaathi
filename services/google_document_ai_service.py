@@ -71,6 +71,10 @@ class GoogleDocumentAIService:
             return self._fallback_processing(document_content)
             
         try:
+            logger.info(f"Processing document with mime_type: {mime_type}, size: {len(document_content)} bytes")
+            logger.info(f"Using processor_name: {self.processor_name}")
+            logger.info(f"Project ID: {self.project_id}, Location: {self.location}")
+
             # Configure the process request
             raw_document = documentai.RawDocument(content=document_content, mime_type=mime_type)
             request = documentai.ProcessRequest(name=self.processor_name, raw_document=raw_document)
@@ -248,10 +252,13 @@ class GoogleDocumentAIService:
         try:
             # Check if we can access the processor
             name = self.client.processor_path(self.project_id, self.location, self.processor_id)
-            self.client.get_processor(name=name)
+            logger.info(f"Attempting to access processor at path: {name}")
+            processor = self.client.get_processor(name=name)
+            logger.info(f"Successfully connected to processor: {processor.name}")
             return True
         except Exception as e:
-            logger.error(f"Document AI service verification failed: {e}")
+            logger.error(f"Document AI service verification failed: {str(e)}")
+            logger.error(f"Project ID: {self.project_id}, Location: {self.location}, Processor ID: {self.processor_id}")
             return False
 
 # Global instance

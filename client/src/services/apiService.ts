@@ -132,19 +132,26 @@ class APIService {
       const response = await fetch(endpoint, requestOptions);
       console.log('Fetch response status:', response.status, response.statusText);
 
-      if (response.status === 422) {
-        const errorData = await response.json();
-        return {
-          success: false,
-          error: errorData.detail || 'Invalid file format or size. Please ensure your document is in PDF, DOC, DOCX, or TXT format and under 10MB.'
-        };
-      }
-
       if (!response.ok) {
-        const errorMessage = await response.text().catch(() => 'Unknown error');
+        let errorMessage: string;
+        
+        try {
+          // Try to parse the error response as JSON first
+          const errorData = await response.json();
+          errorMessage = errorData.detail || errorData.error || JSON.stringify(errorData);
+        } catch {
+          // If not JSON, get the raw text
+          errorMessage = await response.text().catch(() => 'Unknown error');
+        }
+
+        // For 422 status, provide a more user-friendly message if we don't have a specific error
+        if (response.status === 422 && (!errorMessage || errorMessage === 'Unknown error')) {
+          errorMessage = 'Invalid file format or size. Please ensure your document is in PDF, DOC, DOCX, or TXT format and under 10MB.';
+        }
+
         return {
           success: false,
-          error: `Error analyzing document (${response.status}): ${errorMessage}`
+          error: errorMessage
         };
       }
 

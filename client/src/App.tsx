@@ -88,7 +88,36 @@ function App() {
       }
     } catch (error) {
       console.error('Analysis error:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Analysis failed';
+      let errorMessage = 'An unexpected error occurred';
+      
+      if (error instanceof Error) {
+        try {
+          // Check if error.message is a stringified JSON object
+          const parsedError = JSON.parse(error.message);
+          errorMessage = parsedError.detail || parsedError.error || error.message;
+        } catch {
+          // If not JSON, use the error message directly
+          errorMessage = error.message;
+        }
+      } else if (error && typeof error === 'object') {
+        try {
+          // Try to extract error details from the error object
+          const errorObj = error as { detail?: string; message?: string; error?: string };
+          errorMessage = errorObj.detail || errorObj.error || errorObj.message || 'An unknown error occurred';
+        } catch {
+          errorMessage = 'An unknown error occurred';
+        }
+      }
+
+      // If we still have an object notation in the error message, use a user-friendly message
+      if (errorMessage.includes('[object Object]') || errorMessage === '[object Object]') {
+        errorMessage = 'File upload failed. Please ensure your file is:\n' +
+          '1. A supported type (PDF, DOC, DOCX, or TXT)\n' +
+          '2. Under 10MB in size\n' +
+          '3. Contains readable text\n' +
+          '4. Not corrupted';
+      }
+      
       notificationService.error(`Analysis failed: ${errorMessage}`);
     } finally {
       setIsLoading(false);
