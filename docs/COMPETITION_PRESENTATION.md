@@ -362,36 +362,81 @@ graph TB
 
 ```mermaid
 sequenceDiagram
-    participant User
-    participant Frontend
-    participant FastAPI
-    participant DocumentAI
-    participant Gemini
-    participant Translate
-    participant Speech
-    
-    User->>Frontend: Upload Document
-    Frontend->>FastAPI: POST /api/analyze/file
-    FastAPI->>DocumentAI: Extract Text
-    DocumentAI-->>FastAPI: Extracted Content
-    FastAPI->>Gemini: Analyze Legal Content
-    Gemini-->>FastAPI: Analysis Results
-    FastAPI-->>Frontend: Structured Response
-    Frontend-->>User: Display Results
-    
-    User->>Frontend: Request Translation
-    Frontend->>FastAPI: POST /api/translate
-    FastAPI->>Translate: Translate Content
-    Translate-->>FastAPI: Translated Text
-    FastAPI-->>Frontend: Translation Response
-    Frontend-->>User: Show Translation
-    
-    User->>Frontend: Voice Input
-    Frontend->>FastAPI: POST /api/speech/stt
-    FastAPI->>Speech: Convert Audio
-    Speech-->>FastAPI: Text Output
-    FastAPI-->>Frontend: Transcription
-    Frontend-->>User: Display Text
+    participant U as User
+    participant FE as Frontend
+    participant API as FastAPI
+    participant C as Cache
+    participant DOC as DocumentAI
+    participant G as Gemini
+    participant T as Translate
+    participant S as Speech
+    participant FS as FileSystem
+
+    %% Document Analysis Flow
+    rect rgb(230, 240, 255)
+        Note over U,API: Document Analysis Flow
+        U->>FE: Upload Document
+        FE->>API: POST /api/analyze/file
+        API->>DOC: Extract Text & Process
+        DOC-->>API: Extracted Content
+        API->>G: Analyze Legal Content
+        G-->>API: Analysis Results
+        API->>C: Store Results
+        API-->>FE: Structured Response
+        FE-->>U: Display Results
+    end
+
+    %% Translation Flow
+    rect rgb(240, 255, 240)
+        Note over U,API: Translation Flow
+        U->>FE: Request Translation
+        FE->>API: POST /api/translate
+        API->>C: Check Cache
+        alt Cache Hit
+            C-->>API: Return Cached Translation
+        else Cache Miss
+            API->>T: Translate Content
+            T-->>API: Translated Text
+            API->>C: Store Translation
+        end
+        API-->>FE: Translation Response
+        FE-->>U: Show Translation
+    end
+
+    %% Speech Processing Flow
+    rect rgb(255, 250, 230)
+        Note over U,API: Speech-to-Text Flow
+        U->>FE: Voice Input
+        FE->>API: POST /api/speech/stt
+        API->>S: Convert Audio
+        S-->>API: Text Output
+        API->>FS: Store Audio & Text
+        API-->>FE: Transcription
+        FE-->>U: Display Text
+    end
+
+    %% AI Clarification Flow
+    rect rgb(250, 230, 250)
+        Note over U,API: AI Clarification Flow
+        U->>FE: Request Clarification
+        FE->>API: POST /api/ai/clarify
+        API->>G: Process Query
+        G-->>API: AI Response
+        API-->>FE: Clarification
+        FE-->>U: Show Explanation
+    end
+
+    %% Export Flow
+    rect rgb(230, 255, 255)
+        Note over U,API: Export Results Flow
+        U->>FE: Export Results
+        FE->>API: POST /api/export/pdf
+        API->>FS: Generate Document
+        FS-->>API: Export File
+        API-->>FE: Download Link
+        FE-->>U: Download Export
+    end
+
 ```
 
 ---

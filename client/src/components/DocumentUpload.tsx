@@ -226,42 +226,51 @@ CONFIDENTIALITY TERMS:
 
 
 
-  const handleSubmit = useCallback((e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    
-    try {
-      // Create form data
-      const formData = new FormData();
-      
-      if (selectedFile) {
-        formData.append('document_file', selectedFile);
-      }
-      
-      formData.append('document_text', documentText);
-      formData.append('expertise_level', expertiseLevel);
-      formData.append('user_questions', userQuestions);
-
-      // Validate form data
-      const validation = validationService.validateDocumentUpload(formData);
-      
-      if (!validation.isValid) {
-        setErrors(validation.errors);
-        // Show first error as notification
-        const firstError = Object.values(validation.errors)[0];
-        if (firstError) {
-          notificationService.validationError(firstError);
-        }
-        return;
-      }
-
-      // Clear errors and submit
-      setErrors({});
-      onSubmit(formData);
-    } catch (error) {
-      console.error('Error submitting form:', error);
-      notificationService.error('Failed to submit document. Please try again.');
+  
+const handleSubmit = useCallback((e: React.FormEvent<HTMLFormElement>) => {
+  e.preventDefault();
+ 
+  try {
+    // Validate that we have content
+    if (!selectedFile && !documentText.trim()) {
+      setErrors({ documentContent: 'Please provide a document or paste text to analyze' });
+      notificationService.error('Please provide a document or paste text to analyze');
+      return;
     }
-  }, [selectedFile, documentText, expertiseLevel, userQuestions, onSubmit]);
+
+    // Clear errors
+    setErrors({});
+
+    const formData = new FormData();
+
+    if (selectedFile) {
+      // For file uploads - use the correct field name that your backend expects
+      formData.append('file', selectedFile); // Backend expects 'file'
+      formData.append('document_type', 'general_contract');
+      formData.append('user_expertise_level', expertiseLevel);
+      
+      // Mark this as a file upload
+      formData.append('is_file_upload', 'true');
+    } else if (documentText.trim()) {
+      // For text analysis - use the correct field name that your backend expects
+      formData.append('document_text', documentText.trim()); // Backend expects 'document_text'
+      formData.append('document_type', 'general_contract');
+      formData.append('user_expertise_level', expertiseLevel);
+      
+      if (userQuestions.trim()) {
+        formData.append('user_questions', userQuestions.trim());
+      }
+      
+      // Mark this as text analysis
+      formData.append('is_file_upload', 'false');
+    }
+
+    onSubmit(formData);
+  } catch (error) {
+    console.error('Error submitting form:', error);
+    notificationService.error('Failed to submit document. Please try again.');
+  }
+}, [selectedFile, documentText, expertiseLevel, userQuestions, onSubmit]);
 
   return (
     <section id="document-upload" className="py-20 relative">

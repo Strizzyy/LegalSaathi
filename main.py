@@ -263,13 +263,13 @@ async def analyze_document(request: Request, analysis_request: DocumentAnalysisR
 @limiter.limit("5/minute")
 async def analyze_document_file(
     request: Request,
-    file: UploadFile = File(...),
+    file: UploadFile = File(...),  # <-- CORRECTED THIS LINE
     document_type: str = Form(...),
     user_expertise_level: str = Form("beginner")
 ):
     """Analyze uploaded document file"""
     return await document_controller.analyze_document_file(
-        file=file,
+        file=file, # <-- Now this matches perfectly
         document_type=document_type,
         user_expertise_level=user_expertise_level
     )

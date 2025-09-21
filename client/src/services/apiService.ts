@@ -73,144 +73,121 @@ class APIService {
   }
 
 
-
   async analyzeDocument(formData: FormData): Promise<AnalysisResponse> {
-    try {
-      // Clear any potential browser storage interference
-      if (typeof window !== 'undefined') {
-        try {
-          localStorage.removeItem('analysis_cache');
-          sessionStorage.removeItem('analysis_cache');
-        } catch (e) {
-          // Ignore storage errors
-        }
+  try {
+    // Clear any potential browser storage interference
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.removeItem('analysis_cache');
+        sessionStorage.removeItem('analysis_cache');
+      } catch (e) {
+        // Ignore storage errors
       }
-      // Check if we have a file or text
-      const hasFile = formData.has('document_file');
-      const timestamp = Date.now();
-      const endpoint = hasFile ? `/api/analyze/file?t=${timestamp}` : `/api/analyze?t=${timestamp}`;
+    }
+    
+    const isFileUpload = formData.get('is_file_upload') === 'true';
+    const timestamp = Date.now();
 
-      let requestOptions: RequestInit;
+    let requestOptions: RequestInit;
+    let endpoint: string;
 
-      if (hasFile) {
-        // File upload endpoint
-        requestOptions = {
-          method: 'POST',
-          headers: {
-            'Accept': 'application/json',
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            'Pragma': 'no-cache',
-            'Expires': '0'
-          },
-          body: formData,
-        };
-      } else {
-        // Text analysis endpoint
-        const documentText = formData.get('document_text') as string;
-        const expertiseLevel = formData.get('expertise_level') as string || 'beginner';
-        const userQuestions = formData.get('user_questions') as string || '';
+    if (isFileUpload) {
+      // File upload endpoint
+      endpoint = `/api/analyze/file?t=${timestamp}`;
+      
+      // Remove the marker field before sending
+      formData.delete('is_file_upload');
+      
+      requestOptions = {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        },
+        body: formData, // Send FormData as-is for file uploads
+      };
+    } else {
+      // Text analysis endpoint
+      endpoint = `/api/analyze?t=${timestamp}`;
+      
+      const documentText = formData.get('document_text') as string;
+      const documentType = formData.get('document_type') as string || 'general_contract';
+      const userExpertiseLevel = formData.get('user_expertise_level') as string || 'beginner';
+      const userQuestions = formData.get('user_questions') as string || '';
 
-        requestOptions = {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            'Pragma': 'no-cache',
-            'Expires': '0'
-          },
-          body: JSON.stringify({
-            document_text: documentText,
-            document_type: 'general_contract',
-            user_expertise_level: expertiseLevel,
-            user_questions: userQuestions,
-            _timestamp: Date.now() // Force unique requests
-          }),
-        };
-      }
+      // Create JSON payload for text analysis
+      const jsonPayload = {
+        document_text: documentText,
+        document_type: documentType,
+        user_expertise_level: userExpertiseLevel,
+        ...(userQuestions && { user_questions: userQuestions }),
+        _timestamp: timestamp // Force unique requests
+      };
 
-      const response = await fetch(endpoint, requestOptions);
-      console.log('Fetch response status:', response.status, response.statusText);
-
-      if (!response.ok) {
-        let errorMessage: string;
-        
-        try {
-          // Try to parse the error response as JSON first
-          const errorData = await response.json();
-          errorMessage = errorData.detail || errorData.error || JSON.stringify(errorData);
-        } catch {
-          // If not JSON, get the raw text
-          errorMessage = await response.text().catch(() => 'Unknown error');
-        }
-
-        // For 422 status, provide a more user-friendly message if we don't have a specific error
-        if (response.status === 422 && (!errorMessage || errorMessage === 'Unknown error')) {
-          errorMessage = 'Invalid file format or size. Please ensure your document is in PDF, DOC, DOCX, or TXT format and under 10MB.';
-        }
-
-        return {
-          success: false,
-          error: errorMessage
-        };
-      }
-
-      const backendResponse = await this.handleResponse<any>(response);
-      const requestId = Math.random().toString(36).substring(2, 15);
-      console.log(`[${requestId}] Backend response received at`, new Date().toISOString(), ':', backendResponse);
-
-      // Transform backend DocumentAnalysisResponse to frontend AnalysisResponse format
-      const transformedResponse = this.transformBackendResponse(backendResponse);
-      console.log(`[${requestId}] Final transformed response:`, transformedResponse);
-
-      // Debug: Check if clause_text is preserved in transformation
-      if (transformedResponse.success && transformedResponse.analysis) {
-        console.log(`[${requestId}] Transformed clause texts:`, transformedResponse.analysis.analysis_results.map(r => ({
-          id: r.clause_id,
-          text: r.clause_text?.substring(0, 100) + '...'
-        })));
-
-        // CRITICAL DEBUG: Log the exact clause texts being returned
-        console.log(`[${requestId}] FULL CLAUSE TEXTS:`, transformedResponse.analysis.analysis_results.map((r, i) => ({
-          index: i,
-          id: r.clause_id,
-          fullText: r.clause_text
-        })));
-      }
-
-      return transformedResponse;
-    } catch (error) {
-      console.error('Document analysis error:', error);
-      console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
-
-      // Provide graceful degradation with helpful error messages
-      if (error instanceof Error) {
-        if (error.message.includes('fetch')) {
-          return {
-            success: false,
-            error: 'Unable to connect to analysis service. Please check your internet connection and try again.'
-          };
-        }
-        if (error.message.includes('timeout')) {
-          return {
-            success: false,
-            error: 'Analysis is taking longer than expected. Please try with a smaller document or try again later.'
-          };
-        }
-        if (error.message.includes('Failed to process analysis response')) {
-          return {
-            success: false,
-            error: 'Failed to process the analysis response. Please try again.'
-          };
-        }
-      }
-
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Document analysis failed. Please ensure your document is in a supported format (PDF, DOC, DOCX, TXT) and try again.'
+      requestOptions = {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        },
+        body: JSON.stringify(jsonPayload),
       };
     }
+
+    console.log('Making request to:', endpoint);
+    console.log('Request method:', isFileUpload ? 'FormData (file)' : 'JSON (text)');
+
+    const response = await fetch(endpoint, requestOptions);
+    console.log('Fetch response status:', response.status, response.statusText);
+
+    if (!response.ok) {
+      let errorMessage = 'An unknown error occurred.';
+      try {
+          const errorData = await response.json();
+          console.error("Backend Error Details:", errorData);
+
+          // FastAPI validation errors are in `detail` as an array of objects
+          if (Array.isArray(errorData.detail)) {
+              errorMessage = errorData.detail.map((err: any) => `${err.loc.join('->')}: ${err.msg}`).join('; ');
+          } else {
+              errorMessage = errorData.detail || errorData.message || 'Failed to analyze document.';
+          }
+      } catch {
+          errorMessage = `Request failed with status: ${response.status}`;
+      }
+      throw new Error(errorMessage);
+    }
+
+    const backendResponse = await this.handleResponse<any>(response);
+    const requestId = Math.random().toString(36).substring(2, 15);
+    console.log(`[${requestId}] Backend response received at`, new Date().toISOString(), ':', backendResponse);
+
+    const transformedResponse = this.transformBackendResponse(backendResponse);
+    console.log(`[${requestId}] Final transformed response:`, transformedResponse);
+
+    if (transformedResponse.success && transformedResponse.analysis) {
+      console.log(`[${requestId}] Transformed clause texts:`, transformedResponse.analysis.analysis_results.map(r => ({
+        id: r.clause_id,
+        text: r.clause_text?.substring(0, 100) + '...'
+      })));
+    }
+
+    return transformedResponse;
+  } catch (error) {
+    console.error('Document analysis error:', error);
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Document analysis failed. Please ensure your document is in a supported format (PDF, DOC, DOCX, TXT) and try again.'
+    };
   }
+}
 
   async translateText(text: string, targetLanguage: string, sourceLanguage: string = 'en'): Promise<TranslationResponse> {
     try {
@@ -239,7 +216,6 @@ class APIService {
 
   async askClarification(question: string, context: any): Promise<ClarificationResponse> {
     try {
-      // Enhance context with document and clause information
       const enhancedContext = {
         ...context,
         timestamp: new Date().toISOString(),
@@ -396,15 +372,12 @@ class APIService {
 
   private transformBackendResponse(backendResponse: any): AnalysisResponse {
     try {
-      // Check if this is already in the expected format (wrapped response)
       if (backendResponse.success !== undefined) {
         return backendResponse;
       }
 
-      // CRITICAL DEBUG: Log the raw backend response
       console.log('🔍 RAW BACKEND RESPONSE:', JSON.stringify(backendResponse, null, 2));
       
-      // Validate that we have clause_assessments
       if (!backendResponse.clause_assessments || !Array.isArray(backendResponse.clause_assessments)) {
         console.error('❌ MISSING clause_assessments in backend response!');
         throw new Error('Invalid backend response: missing clause_assessments');
@@ -412,7 +385,6 @@ class APIService {
 
       console.log('📋 CLAUSE_ASSESSMENTS COUNT:', backendResponse.clause_assessments.length);
       
-      // Transform DocumentAnalysisResponse to AnalysisResponse format
       const analysisResult: AnalysisResult = {
         overall_risk: {
           level: backendResponse.overall_risk.level,
@@ -431,7 +403,7 @@ class APIService {
           
           return {
             clause_id: clause.clause_id,
-            clause_text: clause.clause_text, // Use actual clause text from backend
+            clause_text: clause.clause_text,
             risk_level: {
               level: clause.risk_assessment.level,
               score: clause.risk_assessment.score,
@@ -479,7 +451,6 @@ class APIService {
 
       const result = await this.handleResponse<HealthResponse>(response);
 
-      // Ensure we have a proper services object
       if (!result.services) {
         result.services = {
           'document_ai': true,
@@ -494,7 +465,6 @@ class APIService {
       return result;
     } catch (error) {
       console.error('Health check error:', error);
-      // Return error status instead of mock data
       return {
         status: 'unhealthy',
         services: {}
