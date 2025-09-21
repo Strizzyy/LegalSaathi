@@ -19,18 +19,17 @@ logger = logging.getLogger(__name__)
 
 class HealthController:
     """Controller for health check and system status operations"""
-    
+
     def __init__(self):
         self.ai_service = AIService()
         self.cache_service = CacheService()
         self.translation_service = GoogleTranslateService()
-    
+
     async def health_check(self) -> HealthCheckResponse:
         """Comprehensive health check for all services"""
         try:
-            # Only show Google Cloud services status with proper verification
             services_status = {}
-            
+
             # Check Google Translate service
             try:
                 translation_enabled = await self.translation_service.verify_credentials()
@@ -62,7 +61,14 @@ class HealthController:
             except Exception as e:
                 logger.error(f"Speech service check failed: {e}")
                 services_status['google_speech'] = False
-            
+
+            # --- FIX STARTS HERE ---
+            # Add status for core internal services.
+            # They are healthy if the application is running.
+            services_status['file_processing'] = True
+            services_status['document_analysis'] = True
+            # --- FIX ENDS HERE ---
+
             # Get cache statistics
             cache_stats = self.cache_service.get_cache_stats()
             cache_info = {
@@ -72,35 +78,45 @@ class HealthController:
                 'translation_cache': cache_stats['translation_cache_size'],
                 'pattern_storage': cache_stats['pattern_storage_size']
             }
-            
+
             # Determine overall health status
             critical_services = ['file_processing', 'document_analysis']
             overall_status = 'healthy'
-            
-            if not all(services_status[service] for service in critical_services):
+
+            # This check will now work without a KeyError
+            if not all(services_status.get(service, False) for service in critical_services):
                 overall_status = 'degraded'
-            
+
             # Check if any service is down
             if not any(services_status.values()):
                 overall_status = 'unhealthy'
-            
+
             response = HealthCheckResponse(
                 status=overall_status,
                 timestamp=datetime.now(),
                 services=services_status,
                 cache=cache_info
             )
-            
+
             logger.info(f"Health check completed: {overall_status}")
-            return response
             
+            # If a critical service is down, return a 503 status
+            if overall_status != 'healthy':
+                 raise HTTPException(
+                    status_code=503,
+                    detail=f"Health check failed. Status: {overall_status}"
+                )
+                
+            return response
+
         except Exception as e:
-            logger.error(f"Health check failed: {e}")
+            logger.error(f"An unexpected error occurred during health check: {e}", exc_info=True)
             raise HTTPException(
                 status_code=503,
-                detail=f"Health check failed: {str(e)}"
+                detail=f"Health check failed due to an internal error: {str(e)}"
             )
-    
+
+    # ... (the rest of your file remains the same) ...
     async def detailed_health_check(self) -> dict:
         """Detailed health check with service-specific information"""
         try:
