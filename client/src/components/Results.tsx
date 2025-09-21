@@ -430,14 +430,19 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
                       <span className="text-sm text-slate-300">Overall Analysis:</span>
                       <span className="text-sm text-slate-400">{analysis.overall_risk.confidence_percentage}%</span>
                     </div>
-                    <div className="confidence-bar">
+                    <div className="h-2.5 bg-slate-800 rounded-full overflow-hidden">
                       <div 
                         className={cn(
-                          "confidence-fill",
+                          "h-full rounded-full transition-all duration-500 shadow-lg",
                           getConfidenceColor(analysis.overall_risk.confidence_percentage)
                         )}
                         style={{ width: `${analysis.overall_risk.confidence_percentage}%` }}
                       />
+                    </div>
+                    <div className="flex justify-between text-xs text-slate-400 mt-1.5">
+                      <span>Low</span>
+                      <span>Medium</span>
+                      <span>High</span>
                     </div>
                   </div>
                   
@@ -611,17 +616,19 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
                         getRiskColor(result.risk_level.level)
                       )} />
                       <div>
-                        <h3 className="text-lg font-bold text-white">Clause #{index + 1}</h3>
+                        <h3 className="text-lg font-bold text-white">Clause {index + 1}</h3>
                         <p className="text-slate-400 text-sm">
-                          {result.risk_level.severity} Risk - {result.clause_id}
+                          {result.risk_level.severity.charAt(0).toUpperCase() + result.risk_level.severity.slice(1).toLowerCase()} Risk - {result.clause_id}
                         </p>
                       </div>
                     </div>
                     
                     <div className="text-right">
                       <div className={cn(
-                        "px-3 py-1 rounded-full border text-sm font-medium mb-1",
-                        getRiskBadgeColor(result.risk_level.level)
+                        "px-4 py-2 rounded-lg border text-sm font-bold mb-1 flex items-center justify-center",
+                        result.risk_level.level === 'RED' ? "bg-red-500/20 border-red-500/50 text-red-400" :
+                        result.risk_level.level === 'YELLOW' ? "bg-yellow-500/20 border-yellow-500/50 text-yellow-400" :
+                        "bg-green-500/20 border-green-500/50 text-green-400"
                       )}>
                         {result.risk_level.level} RISK
                       </div>
@@ -654,11 +661,12 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
                         )} />
                       </div>
                     </div>
-                    <div className="confidence-bar">
+                    <div className="h-2 bg-slate-700/50 rounded-full overflow-hidden">
                       <div 
                         className={cn(
-                          "confidence-fill",
-                          getConfidenceColor(result.risk_level.confidence_percentage)
+                          "h-full transition-all duration-500",
+                          result.risk_level.confidence_percentage >= 80 ? "bg-green-400" :
+                          result.risk_level.confidence_percentage >= 60 ? "bg-yellow-400" : "bg-red-400"
                         )}
                         style={{ width: `${result.risk_level.confidence_percentage}%` }}
                       />
@@ -895,13 +903,16 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
                   Document Comparison
                 </h3>
                 <p className="text-slate-400 text-sm mb-3">Compare this document with another for risk differences.</p>
-                <button
-                  onClick={() => setIsComparisonOpen(true)}
-                  className="inline-flex items-center px-3 py-2 bg-yellow-500/20 text-yellow-400 border border-yellow-500/50 rounded-lg hover:bg-yellow-500/30 transition-colors text-sm"
-                >
-                  <FileText className="w-4 h-4 mr-2" />
-                  Compare Documents
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    disabled
+                    className="inline-flex items-center px-3 py-2 bg-yellow-500/10 text-yellow-400/50 border border-yellow-500/30 rounded-lg cursor-not-allowed text-sm"
+                  >
+                    <FileText className="w-4 h-4 mr-2" />
+                    Compare Documents
+                  </button>
+                  <span className="text-xs px-2 py-1 bg-blue-500/20 text-blue-400 rounded-full border border-blue-500/30">Coming Soon!</span>
+                </div>
               </div>
 
               {/* Google Cloud AI Services */}

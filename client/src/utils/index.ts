@@ -44,7 +44,7 @@ export function getRiskBadgeColor(risk: string): string {
 }
 
 export function getConfidenceColor(confidence: number): string {
-  if (confidence >= 0.8) return 'text-green-500';
-  if (confidence >= 0.6) return 'text-yellow-500';
-  return 'text-red-500';
+  if (confidence >= 80) return 'bg-emerald-500';
+  if (confidence >= 60) return 'bg-yellow-500';
+  return 'bg-red-500';
 }

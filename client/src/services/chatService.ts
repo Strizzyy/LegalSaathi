@@ -11,16 +11,22 @@ class ChatService {
   private currentSessionId: string | null = null;
 
   // Create a new chat session with context
+  // Helper function to process text and replace ** with proper styling
+  private processText(text: string): string {
+    // Replace **text** with proper bold styling
+    return text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  }
+
   createSession(documentContext: DocumentContext, clauseContext?: ClauseContext): ChatSession {
     const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
     const initialMessage: ChatMessage = {
       id: `msg_${Date.now()}`,
       type: 'ai',
-      content: this.generateContextualGreeting(documentContext, clauseContext),
+      content: this.processText(this.generateContextualGreeting(documentContext, clauseContext)),
       timestamp: new Date(),
       clauseReference: clauseContext?.clauseId || undefined,
-      examples: this.generateInitialExamples(clauseContext)
+      examples: this.generateInitialExamples(clauseContext).map(ex => this.processText(ex))
     };
 
     const session: ChatSession = {
@@ -76,7 +82,7 @@ class ChatService {
         const aiMessage: ChatMessage = {
           id: `msg_${Date.now() + 1}`,
           type: 'ai',
-          content: this.enhanceAIResponse(result.response, session.clauseContext),
+          content: this.processText(this.enhanceAIResponse(result.response, session.clauseContext)),
           timestamp: new Date(),
           clauseReference: session.clauseContext?.clauseId || undefined,
           examples: this.generateContextualExamples(content, session.clauseContext),

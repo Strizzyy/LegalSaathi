@@ -29,6 +29,11 @@ interface AIChatProps {
   clauseContext?: ClauseContext | undefined;
 }
 
+// Helper function to safely render HTML content
+const renderMessageContent = (content: string) => {
+  return { __html: content };
+};
+
 export function AIChat({ isOpen, onClose, documentContext, clauseContext }: AIChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
@@ -177,9 +182,10 @@ export function AIChat({ isOpen, onClose, documentContext, clauseContext }: AICh
                 ? 'bg-slate-600 text-slate-100'
                 : 'bg-slate-700 text-slate-100'
           }`}>
-            <div className="text-sm whitespace-pre-wrap leading-relaxed">
-              {message.content}
-            </div>
+            <div 
+              className="text-sm whitespace-pre-wrap leading-relaxed"
+              dangerouslySetInnerHTML={renderMessageContent(message.content)}
+            />
             
             {/* Confidence indicator for AI messages */}
             {!isUser && !isSystem && message.confidence && (

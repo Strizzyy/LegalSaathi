@@ -27,18 +27,6 @@ export function Footer() {
               Transforming legal document analysis with cutting-edge AI technology, 
               making complex legal processes simple and accessible for everyone.
             </p>
-            
-            {/* Stats */}
-            <div className="grid grid-cols-2 gap-4 max-w-md">
-              <div className="text-center p-3 bg-slate-800/50 rounded-lg">
-                <div className="text-2xl font-bold text-cyan-400">10,000+</div>
-                <div className="text-sm text-slate-400">Users Protected</div>
-              </div>
-              <div className="text-center p-3 bg-slate-800/50 rounded-lg">
-                <div className="text-2xl font-bold text-green-400">99.9%</div>
-                <div className="text-sm text-slate-400">Uptime</div>
-              </div>
-            </div>
           </div>
           
           {/* Product Links */}
@@ -134,7 +122,7 @@ export function Footer() {
         {/* Bottom Bar */}
         <div className="flex flex-col md:flex-row justify-between items-center pt-8">
           <div className="text-slate-500 mb-4 md:mb-0 text-center md:text-left">
-            <p className="mb-2">© 2024 LegalSaathi. All rights reserved.</p>
+            <p className="mb-2">© 2025 LegalSaathi. All rights reserved.</p>
             <p className="text-sm">
               <strong>Disclaimer:</strong> This tool provides informational analysis only and does not constitute legal advice. 
               Please consult with a qualified legal professional for specific legal matters.
@@ -143,7 +131,7 @@ export function Footer() {
           
           <div className="flex flex-col items-center md:items-end space-y-2">
             <div className="flex items-center space-x-6">
-              <span className="text-slate-500 text-sm">Made with AI</span>
+              <span className="text-slate-500 text-sm"></span>
               <div className="google-cloud-badge">
                 <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z"/>

@@ -49,12 +49,12 @@ export function LoadingOverlay() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="loading-overlay"
+        className="loading-overlay fixed inset-0 bg-slate-900/95 backdrop-blur-sm z-50 flex items-center justify-center"
       >
-        <div className="loading-content">
+        <div className="loading-content w-full max-w-lg mx-auto px-4">
           {/* Animated Spinner */}
           <motion.div
-            className="spinner"
+            className="spinner w-16 h-16 border-4 border-cyan-500/30 border-t-cyan-500 rounded-full mx-auto"
             animate={{ rotate: 360 }}
             transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
           />
@@ -66,14 +66,14 @@ export function LoadingOverlay() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
             transition={{ duration: 0.5 }}
-            className="text-center"
+            className="text-center mt-8"
           >
             <h2 className="text-2xl font-bold text-white mb-2">{stage.text}</h2>
             <p className="text-slate-300 mb-6">{stage.subtext}</p>
           </motion.div>
           
           {/* Progress Bar */}
-          <div className="w-80 max-w-full">
+          <div className="w-80 max-w-full mx-auto mt-6">
             <div className="flex justify-between items-center mb-2">
               <span className="text-sm text-slate-400">Progress</span>
               <span className="text-sm text-slate-400">{Math.round(progress)}%</span>
@@ -109,10 +109,10 @@ export function LoadingOverlay() {
             className="text-center mt-8 space-y-2"
           >
             <div className="text-lg font-semibold text-cyan-400">
-              Protecting 10,000+ Users Daily
+          Analysing Your Document
             </div>
             <div className="text-slate-400">
-              Join thousands who've avoided unfavorable legal terms
+            
             </div>
           </motion.div>
           
