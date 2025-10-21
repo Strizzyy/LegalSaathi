@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.9"
 resolution-markers = [
     "python_full_version >= '3.13'",
@@ -716,6 +716,7 @@ dependencies = [
     { name = "groq" },
     { name = "psutil" },
     { name = "pydantic" },
+    { name = "pydub" },
     { name = "pypdf2" },
     { name = "python-docx" },
     { name = "python-dotenv" },
@@ -747,6 +748,7 @@ requires-dist = [
     { name = "groq", specifier = ">=0.31.0" },
     { name = "psutil", specifier = "==6.1.0" },
     { name = "pydantic", specifier = ">=2.0.0" },
+    { name = "pydub", specifier = ">=0.25.1" },
     { name = "pypdf2", specifier = ">=3.0.0" },
     { name = "python-docx", specifier = ">=1.1.0" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
@@ -1297,6 +1299,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/1a/1a/abbd63d47e1d9b0d632fee6bb15785d0889c8a6e0a6c3b5a8e28ac1ec5d2/pydantic_core-2.33.2-pp39-pypy39_pp73-musllinux_1_1_armv7l.whl", hash = "sha256:3abcd9392a36025e3bd55f9bd38d908bd17962cc49bc6da8e7e96285336e2bca", size = 2237859, upload-time = "2025-04-23T18:33:45.56Z" },
     { url = "https://files.pythonhosted.org/packages/80/1c/fa883643429908b1c90598fd2642af8839efd1d835b65af1f75fba4d94fe/pydantic_core-2.33.2-pp39-pypy39_pp73-musllinux_1_1_x86_64.whl", hash = "sha256:3a1c81334778f9e3af2f8aeb7a960736e5cab1dfebfb26aabca09afd2906c039", size = 2239059, upload-time = "2025-04-23T18:33:47.735Z" },
     { url = "https://files.pythonhosted.org/packages/d4/29/3cade8a924a61f60ccfa10842f75eb12787e1440e2b8660ceffeb26685e7/pydantic_core-2.33.2-pp39-pypy39_pp73-win_amd64.whl", hash = "sha256:2807668ba86cb38c6817ad9bc66215ab8584d1d304030ce4f0887336f28a5e27", size = 2066661, upload-time = "2025-04-23T18:33:49.995Z" },
+]
+
+[[package]]
+name = "pydub"
+version = "0.25.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/fe/9a/e6bca0eed82db26562c73b5076539a4a08d3cffd19c3cc5913a3e61145fd/pydub-0.25.1.tar.gz", hash = "sha256:980a33ce9949cab2a569606b65674d748ecbca4f0796887fd6f46173a7b0d30f", size = 38326, upload-time = "2021-03-10T02:09:54.659Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a6/53/d78dc063216e62fc55f6b2eebb447f6a4b0a59f55c8406376f76bf959b08/pydub-0.25.1-py2.py3-none-any.whl", hash = "sha256:65617e33033874b59d87db603aa1ed450633288aefead953b30bded59cb599a6", size = 32327, upload-time = "2021-03-10T02:09:53.503Z" },
 ]
 
 [[package]]

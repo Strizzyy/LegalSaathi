@@ -245,7 +245,7 @@ graph TB
 
 ## API Architecture
 
-### RESTful API Design
+
 
 ```mermaid
 graph LR

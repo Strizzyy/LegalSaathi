@@ -240,6 +240,7 @@ Visit `http://localhost:8000` to access the application.
 - **[API Documentation](docs/API_DOCUMENTATION.md)** - Complete API reference
 - **[Competition Presentation](docs/COMPETITION_PRESENTATION.md)** - Competition submission details
 - **[Deployment Guide](docs/RENDER_DEPLOYMENT_GUIDE.md)** - Render.com deployment instructions
+- **[Judge Access and Testing](md files/JUDGE_ACCESS_AND_TESTING.md)** - Instructions for judges to access and test the solution
 
 ### API Endpoints
 
@@ -424,11 +425,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Open Source Community** for amazing tools and libraries
 - **Legal Professionals** for domain expertise and feedback
 
-## 🏆 Awards & Recognition
-
-- 🥇 **Google Cloud AI Competition** - Finalist
-- 🌟 **Innovation Award** - Best AI Integration
-- 🎯 **Impact Award** - Social Good Technology
 
 ---
 
