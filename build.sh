@@ -31,15 +31,19 @@ cd ..
 # React build stays in client/dist for separate serving
 echo "✅ React build completed in client/dist/"
 
-# Install Python dependencies if needed
-if [ ! -d ".venv" ]; then
-    echo "🐍 Creating Python virtual environment..."
-    python -m venv .venv
+# Install Python dependencies using uv
+echo "📥 Installing Python dependencies with uv..."
+if command -v uv >/dev/null 2>&1; then
+    uv sync
+else
+    echo "⚠️  uv not found, falling back to pip..."
+    if [ ! -d ".venv" ]; then
+        echo "🐍 Creating Python virtual environment..."
+        python -m venv .venv
+    fi
+    source .venv/bin/activate 2>/dev/null || .venv\Scripts\activate
+    pip install -r requirements.txt
 fi
-
-echo "📥 Installing Python dependencies..."
-source .venv/bin/activate 2>/dev/null || .venv\Scripts\activate
-pip install -r requirements.txt
 
 echo "✅ Build completed successfully!"
 echo ""

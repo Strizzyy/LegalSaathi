@@ -28,15 +28,20 @@ cd ..
 REM React build stays in client/dist for separate serving
 echo ✅ React build completed in client/dist/
 
-REM Install Python dependencies if needed
-if not exist ".venv" (
-    echo 🐍 Creating Python virtual environment...
-    python -m venv .venv
+REM Install Python dependencies using uv
+echo 📥 Installing Python dependencies with uv...
+where uv >nul 2>&1
+if %errorlevel% equ 0 (
+    uv sync
+) else (
+    echo ⚠️  uv not found, falling back to pip...
+    if not exist ".venv" (
+        echo 🐍 Creating Python virtual environment...
+        python -m venv .venv
+    )
+    call .venv\Scripts\activate
+    pip install -r requirements.txt
 )
-
-echo 📥 Installing Python dependencies...
-call .venv\Scripts\activate
-pip install -r requirements.txt
 
 echo ✅ Build completed successfully!
 echo.

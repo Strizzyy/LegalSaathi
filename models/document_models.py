@@ -11,6 +11,7 @@ from datetime import datetime
 class DocumentType(str, Enum):
     RENTAL_AGREEMENT = "rental_agreement"
     EMPLOYMENT_CONTRACT = "employment_contract"
+    INTERNSHIP_AGREEMENT = "internship_agreement"
     NDA = "nda"
     LOAN_AGREEMENT = "loan_agreement"
     PARTNERSHIP_AGREEMENT = "partnership_agreement"
@@ -47,18 +48,12 @@ class DocumentAnalysisRequest(BaseModel):
         if not v or not v.strip():
             raise ValueError('Document text cannot be empty')
         
-        # Check for basic legal document indicators
-        legal_keywords = [
-            'agreement', 'contract', 'party', 'parties', 'terms', 'conditions',
-            'shall', 'hereby', 'whereas', 'therefore', 'obligations', 'rights'
-        ]
+        # Basic length check - must be substantial
+        if len(v.strip()) < 100:
+            raise ValueError('Document text must be at least 100 characters long')
         
-        text_lower = v.lower()
-        found_keywords = [keyword for keyword in legal_keywords if keyword in text_lower]
-        
-        if len(found_keywords) < 2:
-            raise ValueError('This does not appear to be a legal document')
-        
+        # For comparison mode, skip strict legal document validation
+        # This allows more flexibility when comparing documents
         return v.strip()
 
 
@@ -91,6 +86,8 @@ class DocumentAnalysisResponse(BaseModel):
     recommendations: List[str]
     timestamp: datetime = Field(default_factory=datetime.now)
     enhanced_insights: Optional[Dict[str, Any]] = None
+    document_text: Optional[str] = None  # Original document text for comparison features
+    document_type: Optional[str] = None  # Document type for comparison features
 
 
 class AnalysisStatusResponse(BaseModel):

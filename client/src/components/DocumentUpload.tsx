@@ -14,6 +14,7 @@ import {
 import { cn, formatFileSize } from '../utils';
 import { notificationService } from '../services/notificationService';
 import { validationService } from '../services/validationService';
+import { experienceLevelService, type ExperienceLevel } from '../services/experienceLevelService';
 import { VoiceInput } from './VoiceInput';
 
 interface DocumentUploadProps {
@@ -23,7 +24,9 @@ interface DocumentUploadProps {
 export const DocumentUpload = React.memo(function DocumentUpload({ onSubmit }: DocumentUploadProps) {
   const [documentText, setDocumentText] = useState('');
   const [selectedFile, setSelectedFile] = useState<globalThis.File | null>(null);
-  const [expertiseLevel, setExpertiseLevel] = useState('beginner');
+  const [expertiseLevel, setExpertiseLevel] = useState<ExperienceLevel>(() => 
+    experienceLevelService.getCurrentLevel()
+  );
   const [userQuestions, setUserQuestions] = useState('');
   const [isDragOver, setIsDragOver] = useState(false);
   const [_dragCounter, setDragCounter] = useState(0);
@@ -272,6 +275,11 @@ const handleSubmit = useCallback((e: React.FormEvent<HTMLFormElement>) => {
   }
 }, [selectedFile, documentText, expertiseLevel, userQuestions, onSubmit]);
 
+  // Store experience level when it changes
+  React.useEffect(() => {
+    experienceLevelService.setLevel(expertiseLevel);
+  }, [expertiseLevel]);
+
   return (
     <section id="document-upload" className="py-20 relative">
       <div className="container mx-auto px-6">
@@ -501,16 +509,12 @@ const handleSubmit = useCallback((e: React.FormEvent<HTMLFormElement>) => {
                 Your Experience Level (Optional)
               </legend>
               <div className="grid md:grid-cols-3 gap-4" role="radiogroup" aria-labelledby="expertise-level-description">
-                {[
-                  { value: 'beginner', label: 'Beginner', desc: 'New to legal documents' },
-                  { value: 'intermediate', label: 'Intermediate', desc: 'Some legal document experience' },
-                  { value: 'expert', label: 'Expert', desc: 'Legal/real estate professional' }
-                ].map((level) => (
+                {experienceLevelService.getAvailableLevels().map((levelInfo) => (
                   <label
-                    key={level.value}
+                    key={levelInfo.level}
                     className={cn(
                       "flex items-start space-x-3 p-4 rounded-xl border cursor-pointer transition-all focus-within:ring-2 focus-within:ring-cyan-500",
-                      expertiseLevel === level.value
+                      expertiseLevel === levelInfo.level
                         ? "border-cyan-500 bg-cyan-500/10"
                         : "border-slate-600 bg-slate-800/30 hover:border-slate-500"
                     )}
@@ -518,15 +522,15 @@ const handleSubmit = useCallback((e: React.FormEvent<HTMLFormElement>) => {
                     <input
                       type="radio"
                       name="expertise_level"
-                      value={level.value}
-                      checked={expertiseLevel === level.value}
-                      onChange={(e) => setExpertiseLevel(e.target.value)}
+                      value={levelInfo.level}
+                      checked={expertiseLevel === levelInfo.level}
+                      onChange={(e) => setExpertiseLevel(e.target.value as ExperienceLevel)}
                       className="mt-1 text-cyan-500 focus:ring-cyan-500"
-                      aria-describedby={`expertise-${level.value}-desc`}
+                      aria-describedby={`expertise-${levelInfo.level}-desc`}
                     />
                     <div>
-                      <div className="font-semibold text-white">{level.label}</div>
-                      <div className="text-sm text-slate-400" id={`expertise-${level.value}-desc`}>{level.desc}</div>
+                      <div className="font-semibold text-white">{levelInfo.label}</div>
+                      <div className="text-sm text-slate-400" id={`expertise-${levelInfo.level}-desc`}>{levelInfo.description}</div>
                     </div>
                   </label>
                 ))}

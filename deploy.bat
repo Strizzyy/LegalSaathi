@@ -27,7 +27,13 @@ if not exist "requirements.txt" (
 
 REM Install Python dependencies locally for testing
 echo 📦 Installing Python dependencies...
-pip install -r requirements.txt
+where uv >nul 2>&1
+if %errorlevel% equ 0 (
+    uv sync
+) else (
+    echo ⚠️  uv not found, using pip...
+    pip install -r requirements.txt
+)
 
 REM Check Node.js and npm
 echo 📦 Checking Node.js setup...

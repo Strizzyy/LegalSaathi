@@ -10,7 +10,9 @@ dependencies = [
     "uvicorn[standard]>=0.24.0",
     "python-multipart>=0.0.6",
     "slowapi>=0.1.9",
+    "groq>=0.31.0",
     "google-generativeai>=0.3.0",
+    "google-cloud-aiplatform>=1.38.0",
     "google-cloud-translate>=3.12.0",
     "google-cloud-documentai>=2.20.0",
     "google-cloud-language>=2.10.0",
@@ -18,21 +20,24 @@ dependencies = [
     "google-cloud-texttospeech>=2.16.0",
     "python-dotenv>=1.0.0",
     "pypdf2>=3.0.0",
-    "psutil==6.1.0",
     "reportlab>=4.0.0",
     "python-docx>=1.1.0",
     "requests>=2.31.0",
-    "groq>=0.31.0",
-    "pydub>=0.25.1",
+    "psutil==6.1.0",
     "pydantic>=2.0.0",
+    "httpx>=0.25.0",
+    "pydub>=0.25.1",
+    "redis>=4.5.0",
+    "cachetools>=5.3.0",
+    "numpy>=1.24.0",
 ]
 requires-python = ">=3.9"
 
 [tool.uv]
 dev-dependencies = [
-    "pytest>=7.0.0",
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
     "black>=23.0.0",
     "flake8>=6.0.0",
-    "requests>=2.31.0",
     "beautifulsoup4>=4.12.0",
 ]
