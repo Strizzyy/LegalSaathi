@@ -36,7 +36,7 @@ class ClarificationResponse(BaseModel):
     fallback: bool = False
     service_used: Optional[str] = None
     error_type: Optional[str] = None
-    timestamp: datetime = Field(default_factory=datetime.now)
+    timestamp: Optional[datetime] = None
 
 
 class ConversationSummaryResponse(BaseModel):

@@ -33,13 +33,14 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
+from pydantic import ValidationError
 
-# Configure logging
+# Configure logging with UTF-8 encoding to handle Unicode characters
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('legal_saathi.log'),
+        logging.FileHandler('legal_saathi.log', encoding='utf-8'),
         logging.StreamHandler()
     ]
 )
@@ -86,12 +87,12 @@ from controllers.support_controller import router as support_router
 # Import services for cleanup
 from services.cache_service import CacheService
 
-# Configure logging
+# Configure logging with UTF-8 encoding to handle Unicode characters
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('legal_saathi.log'),
+        logging.FileHandler('legal_saathi.log', encoding='utf-8'),
         logging.StreamHandler()
     ]
 )
@@ -203,6 +204,20 @@ async def log_requests(request: Request, call_next):
 
 
 # Exception handlers
+@app.exception_handler(ValidationError)
+async def validation_exception_handler(request: Request, exc: ValidationError):
+    """Handle Pydantic validation errors"""
+    logger.error(f"Validation error on {request.url}: {exc}")
+    return JSONResponse(
+        status_code=422,
+        content={
+            "error": "Validation error",
+            "details": exc.errors(),
+            "status_code": 422,
+            "timestamp": datetime.now().isoformat()
+        }
+    )
+
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
     """Handle HTTP exceptions with structured error responses"""
@@ -288,6 +303,47 @@ async def get_analysis_status(analysis_id: str):
     return await document_controller.get_analysis_status(analysis_id)
 
 
+@app.get("/api/analysis/{analysis_id}/clauses")
+async def get_paginated_clauses(
+    analysis_id: str,
+    page: int = 1,
+    page_size: int = 10,
+    risk_filter: str = None,
+    sort_by: str = "risk_score"
+):
+    """Get paginated clause results with filtering and sorting"""
+    return await document_controller.get_paginated_clauses(
+        analysis_id=analysis_id,
+        page=page,
+        page_size=page_size,
+        risk_filter=risk_filter,
+        sort_by=sort_by
+    )
+
+
+@app.get("/api/analysis/{analysis_id}/search")
+async def search_clauses(
+    analysis_id: str,
+    q: str,
+    fields: str = None
+):
+    """Search within analyzed clauses"""
+    return await document_controller.search_clauses(
+        analysis_id=analysis_id,
+        search_query=q,
+        search_fields=fields
+    )
+
+
+@app.get("/api/analysis/{analysis_id}/clauses/{clause_id}")
+async def get_clause_details(analysis_id: str, clause_id: str):
+    """Get detailed information for a specific clause"""
+    return await document_controller.get_clause_details(
+        analysis_id=analysis_id,
+        clause_id=clause_id
+    )
+
+
 @app.post("/api/analysis/{analysis_id}/export")
 async def export_analysis(analysis_id: str, format: str = "pdf"):
     """Export analysis results"""
@@ -357,7 +413,12 @@ async def get_speech_languages():
 @limiter.limit("15/minute")
 async def get_ai_clarification(request: Request, clarification_request: ClarificationRequest):
     """Get AI-powered clarification"""
-    return await ai_controller.get_clarification(clarification_request)
+    try:
+        logger.info(f"Received clarification request: {clarification_request.question[:50] if clarification_request.question else 'No question'}...")
+        return await ai_controller.get_clarification(clarification_request)
+    except Exception as e:
+        logger.error(f"Clarification endpoint error: {e}")
+        raise
 
 
 @app.get("/api/ai/conversation/summary", response_model=ConversationSummaryResponse)
@@ -384,6 +445,52 @@ async def compare_documents(request: Request, comparison_request: DocumentCompar
 async def get_comparison_summary(comparison_id: str):
     """Get summary of a previous comparison"""
     return await comparison_controller.get_comparison_summary(comparison_id)
+
+
+@app.get("/api/compare/export/formats")
+async def get_comparison_export_formats():
+    """Get available export formats for comparison reports"""
+    return await comparison_controller.get_export_formats()
+
+
+@app.post("/api/compare/export/{format}")
+async def export_comparison_report(
+    format: str,
+    comparison_data: DocumentComparisonResponse,
+    request: Request
+):
+    """Export comparison report in specified format (PDF/Word)"""
+    from fastapi.responses import Response
+    
+    try:
+        # Export the report
+        exported_data = await comparison_controller.export_comparison_report(
+            comparison_data, format
+        )
+        
+        # Set appropriate content type and filename
+        if format.lower() == 'pdf':
+            content_type = 'application/pdf'
+            filename = f"comparison_report_{comparison_data.comparison_id}.pdf"
+        elif format.lower() in ['docx', 'word']:
+            content_type = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            filename = f"comparison_report_{comparison_data.comparison_id}.docx"
+        else:
+            content_type = 'application/octet-stream'
+            filename = f"comparison_report_{comparison_data.comparison_id}.{format}"
+        
+        return Response(
+            content=exported_data,
+            media_type=content_type,
+            headers={
+                "Content-Disposition": f"attachment; filename={filename}",
+                "Content-Length": str(len(exported_data))
+            }
+        )
+        
+    except Exception as e:
+        logger.error(f"Export endpoint failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}")
 
 
 # Export endpoints

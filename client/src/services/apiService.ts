@@ -1,4 +1,5 @@
 import type { AnalysisResult } from '../App';
+import { experienceLevelService } from './experienceLevelService';
 
 export interface APIError extends Error {
   status?: number;
@@ -22,6 +23,9 @@ export interface ClarificationResponse {
   success: boolean;
   response?: string;
   error?: string;
+  service_used?: string;
+  fallback?: boolean;
+  confidence_score?: number;
 }
 
 export interface HealthResponse {
@@ -214,7 +218,7 @@ class APIService {
     }
   }
 
-  async askClarification(question: string, context: any): Promise<ClarificationResponse> {
+  async askClarification(question: string, context: any, experienceLevel?: string): Promise<ClarificationResponse> {
     try {
       const enhancedContext = {
         ...context,
@@ -222,6 +226,9 @@ class APIService {
         userAgent: navigator.userAgent,
         sessionId: this.generateSessionId()
       };
+
+      // Get experience level from service if not provided
+      const userExperienceLevel = experienceLevel || experienceLevelService.getLevelForAPI();
 
       const response = await fetch('/api/ai/clarify', {
         method: 'POST',
@@ -231,7 +238,8 @@ class APIService {
         },
         body: JSON.stringify({
           question,
-          context: enhancedContext
+          context: enhancedContext,
+          user_expertise_level: userExperienceLevel
         }),
       });
 
@@ -386,6 +394,7 @@ class APIService {
       console.log('📋 CLAUSE_ASSESSMENTS COUNT:', backendResponse.clause_assessments.length);
       
       const analysisResult: AnalysisResult = {
+        analysis_id: backendResponse.analysis_id || 'unknown',
         overall_risk: {
           level: backendResponse.overall_risk.level,
           score: backendResponse.overall_risk.score,

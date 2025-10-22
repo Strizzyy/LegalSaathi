@@ -32,8 +32,13 @@ if [ -z "$VIRTUAL_ENV" ]; then
 fi
 
 # Install Python dependencies locally for testing
-echo "� InstNalling Python dependencies..."
-pip install -r requirements.txt
+echo "📦 Installing Python dependencies..."
+if command -v uv >/dev/null 2>&1; then
+    uv sync
+else
+    echo "⚠️  uv not found, using pip..."
+    pip install -r requirements.txt
+fi
 
 # Check Node.js and npm
 echo "📦 Checking Node.js setup..."

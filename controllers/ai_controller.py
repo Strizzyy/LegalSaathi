@@ -23,7 +23,7 @@ class AIController:
     async def get_clarification(self, request: ClarificationRequest) -> ClarificationResponse:
         """Handle AI clarification requests"""
         try:
-            logger.info(f"Processing AI clarification request")
+            logger.info(f"Processing AI clarification request: question='{request.question[:50]}...', context_size={len(str(request.context)) if request.context else 0}")
             
             if not self.ai_service.enabled:
                 raise HTTPException(
@@ -33,15 +33,25 @@ class AIController:
             
             # Validate request
             if not request.question or len(request.question.strip()) < 5:
+                logger.warning(f"Invalid question length: {len(request.question.strip()) if request.question else 0}")
                 raise HTTPException(
                     status_code=400,
                     detail="Question must be at least 5 characters long"
                 )
             
             if len(request.question) > 1000:
+                logger.warning(f"Question too long: {len(request.question)} characters")
                 raise HTTPException(
                     status_code=400,
                     detail="Question too long (max 1000 characters)"
+                )
+            
+            # Validate expertise level
+            if request.user_expertise_level and request.user_expertise_level not in ['beginner', 'intermediate', 'expert']:
+                logger.warning(f"Invalid expertise level: {request.user_expertise_level}")
+                raise HTTPException(
+                    status_code=400,
+                    detail="Invalid expertise level. Must be 'beginner', 'intermediate', or 'expert'"
                 )
             
             # Get AI clarification

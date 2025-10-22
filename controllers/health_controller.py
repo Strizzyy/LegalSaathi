@@ -132,19 +132,17 @@ class HealthController:
                 }
             }
             
-            # Test AI service
+            # Test enhanced AI service with multiple providers
             try:
-                if self.ai_service.enabled:
-                    health_details['services']['ai_clarification'] = {
-                        'status': 'healthy',
-                        'provider': 'Google Gemini',
-                        'last_check': datetime.now().isoformat()
-                    }
-                else:
-                    health_details['services']['ai_clarification'] = {
-                        'status': 'unavailable',
-                        'error': 'Gemini API not configured'
-                    }
+                ai_status = self.ai_service.get_service_status()
+                health_details['services']['ai_clarification'] = {
+                    'status': 'healthy' if self.ai_service.enabled else 'unavailable',
+                    'primary_provider': 'Google Gemini' if self.ai_service.gemini_enabled else 'Groq (Fallback)',
+                    'services': ai_status['services'],
+                    'cache_status': ai_status['cache'],
+                    'overall_status': ai_status['overall_status'],
+                    'last_check': datetime.now().isoformat()
+                }
             except Exception as e:
                 health_details['services']['ai_clarification'] = {
                     'status': 'error',
@@ -224,11 +222,18 @@ class HealthController:
         try:
             # This would integrate with the existing metrics tracker
             # For now, return basic metrics
+            # Get enhanced AI service metrics
+            ai_status = self.ai_service.get_service_status()
+            
             metrics = {
                 'cache_performance': self.cache_service.get_cache_stats(),
                 'ai_service': {
                     'enabled': self.ai_service.enabled,
-                    'conversation_history_size': len(self.ai_service.conversation_history)
+                    'conversation_history_size': len(self.ai_service.conversation_history),
+                    'service_status': ai_status,
+                    'quota_usage': {
+                        service: tracker for service, tracker in self.ai_service.quota_tracker.items()
+                    }
                 },
                 'translation_service': {
                     'enabled': self.translation_service.enabled,

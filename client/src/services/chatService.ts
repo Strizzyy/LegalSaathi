@@ -1,4 +1,5 @@
 import { apiService } from './apiService';
+import { experienceLevelService } from './experienceLevelService';
 import type { 
   ChatMessage, 
   ChatSession, 
@@ -76,7 +77,10 @@ class ChatService {
         userQuestion: content
       };
 
-      const result = await apiService.askClarification(content, enhancedContext);
+      // Get user experience level from service
+      const experienceLevel = experienceLevelService.getLevelForAPI();
+      
+      const result = await apiService.askClarification(content, enhancedContext, experienceLevel);
       
       if (result.success && result.response) {
         const aiMessage: ChatMessage = {

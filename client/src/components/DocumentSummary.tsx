@@ -12,6 +12,8 @@ import {
   Shield
 } from 'lucide-react';
 import { summarizationService, type SummaryData } from '../services/summarizationService';
+import { MarkdownRenderer } from '../utils/markdownRenderer';
+
 import type { AnalysisResult } from '../App';
 
 interface DocumentSummaryProps {
@@ -20,35 +22,111 @@ interface DocumentSummaryProps {
 }
 
 export function DocumentSummary({ analysis, className = '' }: DocumentSummaryProps) {
-  const [summary, setSummary] = useState<SummaryData | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
   const [allExpanded, setAllExpanded] = useState(true);
+  const [summary, setSummary] = useState<SummaryData | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
+  // Subscribe to summarization service state changes
   useEffect(() => {
+    // Clear caches when analysis changes to ensure fresh summaries
+    if (analysis) {
+      console.log('🔄 New analysis detected, clearing summary caches');
+      summarizationService.clearCachesForNewAnalysis();
+    }
+
     const unsubscribe = summarizationService.subscribe(() => {
-      setSummary(summarizationService.getDocumentSummary());
-      setIsLoading(summarizationService.isLoading('document'));
+      const currentSummary = summarizationService.getDocumentSummary();
+      const loading = summarizationService.isLoading('document');
+      
+      setSummary(currentSummary);
+      setIsLoading(loading);
     });
 
-    // Initial load
-    setSummary(summarizationService.getDocumentSummary());
+    // Initialize with current state
+    const currentSummary = summarizationService.getDocumentSummary();
+    const loading = summarizationService.isLoading('document');
     
-    // Auto-generate summary if not exists
-    if (!summarizationService.getDocumentSummary()) {
-      handleGenerateSummary();
+    setSummary(currentSummary);
+    setIsLoading(loading);
+
+    // Generate summary if not available
+    if (!currentSummary && !loading && analysis) {
+      generateInitialSummary();
     }
 
     return unsubscribe;
   }, [analysis]);
 
-  const handleGenerateSummary = async () => {
-    await summarizationService.generateDocumentSummary(analysis);
+  const generateInitialSummary = async () => {
+    if (!analysis) return;
+    
+    try {
+      await summarizationService.generateDocumentSummary(analysis);
+    } catch (error) {
+      console.error('Failed to generate initial summary:', error);
+      // Fallback to local generation if AI service fails
+      setSummary(generateFallbackSummary());
+    }
   };
 
-  const handleRefreshSummary = () => {
-    summarizationService.clearDocumentSummary();
-    handleGenerateSummary();
+  // Fallback summary generation for when AI service is unavailable
+  const generateFallbackSummary = (): SummaryData => {
+    const { overall_risk, analysis_results } = analysis;
+    
+    // Extract key points from clause assessments
+    const keyPoints = [
+      `Document contains ${analysis_results.length} clauses analyzed`,
+      `Overall risk level: ${overall_risk.level} (${(overall_risk.score * 100).toFixed(0)}% risk score)`,
+      `Analysis confidence: ${overall_risk.confidence_percentage}%`
+    ];
+
+    // Add specific risk insights from reasons
+    if (overall_risk.reasons && overall_risk.reasons.length > 0) {
+      keyPoints.push(...overall_risk.reasons.slice(0, 2)); // Top 2 risk reasons
+    }
+
+    // Generate risk summary from actual data
+    const riskSummary = `This document has been assessed as ${overall_risk.level.toLowerCase()} risk with a score of ${overall_risk.score.toFixed(2)}/1.0. ${overall_risk.reasons ? overall_risk.reasons[0] : 'Standard risk assessment completed.'}`;
+
+    // Extract recommendations from clause assessments
+    const recommendations: string[] = [];
+    const highRiskClauses = analysis_results.filter(clause => clause.risk_level.level === 'RED');
+    const mediumRiskClauses = analysis_results.filter(clause => clause.risk_level.level === 'YELLOW');
+    
+    if (highRiskClauses.length > 0) {
+      recommendations.push(`Review ${highRiskClauses.length} high-risk clauses carefully`);
+      recommendations.push(...highRiskClauses.slice(0, 2).flatMap(clause => clause.recommendations.slice(0, 1)));
+    }
+    
+    if (mediumRiskClauses.length > 0) {
+      recommendations.push(`Consider negotiating ${mediumRiskClauses.length} medium-risk clauses`);
+    }
+
+    // Generate simplified explanation
+    const simplifiedExplanation = `This ${analysis.document_type?.replace('_', ' ') || 'document'} contains ${analysis_results.length} clauses. ${highRiskClauses.length} clauses need careful attention due to high risk, while ${mediumRiskClauses.length} clauses have moderate risk that should be reviewed.`;
+
+    // Generate jargon-free version
+    const jargonFreeVersion = `In simple terms: This document ${overall_risk.level === 'RED' ? 'has significant risks that need attention' : overall_risk.level === 'YELLOW' ? 'has some risks but is generally acceptable' : 'appears to have standard, low-risk terms'}. ${highRiskClauses.length > 0 ? `Pay special attention to ${highRiskClauses.length} clauses that could cause problems.` : 'Most clauses appear fair and standard.'}`;
+
+    return {
+      keyPoints,
+      riskSummary,
+      recommendations: recommendations.slice(0, 5), // Limit to top 5
+      simplifiedExplanation,
+      jargonFreeVersion,
+      timestamp: new Date()
+    };
+  };
+
+  const handleRefreshSummary = async () => {
+    console.log('Refreshing document summary with AI service');
+    try {
+      await summarizationService.forceRegenerateDocumentSummary(analysis);
+      // The component will re-render automatically due to the service state change
+    } catch (error) {
+      console.error('Failed to refresh summary:', error);
+    }
   };
 
   const toggleSection = (section: string) => {
@@ -78,6 +156,21 @@ export function DocumentSummary({ analysis, className = '' }: DocumentSummaryPro
     );
   }
 
+  const handleGenerateSummary = async () => {
+    if (!analysis) return;
+    
+    try {
+      setIsLoading(true);
+      await summarizationService.generateDocumentSummary(analysis);
+    } catch (error) {
+      console.error('Failed to generate summary:', error);
+      // Fallback to local generation
+      setSummary(generateFallbackSummary());
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   if (!summary) {
     return (
       <div className={`document-summary-error ${className}`}>
@@ -88,10 +181,15 @@ export function DocumentSummary({ analysis, className = '' }: DocumentSummaryPro
             <p className="text-slate-400 mb-4">Unable to generate document summary</p>
             <button
               onClick={handleGenerateSummary}
-              className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-lg hover:from-cyan-400 hover:to-blue-400 transition-all"
+              disabled={isLoading}
+              className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-lg hover:from-cyan-400 hover:to-blue-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Try Again
+              {isLoading ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <RefreshCw className="w-4 h-4 mr-2" />
+              )}
+              {isLoading ? 'Generating...' : 'Try Again'}
             </button>
           </div>
         </div>
@@ -158,7 +256,7 @@ export function DocumentSummary({ analysis, className = '' }: DocumentSummaryPro
                 animate={{ opacity: 1, height: 'auto' }}
                 className="mt-3 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg"
               >
-                <p className="text-slate-200 leading-relaxed">{summary.jargonFreeVersion}</p>
+                <MarkdownRenderer text={summary.jargonFreeVersion} />
               </motion.div>
             )}
           </div>
@@ -220,7 +318,7 @@ export function DocumentSummary({ analysis, className = '' }: DocumentSummaryPro
                 animate={{ opacity: 1, height: 'auto' }}
                 className="mt-3 p-4 bg-orange-500/10 border border-orange-500/30 rounded-lg"
               >
-                <p className="text-slate-200 leading-relaxed">{summary.riskSummary}</p>
+                <MarkdownRenderer text={summary.riskSummary} />
               </motion.div>
             )}
           </div>
@@ -284,7 +382,7 @@ export function DocumentSummary({ analysis, className = '' }: DocumentSummaryPro
                 animate={{ opacity: 1, height: 'auto' }}
                 className="mt-3 p-4 bg-purple-500/10 border border-purple-500/30 rounded-lg"
               >
-                <p className="text-slate-200 leading-relaxed">{summary.simplifiedExplanation}</p>
+                <MarkdownRenderer text={summary.simplifiedExplanation} />
               </motion.div>
             )}
           </div>

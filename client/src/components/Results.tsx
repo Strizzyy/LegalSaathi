@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { 
-  ArrowLeft, 
-  FileText, 
-  Shield, 
-  AlertTriangle, 
-  CheckCircle, 
+import {
+  ArrowLeft,
+  FileText,
+  Shield,
+  AlertTriangle,
+  CheckCircle,
   Info,
   Copy,
   Download,
@@ -26,10 +26,8 @@ import { HumanSupport } from './HumanSupport';
 import { TranslationModal } from './TranslationModal';
 import { StatusModal } from './StatusModal';
 import { DocumentSummary } from './DocumentSummary';
-import { ClauseTranslationButton } from './ClauseTranslationButton';
-import { ClauseSummary } from './ClauseSummary';
 import { DocumentComparison } from './DocumentComparison';
-import { DetailedClauseAnalysis } from './DetailedClauseAnalysis';
+import { PaginatedClauseAnalysis } from './PaginatedClauseAnalysis';
 import type { AnalysisResult, FileInfo, Classification } from '../App';
 import type { ClauseContext, DocumentContext } from '../types/chat';
 
@@ -44,9 +42,8 @@ interface ResultsProps {
 import React from 'react';
 
 export const Results = React.memo(function Results({ analysis, fileInfo, classification, warnings, onBackToHome }: ResultsProps) {
-  const [expandedClauses, setExpandedClauses] = useState<Set<number>>(new Set());
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
-  
+
   // Debug: Log the analysis data to see what we're receiving
   React.useEffect(() => {
     if (analysis) {
@@ -88,15 +85,7 @@ export const Results = React.memo(function Results({ analysis, fileInfo, classif
     );
   }
 
-  const toggleClause = (index: number) => {
-    const newExpanded = new Set(expandedClauses);
-    if (newExpanded.has(index)) {
-      newExpanded.delete(index);
-    } else {
-      newExpanded.add(index);
-    }
-    setExpandedClauses(newExpanded);
-  };
+
 
   const toggleSection = (section: string) => {
     const newExpanded = new Set(expandedSections);
@@ -158,30 +147,7 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
     totalClauses: analysis.analysis_results.length
   };
 
-  // Helper to create clause context with complete clause data
-  const createClauseContext = (result: AnalysisResult['analysis_results'][0]): ClauseContext => {
-    const context: ClauseContext = {
-      clauseId: result.clause_id,
-      text: result.clause_text, // Use actual clause text from backend
-      riskLevel: result.risk_level.level,
-      explanation: result.plain_explanation,
-      implications: result.legal_implications,
-      recommendations: result.recommendations
-    };
-    
-    // Add optional properties only if they exist
-    if (result.risk_level.score !== undefined) {
-      context.riskScore = result.risk_level.score;
-    }
-    if (result.risk_level.confidence_percentage !== undefined) {
-      context.confidencePercentage = result.risk_level.confidence_percentage;
-    }
-    if (result.risk_level.risk_categories) {
-      context.riskCategories = result.risk_level.risk_categories;
-    }
-    
-    return context;
-  };
+
 
   const openStatus = () => {
     setIsStatusOpen(true);
@@ -200,16 +166,16 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
 
     setIsExporting(prev => ({ ...prev, pdf: true }));
     notificationService.info('Preparing PDF export...');
-    
+
     const exportData: any = {
       analysis
     };
     if (fileInfo) exportData.file_info = fileInfo;
     if (classification) exportData.classification = classification;
-    
+
     try {
       const result = await exportService.exportToPDF(exportData);
-      
+
       if (result.success) {
         featureAvailabilityService.recordFeatureSuccess('export_pdf');
         notificationService.exportSuccess('PDF');
@@ -240,16 +206,16 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
 
     setIsExporting(prev => ({ ...prev, word: true }));
     notificationService.info('Preparing Word document export...');
-    
+
     const exportData: any = {
       analysis
     };
     if (fileInfo) exportData.file_info = fileInfo;
     if (classification) exportData.classification = classification;
-    
+
     try {
       const result = await exportService.exportToWord(exportData);
-      
+
       if (result.success) {
         featureAvailabilityService.recordFeatureSuccess('export_word');
         notificationService.exportSuccess('Word');
@@ -271,11 +237,7 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
     }
   };
 
-  const riskCounts = {
-    red: analysis.analysis_results.filter(r => r.risk_level.level === 'RED').length,
-    yellow: analysis.analysis_results.filter(r => r.risk_level.level === 'YELLOW').length,
-    green: analysis.analysis_results.filter(r => r.risk_level.level === 'GREEN').length,
-  };
+
 
   return (
     <>
@@ -295,7 +257,7 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
               </h1>
               <p className="text-slate-400">AI-powered legal document analysis with risk assessment</p>
             </div>
-            
+
             <div className="flex items-center space-x-4 mt-4 sm:mt-0">
               <div className="relative">
                 <label htmlFor="language-select-header" className="sr-only">
@@ -323,7 +285,7 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
                 </select>
                 <Globe className="w-4 h-4 text-slate-400 absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none" />
               </div>
-              
+
               <button
                 onClick={onBackToHome}
                 className="inline-flex items-center px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-colors"
@@ -347,7 +309,7 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
                 <Info className="w-5 h-5 mr-2" />
                 Document Information
               </h2>
-              
+
               <div className="grid md:grid-cols-3 gap-6">
                 {fileInfo && (
                   <div>
@@ -356,7 +318,7 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
                     <p className="text-slate-300"><strong>Size:</strong> {formatFileSize(fileInfo.size)}</p>
                   </div>
                 )}
-                
+
                 {classification && (
                   <div>
                     <h3 className="font-semibold text-white mb-2">Document Classification</h3>
@@ -368,7 +330,7 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
                     <p className="text-slate-400 text-sm">Confidence: {formatPercentage(classification.confidence)}</p>
                   </div>
                 )}
-                
+
                 {warnings.length > 0 && (
                   <div>
                     <h3 className="font-semibold text-white mb-2">Processing Notes</h3>
@@ -397,12 +359,12 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
               </h2>
               <div className="google-cloud-badge">
                 <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z"/>
+                  <path d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z" />
                 </svg>
                 <span>Powered by Google Cloud AI</span>
               </div>
             </div>
-            
+
             <div className="grid md:grid-cols-2 gap-6">
               <div>
                 <h3 className="font-semibold text-white mb-3">Google Cloud AI Integration</h3>
@@ -421,7 +383,7 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
                   </div>
                 </div>
               </div>
-              
+
               <div>
                 <h3 className="font-semibold text-white mb-3">Analysis Confidence Metrics</h3>
                 <div className="space-y-3">
@@ -431,7 +393,7 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
                       <span className="text-sm text-slate-400">{analysis.overall_risk.confidence_percentage}%</span>
                     </div>
                     <div className="h-2.5 bg-slate-800 rounded-full overflow-hidden">
-                      <div 
+                      <div
                         className={cn(
                           "h-full rounded-full transition-all duration-500 shadow-lg",
                           getConfidenceColor(analysis.overall_risk.confidence_percentage)
@@ -445,7 +407,7 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
                       <span>High</span>
                     </div>
                   </div>
-                  
+
                   {analysis.overall_risk.low_confidence_warning && (
                     <div className="variability-warning">
                       <AlertTriangle className="w-4 h-4" />
@@ -465,8 +427,8 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
             className={cn(
               "border-2 rounded-2xl p-6 mb-8",
               analysis.overall_risk.level === 'RED' ? "border-red-500/50 bg-red-500/5" :
-              analysis.overall_risk.level === 'YELLOW' ? "border-yellow-500/50 bg-yellow-500/5" :
-              "border-green-500/50 bg-green-500/5"
+                analysis.overall_risk.level === 'YELLOW' ? "border-yellow-500/50 bg-yellow-500/5" :
+                  "border-green-500/50 bg-green-500/5"
             )}
           >
             <div className="flex items-center justify-between mb-6">
@@ -480,7 +442,7 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
                   <p className="text-slate-400">Complete document analysis summary</p>
                 </div>
               </div>
-              
+
               {analysis.overall_risk.low_confidence_warning && (
                 <div className={cn(
                   "px-3 py-1 rounded-full border text-sm",
@@ -491,16 +453,16 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
                 </div>
               )}
             </div>
-            
+
             <div className={cn(
               "rounded-xl p-4 mb-6 border",
               analysis.overall_risk.level === 'RED' ? "bg-red-500/10 border-red-500/30" :
-              analysis.overall_risk.level === 'YELLOW' ? "bg-yellow-500/10 border-yellow-500/30" :
-              "bg-green-500/10 border-green-500/30"
+                analysis.overall_risk.level === 'YELLOW' ? "bg-yellow-500/10 border-yellow-500/30" :
+                  "bg-green-500/10 border-green-500/30"
             )}>
               <p className="text-lg text-white leading-relaxed">{analysis.summary}</p>
             </div>
-            
+
             {analysis.overall_risk.risk_categories && (
               <div>
                 <h3 className="font-semibold text-white mb-4 flex items-center">
@@ -512,7 +474,7 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
                     <div key={category} className="text-center">
                       <div className="mb-2">
                         <div className="confidence-bar">
-                          <div 
+                          <div
                             className={cn(
                               "confidence-fill",
                               score > 0.7 ? "bg-red-500" : score > 0.4 ? "bg-yellow-500" : "bg-green-500"
@@ -533,7 +495,7 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
           </motion.div>
 
           {/* Document Summary */}
-          <DocumentSummary 
+          <DocumentSummary
             analysis={analysis}
             className="mb-8"
           />
@@ -551,7 +513,7 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
                 Critical Issues Detected
               </h2>
               <p className="text-slate-300 mb-4">High-priority concerns that require immediate attention</p>
-              
+
               <div className="grid md:grid-cols-2 gap-4">
                 {analysis.severity_indicators.map((indicator, index) => (
                   <div key={index} className="bg-yellow-500/20 border border-yellow-500/50 rounded-lg p-3">
@@ -565,220 +527,18 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
             </motion.div>
           )}
 
-          {/* Detailed Clause Analysis */}
+          {/* Paginated Clause Analysis */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.5 }}
-            className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6 mb-8"
           >
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-xl font-bold text-white flex items-center">
-                  <FileText className="w-5 h-5 mr-2" />
-                  Detailed Clause Analysis
-                </h2>
-                <p className="text-slate-400">Each clause analyzed for risk level and plain language explanation</p>
-              </div>
-              
-              <div className="flex items-center space-x-4 text-sm">
-                <div className="flex items-center space-x-2">
-                  <div className="traffic-light red" />
-                  <span className="text-slate-300">High Risk: {riskCounts.red}</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <div className="traffic-light yellow" />
-                  <span className="text-slate-300">Moderate: {riskCounts.yellow}</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <div className="traffic-light green" />
-                  <span className="text-slate-300">Low Risk: {riskCounts.green}</span>
-                </div>
-              </div>
-            </div>
-            
-            <div className="space-y-6">
-              {analysis.analysis_results.map((result, index) => (
-                <motion.div
-                  key={index}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.4, delay: index * 0.1 }}
-                  className={cn(
-                    "clause-analysis-item",
-                    getRiskColor(result.risk_level.level)
-                  )}
-                >
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center space-x-4">
-                      <div className={cn(
-                        "traffic-light-medium",
-                        getRiskColor(result.risk_level.level)
-                      )} />
-                      <div>
-                        <h3 className="text-lg font-bold text-white">Clause {index + 1}</h3>
-                        <p className="text-slate-400 text-sm">
-                          {result.risk_level.severity.charAt(0).toUpperCase() + result.risk_level.severity.slice(1).toLowerCase()} Risk - {result.clause_id}
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <div className="text-right">
-                      <div className={cn(
-                        "px-4 py-2 rounded-lg border text-sm font-bold mb-1 flex items-center justify-center",
-                        result.risk_level.level === 'RED' ? "bg-red-500/20 border-red-500/50 text-red-400" :
-                        result.risk_level.level === 'YELLOW' ? "bg-yellow-500/20 border-yellow-500/50 text-yellow-400" :
-                        "bg-green-500/20 border-green-500/50 text-green-400"
-                      )}>
-                        {result.risk_level.level} RISK
-                      </div>
-                      {result.risk_level.low_confidence_warning && (
-                        <div className="px-2 py-1 bg-yellow-500/20 text-yellow-400 border border-yellow-500/50 rounded text-xs">
-                          <AlertTriangle className="w-3 h-3 inline mr-1" />
-                          Low Confidence
-                        </div>
-                      )}
-                      <div className="text-xs text-slate-400 mt-1">
-                        Score: {formatPercentage(result.risk_level.score)} | 
-                        Confidence: {result.risk_level.confidence_percentage}%
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Enhanced Confidence Indicator */}
-                  <div className="mb-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-slate-300 flex items-center">
-                        <Activity className="w-4 h-4 mr-1" />
-                        AI Confidence Analysis:
-                      </span>
-                      <div className="flex items-center space-x-2">
-                        <span className="text-sm text-slate-400">{result.risk_level.confidence_percentage}%</span>
-                        <div className={cn(
-                          "w-2 h-2 rounded-full",
-                          result.risk_level.confidence_percentage >= 80 ? "bg-green-400" :
-                          result.risk_level.confidence_percentage >= 60 ? "bg-yellow-400" : "bg-red-400"
-                        )} />
-                      </div>
-                    </div>
-                    <div className="h-2 bg-slate-700/50 rounded-full overflow-hidden">
-                      <div 
-                        className={cn(
-                          "h-full transition-all duration-500",
-                          result.risk_level.confidence_percentage >= 80 ? "bg-green-400" :
-                          result.risk_level.confidence_percentage >= 60 ? "bg-yellow-400" : "bg-red-400"
-                        )}
-                        style={{ width: `${result.risk_level.confidence_percentage}%` }}
-                      />
-                    </div>
-                    <div className="flex justify-between text-xs text-slate-500 mt-1">
-                      <span>Low</span>
-                      <span>Medium</span>
-                      <span>High</span>
-                    </div>
-                    {result.risk_level.low_confidence_warning && (
-                      <div className="variability-warning mt-2">
-                        <AlertTriangle className="w-4 h-4" />
-                        <span className="text-sm">Low confidence detected - consider expert review for critical decisions</span>
-                      </div>
-                    )}
-                    {result.risk_level.confidence_percentage >= 90 && (
-                      <div className="mt-2 flex items-center space-x-2 text-green-400 text-sm">
-                        <CheckCircle className="w-4 h-4" />
-                        <span>High confidence - AI analysis is very reliable</span>
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* Actual Clause Text */}
-                  {result.clause_text && (
-                    <div className="bg-slate-700/50 rounded-xl p-4 mb-4 border border-slate-600">
-                      <h4 className="font-semibold text-white mb-2 flex items-center">
-                        <FileText className="w-4 h-4 mr-2" />
-                        Original Clause Text:
-                        <span className="ml-2 px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded-full">
-                          Real Data ✓
-                        </span>
-                      </h4>
-                      <p className="text-slate-300 text-sm leading-relaxed font-mono bg-slate-800/50 p-3 rounded border border-slate-600">
-                        {result.clause_text}
-                      </p>
-                    </div>
-                  )}
-                  
-                  {/* Debug: Show if clause_text is missing */}
-                  {!result.clause_text && (
-                    <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 mb-4">
-                      <h4 className="font-semibold text-red-400 mb-2 flex items-center">
-                        <AlertTriangle className="w-4 h-4 mr-2" />
-                        Missing Clause Text - Debug Info:
-                      </h4>
-                      <pre className="text-red-300 text-xs bg-red-500/10 p-2 rounded">
-                        {JSON.stringify({
-                          clause_id: result.clause_id,
-                          has_clause_text: !!result.clause_text,
-                          clause_text_type: typeof result.clause_text,
-                          clause_text_length: result.clause_text?.length || 0
-                        }, null, 2)}
-                      </pre>
-                    </div>
-                  )}
-
-                  {/* Plain Explanation */}
-                  <div className={cn(
-                    "rounded-xl p-4 mb-4 border",
-                    result.risk_level.level === 'RED' ? "bg-red-500/10 border-red-500/30" :
-                    result.risk_level.level === 'YELLOW' ? "bg-yellow-500/10 border-yellow-500/30" :
-                    "bg-green-500/10 border-green-500/30"
-                  )}>
-                    <h4 className="font-semibold text-white mb-2 flex items-center">
-                      <Info className="w-4 h-4 mr-2" />
-                      What This Means:
-                    </h4>
-                    <p className="text-slate-200">{result.plain_explanation}</p>
-                  </div>
-                  
-                  {/* Clause-level Translation and Summary */}
-                  <div className="flex flex-wrap items-center gap-3 mb-4">
-                    <ClauseTranslationButton 
-                      clauseData={{
-                        id: result.clause_id,
-                        text: result.clause_text,
-                        index: index
-                      }}
-                    />
-                    <ClauseSummary 
-                      clauseId={`${result.clause_id}_${index}`}
-                      clauseData={result}
-                    />
-                    
-                    {/* Contextual Chat Buttons */}
-                    <button
-                      onClick={() => openChat(createClauseContext(result))}
-                      className="inline-flex items-center px-3 py-1.5 bg-purple-500/20 text-purple-400 border border-purple-500/50 rounded-lg hover:bg-purple-500/30 transition-colors text-sm"
-                    >
-                      <MessageCircle className="w-3 h-3 mr-1.5" />
-                      Ask AI
-                    </button>
-                    
-                    <button
-                      onClick={() => openHumanSupport(createClauseContext(result))}
-                      className="inline-flex items-center px-3 py-1.5 bg-cyan-500/20 text-cyan-400 border border-cyan-500/50 rounded-lg hover:bg-cyan-500/30 transition-colors text-sm"
-                    >
-                      <Users className="w-3 h-3 mr-1.5" />
-                      Expert Help
-                    </button>
-                  </div>
-                  
-                  {/* Detailed Clause Analysis */}
-                  <DetailedClauseAnalysis 
-                    clause={result}
-                    isExpanded={expandedClauses.has(index)}
-                    onToggle={() => toggleClause(index)}
-                  />
-                </motion.div>
-              ))}
-            </div>
+            <PaginatedClauseAnalysis
+              analysisId={analysis.analysis_id}
+              onOpenChat={openChat}
+              onOpenHumanSupport={openHumanSupport}
+              className="mb-8"
+            />
           </motion.div>
 
           {/* Interactive AI Features */}
@@ -795,7 +555,7 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
               </h2>
               <p className="text-slate-400">Advanced Google Cloud AI integration for comprehensive document analysis</p>
             </div>
-            
+
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
               {/* AI Confidence Analysis */}
               <div className="feature-card p-4">
@@ -823,7 +583,7 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
                         <span className="text-slate-400">{analysis.overall_risk.confidence_percentage}%</span>
                       </div>
                       <div className="confidence-bar">
-                        <div 
+                        <div
                           className={cn("confidence-fill", getConfidenceColor(analysis.overall_risk.confidence_percentage))}
                           style={{ width: `${analysis.overall_risk.confidence_percentage}%` }}
                         />
@@ -905,13 +665,12 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
                 <p className="text-slate-400 text-sm mb-3">Compare this document with another for risk differences.</p>
                 <div className="flex items-center gap-3">
                   <button
-                    disabled
-                    className="inline-flex items-center px-3 py-2 bg-yellow-500/10 text-yellow-400/50 border border-yellow-500/30 rounded-lg cursor-not-allowed text-sm"
+                    onClick={() => setIsComparisonOpen(true)}
+                    className="inline-flex items-center px-3 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-lg hover:from-cyan-400 hover:to-blue-400 transition-all text-sm"
                   >
                     <FileText className="w-4 h-4 mr-2" />
                     Compare Documents
                   </button>
-                  <span className="text-xs px-2 py-1 bg-blue-500/20 text-blue-400 rounded-full border border-blue-500/30">Coming Soon!</span>
                 </div>
               </div>
 
@@ -979,7 +738,7 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
                         </div>
                       </div>
                     </div>
-                    
+
                     <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
                       <h4 className="font-medium text-white mb-2 flex items-center">
                         <Activity className="w-4 h-4 mr-2" />
@@ -995,7 +754,7 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
                     <h4 className="font-medium text-white mb-2">Key Insights</h4>
                     <ul className="space-y-2 text-sm text-slate-300">
@@ -1032,7 +791,7 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
               </h2>
               <p className="text-slate-400">Professional report generation with multiple formats</p>
             </div>
-            
+
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <button
                 onClick={() => exportToPDF()}
@@ -1051,7 +810,7 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
                   </>
                 )}
               </button>
-              
+
               <button
                 onClick={() => exportToWord()}
                 disabled={isExporting.word}
@@ -1069,7 +828,7 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
                   </>
                 )}
               </button>
-              
+
               <button
                 onClick={() => window.print()}
                 className="inline-flex items-center justify-center px-4 py-3 bg-green-500/20 text-green-400 border border-green-500/50 rounded-lg hover:bg-green-500/30 transition-colors"
@@ -1077,7 +836,7 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
                 <Download className="w-4 h-4 mr-2" />
                 Print Analysis
               </button>
-              
+
               <button
                 onClick={copyResults}
                 className="inline-flex items-center justify-center px-4 py-3 bg-slate-600/50 text-slate-300 border border-slate-600 rounded-lg hover:bg-slate-600/70 transition-colors"
@@ -1086,11 +845,11 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
                 Copy to Clipboard
               </button>
             </div>
-            
+
             <div className="mt-6 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
               <p className="text-blue-400 text-sm">
                 <Info className="w-4 h-4 inline mr-2" />
-                <strong>Disclaimer:</strong> This analysis is for informational purposes only and does not constitute legal advice. 
+                <strong>Disclaimer:</strong> This analysis is for informational purposes only and does not constitute legal advice.
                 Please consult with a qualified legal professional for specific legal matters.
               </p>
             </div>
@@ -1146,8 +905,8 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
           isOpen={isComparisonOpen}
           onClose={() => setIsComparisonOpen(false)}
           currentDocument={{
-            text: '', // We'll need to pass the original document text from props
-            type: 'general_contract'
+            text: analysis.document_text || analysis.analysis_results.map(clause => clause.clause_text).join('\n\n') || '',
+            type: analysis.document_type || 'general_contract'
           }}
         />
       )}
