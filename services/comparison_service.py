@@ -26,7 +26,7 @@ class ComparisonService:
     """Enhanced service for comparing legal documents with semantic analysis"""
     
     def __init__(self):
-        self.document_service = DocumentService()
+        self.document_service = DocumentService()  # Now uses singleton
         self.ai_service = AIService()
         
         # Cache for embeddings and comparison results

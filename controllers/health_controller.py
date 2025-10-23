@@ -137,7 +137,7 @@ class HealthController:
                 ai_status = self.ai_service.get_service_status()
                 health_details['services']['ai_clarification'] = {
                     'status': 'healthy' if self.ai_service.enabled else 'unavailable',
-                    'primary_provider': 'Google Gemini' if self.ai_service.gemini_enabled else 'Groq (Fallback)',
+                    'primary_provider': 'Groq (Primary)' if self.ai_service.groq_enabled else 'Google Gemini (Fallback)',
                     'services': ai_status['services'],
                     'cache_status': ai_status['cache'],
                     'overall_status': ai_status['overall_status'],

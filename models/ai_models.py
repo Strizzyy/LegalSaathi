@@ -8,7 +8,7 @@ from datetime import datetime
 
 
 class ClarificationRequest(BaseModel):
-    question: str = Field(..., min_length=5, max_length=1000)
+    question: str = Field(..., min_length=5, max_length=10000)  # Increased limit for detailed analysis
     context: Optional[Dict[str, Any]] = None
     conversation_id: Optional[str] = None
     user_expertise_level: Optional[str] = "beginner"

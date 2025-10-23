@@ -220,6 +220,20 @@ class APIService {
 
   async askClarification(question: string, context: any, experienceLevel?: string): Promise<ClarificationResponse> {
     try {
+      // Validate question length
+      if (!question || question.trim().length < 5) {
+        console.warn('Question too short for AI clarification:', question);
+        return {
+          success: false,
+          error: 'Question must be at least 5 characters long'
+        };
+      }
+
+      // Validate and sanitize experience level
+      const userExperienceLevel = experienceLevel || experienceLevelService.getLevelForAPI();
+      const validLevels = ['beginner', 'intermediate', 'expert'];
+      const sanitizedLevel = validLevels.includes(userExperienceLevel) ? userExperienceLevel : 'beginner';
+
       const enhancedContext = {
         ...context,
         timestamp: new Date().toISOString(),
@@ -227,8 +241,17 @@ class APIService {
         sessionId: this.generateSessionId()
       };
 
-      // Get experience level from service if not provided
-      const userExperienceLevel = experienceLevel || experienceLevelService.getLevelForAPI();
+      const requestBody = {
+        question: question.trim(),
+        context: enhancedContext,
+        user_expertise_level: sanitizedLevel
+      };
+
+      console.log('AI Clarification Request:', {
+        questionLength: question.length,
+        experienceLevel: sanitizedLevel,
+        hasContext: !!context
+      });
 
       const response = await fetch('/api/ai/clarify', {
         method: 'POST',
@@ -236,12 +259,26 @@ class APIService {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
-        body: JSON.stringify({
-          question,
-          context: enhancedContext,
-          user_expertise_level: userExperienceLevel
-        }),
+        body: JSON.stringify(requestBody),
       });
+
+      if (response.status === 422) {
+        const errorData = await response.json();
+        console.error('Validation error in AI clarification:', errorData);
+        return {
+          success: false,
+          error: 'Invalid request data. Please check your input and try again.'
+        };
+      }
+
+      if (response.status === 400) {
+        const errorData = await response.text();
+        console.error('Bad request error in AI clarification:', errorData);
+        return {
+          success: false,
+          error: 'Bad request. The AI service may be temporarily unavailable.'
+        };
+      }
 
       return await this.handleResponse<ClarificationResponse>(response);
     } catch (error) {

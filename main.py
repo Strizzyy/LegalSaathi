@@ -83,6 +83,7 @@ from controllers.ai_controller import AIController
 from controllers.comparison_controller import ComparisonController
 from controllers.export_controller import ExportController
 from controllers.support_controller import router as support_router
+from controllers.insights_controller import router as insights_router
 
 # Import services for cleanup
 from services.cache_service import CacheService
@@ -173,6 +174,7 @@ export_controller = ExportController()
 
 # Include routers
 app.include_router(support_router)
+app.include_router(insights_router)
 
 
 # Middleware for request logging and performance monitoring
@@ -415,10 +417,73 @@ async def get_ai_clarification(request: Request, clarification_request: Clarific
     """Get AI-powered clarification"""
     try:
         logger.info(f"Received clarification request: {clarification_request.question[:50] if clarification_request.question else 'No question'}...")
-        return await ai_controller.get_clarification(clarification_request)
+        logger.debug(f"Request details - Question length: {len(clarification_request.question)}, Experience level: {clarification_request.user_expertise_level}")
+        
+        result = await ai_controller.get_clarification(clarification_request)
+        logger.info(f"AI clarification result: success={result.success}, service_used={result.service_used}")
+        
+        # If AI service failed, return a proper fallback response
+        if not result.success and not result.response:
+            logger.warning("AI service returned empty response, providing fallback")
+            return ClarificationResponse(
+                success=True,
+                response="I'm currently experiencing technical difficulties with my AI services. However, I can see you're asking about your legal document. For the most accurate analysis, I recommend reviewing the specific clauses you're concerned about and considering consultation with a legal professional for detailed guidance.",
+                conversation_id=result.conversation_id or "fallback",
+                confidence_score=25,
+                response_quality="fallback",
+                processing_time=result.processing_time,
+                fallback=True,
+                error_type="AIServiceUnavailable",
+                service_used="fallback_handler",
+                timestamp=datetime.now()
+            )
+        
+        return result
+    except ValidationError as e:
+        logger.error(f"Validation error in clarification: {e}")
+        raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
         logger.error(f"Clarification endpoint error: {e}")
-        raise
+        # Return a proper error response instead of raising
+        return ClarificationResponse(
+            success=False,
+            response=f"AI clarification service error: {str(e)}",
+            conversation_id="error",
+            confidence_score=0,
+            response_quality="error",
+            processing_time=0.0,
+            fallback=True,
+            error_type=type(e).__name__,
+            service_used="error_handler",
+            timestamp=datetime.now()
+        )
+
+
+@app.get("/api/ai/health")
+async def get_ai_health():
+    """Get AI service health status"""
+    try:
+        # Test a simple clarification request
+        test_request = ClarificationRequest(
+            question="Test question for health check",
+            user_expertise_level="beginner"
+        )
+        result = await ai_controller.get_clarification(test_request)
+        
+        return {
+            "success": True,
+            "ai_service_available": result.success,
+            "service_used": result.service_used,
+            "fallback_mode": result.fallback,
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "ai_service_available": False,
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
+        }
 
 
 @app.get("/api/ai/conversation/summary", response_model=ConversationSummaryResponse)

@@ -28,6 +28,8 @@ import { StatusModal } from './StatusModal';
 import { DocumentSummary } from './DocumentSummary';
 import { DocumentComparison } from './DocumentComparison';
 import { PaginatedClauseAnalysis } from './PaginatedClauseAnalysis';
+import { ActionableInsights } from './ActionableInsights';
+import { MarkdownRenderer } from '../utils/markdownRenderer';
 import type { AnalysisResult, FileInfo, Classification } from '../App';
 import type { ClauseContext, DocumentContext } from '../types/chat';
 
@@ -460,7 +462,9 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
                 analysis.overall_risk.level === 'YELLOW' ? "bg-yellow-500/10 border-yellow-500/30" :
                   "bg-green-500/10 border-green-500/30"
             )}>
-              <p className="text-lg text-white leading-relaxed">{analysis.summary}</p>
+              <div className="text-lg leading-relaxed">
+                <MarkdownRenderer text={analysis.summary} />
+              </div>
             </div>
 
             {analysis.overall_risk.risk_categories && (
@@ -537,6 +541,18 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
               analysisId={analysis.analysis_id}
               onOpenChat={openChat}
               onOpenHumanSupport={openHumanSupport}
+              className="mb-8"
+            />
+          </motion.div>
+
+          {/* Actionable Insights */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.55 }}
+          >
+            <ActionableInsights
+              analysisId={analysis.analysis_id}
               className="mb-8"
             />
           </motion.div>
