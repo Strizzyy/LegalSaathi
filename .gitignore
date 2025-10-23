@@ -8,6 +8,12 @@ google-cloud-credentials.json
 firebase-admin-credentials.json
 client/.env.local
 
+# Firebase and Google Cloud credentials (NEVER commit these)
+client/*firebase-adminsdk*.json
+client/*client_secret*.json
+*firebase-adminsdk*.json
+*client_secret*.json
+
 # Python
 __pycache__/
 *.py[cod]
