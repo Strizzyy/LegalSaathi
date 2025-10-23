@@ -33,7 +33,7 @@ web_modules/
 # Optional npm cache directory
 .npm
 
-.kiro
+.kiro/
 
 # Optional eslint cache
 .eslintcache
