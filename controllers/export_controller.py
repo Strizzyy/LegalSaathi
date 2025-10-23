@@ -1,14 +1,18 @@
 """
-Export controller for FastAPI backend
+Export controller for FastAPI backend with enhanced PDF generation
 """
 
 import logging
 import io
 import json
+import tempfile
+import os
 from datetime import datetime
 from typing import Dict, Any, Optional
 from fastapi import HTTPException
 from fastapi.responses import StreamingResponse
+
+from models.document_models import DocumentAnalysisResponse
 
 logger = logging.getLogger(__name__)
 
@@ -68,90 +72,261 @@ class ExportController:
                 detail=f"Word export failed: {str(e)}"
             )
     
-    async def _generate_pdf_content(self, data: Dict[str, Any]) -> bytes:
-        """Generate PDF content from analysis data"""
+    async def generate_enhanced_pdf(self, analysis: DocumentAnalysisResponse) -> bytes:
+        """Generate enhanced branded PDF with risk visualization"""
         try:
             from reportlab.lib.pagesizes import letter, A4
-            from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+            from reportlab.platypus import (
+                SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, 
+                PageBreak, Image, KeepTogether
+            )
             from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-            from reportlab.lib.units import inch
+            from reportlab.lib.units import inch, cm
             from reportlab.lib import colors
+            from reportlab.graphics.shapes import Drawing, Rect, Circle
+            from reportlab.graphics.charts.piecharts import Pie
+            from reportlab.graphics.charts.barcharts import VerticalBarChart
+            from reportlab.graphics import renderPDF
             
             # Create PDF buffer
             buffer = io.BytesIO()
             
-            # Create PDF document
-            doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=1*inch)
+            # Create PDF document with custom margins
+            doc = SimpleDocTemplate(
+                buffer, 
+                pagesize=A4, 
+                topMargin=0.8*inch,
+                bottomMargin=0.8*inch,
+                leftMargin=0.8*inch,
+                rightMargin=0.8*inch
+            )
             styles = getSampleStyleSheet()
             
-            # Custom styles
+            # Custom styles with branding
             title_style = ParagraphStyle(
-                'CustomTitle',
+                'BrandedTitle',
                 parent=styles['Heading1'],
-                fontSize=24,
+                fontSize=28,
+                spaceAfter=20,
+                textColor=colors.Color(0.05, 0.65, 0.9),  # LegalSaathi blue
+                alignment=1,  # Center alignment
+                fontName='Helvetica-Bold'
+            )
+            
+            subtitle_style = ParagraphStyle(
+                'Subtitle',
+                parent=styles['Normal'],
+                fontSize=14,
                 spaceAfter=30,
-                textColor=colors.darkblue
+                textColor=colors.Color(0.4, 0.4, 0.4),
+                alignment=1,
+                fontName='Helvetica'
             )
             
             heading_style = ParagraphStyle(
-                'CustomHeading',
+                'BrandedHeading',
                 parent=styles['Heading2'],
-                fontSize=16,
-                spaceAfter=12,
-                textColor=colors.darkblue
+                fontSize=18,
+                spaceAfter=15,
+                spaceBefore=20,
+                textColor=colors.Color(0.1, 0.1, 0.1),
+                fontName='Helvetica-Bold',
+                borderWidth=0,
+                borderColor=colors.Color(0.05, 0.65, 0.9),
+                borderPadding=5
+            )
+            
+            risk_high_style = ParagraphStyle(
+                'RiskHigh',
+                parent=styles['Normal'],
+                fontSize=12,
+                textColor=colors.red,
+                fontName='Helvetica-Bold'
+            )
+            
+            risk_medium_style = ParagraphStyle(
+                'RiskMedium',
+                parent=styles['Normal'],
+                fontSize=12,
+                textColor=colors.orange,
+                fontName='Helvetica-Bold'
+            )
+            
+            risk_low_style = ParagraphStyle(
+                'RiskLow',
+                parent=styles['Normal'],
+                fontSize=12,
+                textColor=colors.green,
+                fontName='Helvetica-Bold'
             )
             
             # Build content
             content = []
             
-            # Title
-            content.append(Paragraph("Legal Document Analysis Report", title_style))
+            # Header with branding
+            content.append(Paragraph("🏛️ LegalSaathi", title_style))
+            content.append(Paragraph("AI-Powered Legal Document Analysis Report", subtitle_style))
             content.append(Spacer(1, 20))
             
-            # Analysis summary
-            analysis = data.get('analysis', {})
-            if analysis:
-                content.append(Paragraph("Analysis Summary", heading_style))
+            # Executive Summary Box
+            summary_data = [
+                ['Overall Risk Level', analysis.overall_risk.level],
+                ['Risk Score', f"{analysis.overall_risk.score:.1%}"],
+                ['Confidence Level', f"{analysis.overall_risk.confidence_percentage}%"],
+                ['Analysis Date', datetime.now().strftime('%B %d, %Y')],
+                ['Total Clauses Analyzed', str(len(analysis.clause_assessments))]
+            ]
+            
+            summary_table = Table(summary_data, colWidths=[3*inch, 2*inch])
+            summary_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.Color(0.05, 0.65, 0.9)),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 12),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.Color(0.95, 0.95, 0.95)),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 1), (-1, -1), 11),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.Color(0.98, 0.98, 0.98)])
+            ]))
+            
+            content.append(Paragraph("Executive Summary", heading_style))
+            content.append(summary_table)
+            content.append(Spacer(1, 20))
+            
+            # Risk Assessment Summary
+            content.append(Paragraph("Risk Assessment", heading_style))
+            content.append(Paragraph(analysis.summary, styles['Normal']))
+            content.append(Spacer(1, 20))
+            
+            # Risk Distribution Chart
+            if len(analysis.clause_assessments) > 0:
+                risk_counts = {
+                    'HIGH': len([c for c in analysis.clause_assessments if c.risk_assessment.level == 'RED']),
+                    'MODERATE': len([c for c in analysis.clause_assessments if c.risk_assessment.level == 'YELLOW']),
+                    'LOW': len([c for c in analysis.clause_assessments if c.risk_assessment.level == 'GREEN'])
+                }
                 
-                overall_risk = analysis.get('overall_risk', {})
-                if overall_risk:
-                    risk_level = overall_risk.get('level', 'Unknown')
-                    risk_score = overall_risk.get('score', 0)
-                    confidence = overall_risk.get('confidence_percentage', 0)
-                    
-                    content.append(Paragraph(f"<b>Overall Risk Level:</b> {risk_level}", styles['Normal']))
-                    content.append(Paragraph(f"<b>Risk Score:</b> {risk_score:.2f}", styles['Normal']))
-                    content.append(Paragraph(f"<b>Confidence:</b> {confidence}%", styles['Normal']))
-                    content.append(Spacer(1, 12))
+                # Create risk distribution table
+                risk_data = [
+                    ['Risk Level', 'Count', 'Percentage'],
+                    ['HIGH RISK', str(risk_counts['HIGH']), f"{risk_counts['HIGH']/len(analysis.clause_assessments)*100:.1f}%"],
+                    ['MODERATE RISK', str(risk_counts['MODERATE']), f"{risk_counts['MODERATE']/len(analysis.clause_assessments)*100:.1f}%"],
+                    ['LOW RISK', str(risk_counts['LOW']), f"{risk_counts['LOW']/len(analysis.clause_assessments)*100:.1f}%"]
+                ]
                 
-                # Summary text
-                summary = analysis.get('summary', '')
-                if summary:
-                    content.append(Paragraph("Summary", heading_style))
-                    content.append(Paragraph(summary, styles['Normal']))
-                    content.append(Spacer(1, 12))
+                risk_table = Table(risk_data, colWidths=[2*inch, 1*inch, 1.5*inch])
+                risk_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.Color(0.2, 0.2, 0.2)),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, 0), 12),
+                    ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                    ('BACKGROUND', (0, 1), (0, 1), colors.Color(1, 0.9, 0.9)),
+                    ('BACKGROUND', (0, 2), (0, 2), colors.Color(1, 0.95, 0.8)),
+                    ('BACKGROUND', (0, 3), (0, 3), colors.Color(0.9, 1, 0.9)),
+                    ('TEXTCOLOR', (0, 1), (0, 1), colors.red),
+                    ('TEXTCOLOR', (0, 2), (0, 2), colors.orange),
+                    ('TEXTCOLOR', (0, 3), (0, 3), colors.green),
+                    ('FONTNAME', (0, 1), (0, -1), 'Helvetica-Bold'),
+                    ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                    ('FONTSIZE', (0, 1), (-1, -1), 11)
+                ]))
                 
-                # Clause analysis
-                clause_results = analysis.get('analysis_results', [])
-                if clause_results:
-                    content.append(Paragraph("Clause Analysis", heading_style))
-                    
-                    for i, clause in enumerate(clause_results[:10]):  # Limit to 10 clauses
-                        content.append(Paragraph(f"<b>Clause {i+1}</b>", styles['Heading3']))
-                        
-                        risk_level = clause.get('risk_level', {}).get('level', 'Unknown')
-                        content.append(Paragraph(f"Risk Level: {risk_level}", styles['Normal']))
-                        
-                        explanation = clause.get('plain_explanation', '')
-                        if explanation:
-                            content.append(Paragraph(f"Explanation: {explanation}", styles['Normal']))
-                        
-                        content.append(Spacer(1, 8))
+                content.append(Paragraph("Risk Distribution", heading_style))
+                content.append(risk_table)
+                content.append(Spacer(1, 30))
+            
+            # Page break before detailed analysis
+            content.append(PageBreak())
+            
+            # Detailed Clause Analysis
+            content.append(Paragraph("Detailed Clause Analysis", heading_style))
+            content.append(Spacer(1, 15))
+            
+            for i, clause in enumerate(analysis.clause_assessments):
+                # Determine risk style
+                if clause.risk_assessment.level == 'RED':
+                    risk_style = risk_high_style
+                    risk_color = colors.Color(1, 0.9, 0.9)
+                elif clause.risk_assessment.level == 'YELLOW':
+                    risk_style = risk_medium_style
+                    risk_color = colors.Color(1, 0.95, 0.8)
+                else:
+                    risk_style = risk_low_style
+                    risk_color = colors.Color(0.9, 1, 0.9)
+                
+                # Clause header
+                clause_header = f"Clause {i+1}: {clause.clause_id}"
+                content.append(Paragraph(clause_header, styles['Heading3']))
+                
+                # Risk level and score
+                risk_info = f"Risk Level: {clause.risk_assessment.level} | Score: {clause.risk_assessment.score:.1%} | Confidence: {clause.risk_assessment.confidence_percentage}%"
+                content.append(Paragraph(risk_info, risk_style))
+                content.append(Spacer(1, 8))
+                
+                # Clause explanation
+                content.append(Paragraph("<b>Plain Language Explanation:</b>", styles['Normal']))
+                content.append(Paragraph(clause.plain_explanation, styles['Normal']))
+                content.append(Spacer(1, 8))
+                
+                # Legal implications
+                if clause.legal_implications:
+                    content.append(Paragraph("<b>Legal Implications:</b>", styles['Normal']))
+                    for implication in clause.legal_implications:
+                        content.append(Paragraph(f"• {implication}", styles['Normal']))
+                    content.append(Spacer(1, 8))
+                
+                # Recommendations
+                if clause.recommendations:
+                    content.append(Paragraph("<b>Recommendations:</b>", styles['Normal']))
+                    for recommendation in clause.recommendations:
+                        content.append(Paragraph(f"• {recommendation}", styles['Normal']))
+                    content.append(Spacer(1, 8))
+                
+                # Separator
+                content.append(Spacer(1, 15))
+                if i < len(analysis.clause_assessments) - 1:
+                    content.append(Paragraph("─" * 80, styles['Normal']))
+                    content.append(Spacer(1, 15))
             
             # Footer
-            content.append(Spacer(1, 30))
-            content.append(Paragraph(f"Generated on {datetime.now().strftime('%B %d, %Y at %I:%M %p')}", styles['Normal']))
-            content.append(Paragraph("Legal Saathi Document Advisor", styles['Normal']))
+            content.append(PageBreak())
+            content.append(Spacer(1, 50))
+            
+            footer_style = ParagraphStyle(
+                'Footer',
+                parent=styles['Normal'],
+                fontSize=10,
+                textColor=colors.Color(0.5, 0.5, 0.5),
+                alignment=1
+            )
+            
+            content.append(Paragraph("Generated by LegalSaathi AI Analysis System", footer_style))
+            content.append(Paragraph(f"Report generated on {datetime.now().strftime('%B %d, %Y at %I:%M %p')}", footer_style))
+            content.append(Spacer(1, 20))
+            
+            disclaimer_style = ParagraphStyle(
+                'Disclaimer',
+                parent=styles['Normal'],
+                fontSize=9,
+                textColor=colors.Color(0.4, 0.4, 0.4),
+                alignment=1,
+                leading=12
+            )
+            
+            disclaimer_text = """
+            <b>IMPORTANT DISCLAIMER:</b><br/>
+            This analysis is generated by artificial intelligence and is for informational purposes only. 
+            It does not constitute legal advice and should not be relied upon as a substitute for 
+            consultation with a qualified attorney. The accuracy of AI analysis may vary, and 
+            professional legal review is recommended for all important legal documents and decisions.
+            """
+            
+            content.append(Paragraph(disclaimer_text, disclaimer_style))
             
             # Build PDF
             doc.build(content)
@@ -162,13 +337,26 @@ class ExportController:
             
             return pdf_bytes
             
-        except ImportError:
-            # Fallback if reportlab is not available
-            logger.warning("ReportLab not available, generating simple PDF")
-            return await self._generate_simple_pdf_content(data)
+        except ImportError as e:
+            logger.warning(f"ReportLab not available: {e}, generating simple PDF")
+            return await self._generate_simple_pdf_content({'analysis': analysis.dict()})
         except Exception as e:
-            logger.error(f"PDF generation failed: {e}")
-            raise
+            logger.error(f"Enhanced PDF generation failed: {e}")
+            # Fallback to simple PDF
+            return await self._generate_simple_pdf_content({'analysis': analysis.dict()})
+
+    async def _generate_pdf_content(self, data: Dict[str, Any]) -> bytes:
+        """Generate PDF content from analysis data (legacy method)"""
+        # Convert dict to DocumentAnalysisResponse if needed
+        if isinstance(data.get('analysis'), dict):
+            try:
+                analysis = DocumentAnalysisResponse(**data['analysis'])
+                return await self.generate_enhanced_pdf(analysis)
+            except Exception as e:
+                logger.warning(f"Failed to parse analysis data: {e}, using simple PDF")
+        
+        # Fallback to simple PDF generation
+        return await self._generate_simple_pdf_content(data)
     
     async def _generate_simple_pdf_content(self, data: Dict[str, Any]) -> bytes:
         """Generate simple PDF content as fallback"""

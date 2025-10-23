@@ -7,6 +7,10 @@ import { Footer } from './components/Footer';
 import { LoadingOverlay } from './components/LoadingOverlay';
 import { NotificationProvider } from './components/NotificationProvider';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { AuthProvider } from './contexts/AuthContext';
+import { AuthModal } from './components/auth/AuthModal';
+import { ProtectedRoute } from './components/auth/ProtectedRoute';
+import { UserProfile } from './components/auth/UserProfile';
 import { apiService } from './services/apiService';
 import { notificationService } from './services/notificationService';
 
@@ -61,12 +65,14 @@ export interface Classification {
 }
 
 function App() {
-  const [currentView, setCurrentView] = useState<'home' | 'results'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'results' | 'profile'>('home');
   const [isLoading, setIsLoading] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [fileInfo, setFileInfo] = useState<FileInfo | null>(null);
   const [classification, setClassification] = useState<Classification | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authModalMode, setAuthModalMode] = useState<'login' | 'register'>('login');
 
   // React app handles routing internally - no server-side navigation needed
 
@@ -144,53 +150,87 @@ function App() {
     window.history.pushState({}, '', '/');
   };
 
+  const handleShowAuth = (mode: 'login' | 'register' = 'login') => {
+    setAuthModalMode(mode);
+    setShowAuthModal(true);
+  };
+
+  const handleShowProfile = () => {
+    setCurrentView('profile');
+  };
+
   return (
     <ErrorBoundary>
-      <NotificationProvider>
-        <div className="min-h-screen bg-slate-900 relative overflow-hidden">
-          <Navigation />
-          
-          <main>
-            {currentView === 'home' ? (
-              <>
-                <HeroSection />
+      <AuthProvider>
+        <NotificationProvider>
+          <div className="min-h-screen bg-slate-900 relative overflow-hidden">
+            <Navigation 
+              onShowAuth={handleShowAuth}
+              onShowProfile={handleShowProfile}
+            />
+            
+            <main>
+              {currentView === 'home' ? (
+                <>
+                  <HeroSection />
+                  <ErrorBoundary fallback={
+                    <div className="py-20 text-center">
+                      <p className="text-red-400">Document upload component failed to load</p>
+                    </div>
+                  }>
+                    <ProtectedRoute
+                      requireAuth={false}
+                      onAuthRequired={() => handleShowAuth('login')}
+                    >
+                      <DocumentUpload onSubmit={handleAnalysisSubmit} />
+                    </ProtectedRoute>
+                  </ErrorBoundary>
+                </>
+              ) : currentView === 'profile' ? (
+                <div className="py-20">
+                  <ProtectedRoute
+                    requireAuth={true}
+                    onAuthRequired={() => handleShowAuth('login')}
+                  >
+                    <UserProfile />
+                  </ProtectedRoute>
+                </div>
+              ) : (
                 <ErrorBoundary fallback={
                   <div className="py-20 text-center">
-                    <p className="text-red-400">Document upload component failed to load</p>
+                    <p className="text-red-400">Results component failed to load</p>
+                    <button 
+                      onClick={handleBackToHome}
+                      className="mt-4 px-4 py-2 bg-cyan-500 text-white rounded-lg"
+                    >
+                      Back to Home
+                    </button>
                   </div>
                 }>
-                  <DocumentUpload onSubmit={handleAnalysisSubmit} />
+                  <Results
+                    key={analysisResult?.processing_time || Date.now()}
+                    analysis={analysisResult}
+                    fileInfo={fileInfo}
+                    classification={classification}
+                    warnings={warnings}
+                    onBackToHome={handleBackToHome}
+                  />
                 </ErrorBoundary>
-              </>
-            ) : (
-              <ErrorBoundary fallback={
-                <div className="py-20 text-center">
-                  <p className="text-red-400">Results component failed to load</p>
-                  <button 
-                    onClick={handleBackToHome}
-                    className="mt-4 px-4 py-2 bg-cyan-500 text-white rounded-lg"
-                  >
-                    Back to Home
-                  </button>
-                </div>
-              }>
-                <Results
-                  key={analysisResult?.processing_time || Date.now()}
-                  analysis={analysisResult}
-                  fileInfo={fileInfo}
-                  classification={classification}
-                  warnings={warnings}
-                  onBackToHome={handleBackToHome}
-                />
-              </ErrorBoundary>
-            )}
-          </main>
-          
-          <Footer />
-          
-          {isLoading && <LoadingOverlay />}
-        </div>
-      </NotificationProvider>
+              )}
+            </main>
+            
+            <Footer />
+            
+            {isLoading && <LoadingOverlay />}
+            
+            <AuthModal
+              isOpen={showAuthModal}
+              onClose={() => setShowAuthModal(false)}
+              initialMode={authModalMode}
+            />
+          </div>
+        </NotificationProvider>
+      </AuthProvider>
     </ErrorBoundary>
   );
 }

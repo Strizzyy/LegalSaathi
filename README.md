@@ -1,436 +1,309 @@
-# LegalSaathi 🏛️ - AI-Powered Legal Document Demystification
+# LegalSaathi Document Advisor
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-green.svg)](https://fastapi.tiangolo.com/)
-[![React](https://img.shields.io/badge/React-18+-blue.svg)](https://reactjs.org/)
-
-> **Empowering everyone to understand legal documents through AI**
-
-LegalSaathi is a comprehensive AI-powered platform that transforms complex legal documents into clear, accessible guidance. Built for Google Cloud's AI competition, it leverages multiple Google Cloud AI services to democratize legal understanding for everyday citizens and small business owners.
-
-## 🌟 Key Features
-
-### 🔍 **Intelligent Document Analysis**
-- Upload PDFs, DOCs, DOCX, TXT, and images
-- AI-powered extraction of key clauses and terms using Google Document AI
-- Plain-language explanations of complex legal jargon
-- Risk assessment with severity levels and recommendations
-- Fairness and complexity scoring with Google Natural Language AI
-
-### 🌐 **Multi-Language Translation**
-- Support for 50+ languages using Google Cloud Translate
-- Legal context-aware translation with cultural adaptation
-- Bidirectional translation with confidence scoring
-- Clause-level translation for precise legal understanding
-
-### 🎤 **Voice Accessibility**
-- Speech-to-text for document input using Google Cloud Speech-to-Text
-- Text-to-speech for audio explanations using Google Cloud Text-to-Speech
-- Neural voice options with multiple languages
-- Adjustable speaking rate and pitch for legal content
-- Full accessibility compliance (WCAG 2.1 AA)
-
-### 📊 **Document Comparison**
-- Side-by-side contract analysis with AI-powered insights
-- Change tracking and impact assessment
-- Version history management
-- Similarity scoring and difference highlighting
-
-### 🤖 **AI Assistant**
-- Interactive Q&A powered by Google Gemini AI
-- Context-aware clarifications with conversation memory
-- Follow-up question suggestions
-- Conversation analytics and learning patterns
-
-### 👨‍💼 **Expert Integration**
-- Direct connection to legal professionals
-- Expert verification of AI analysis
-- Consultation scheduling and referral system
-
-## 🏗️ Architecture
-
-### System Overview
-```mermaid
-graph TB
-    subgraph "Frontend Layer"
-        A[React + TypeScript]
-        B[Progressive Web App]
-        C[Tailwind CSS]
-    end
-    
-    subgraph "API Layer"
-        D[FastAPI Backend]
-        E[Rate Limiting]
-        F[CORS & Security]
-    end
-    
-    subgraph "Google Cloud AI"
-        G[Gemini API]
-        H[Document AI]
-        I[Translation API]
-        J[Speech Services]
-        K[Natural Language AI]
-    end
-    
-    A --> D
-    D --> E
-    E --> F
-    F --> G
-    F --> H
-    F --> I
-    F --> J
-    F --> K
-```
-
-### Technology Stack
-
-#### **Frontend**
-- **React 18** - Modern UI framework with concurrent features
-- **TypeScript** - Type-safe JavaScript for better DX
-- **Vite** - Lightning-fast build tool and dev server
-- **Tailwind CSS** - Utility-first CSS framework
-- **Progressive Web App** - Native app experience
-
-#### **Backend**
-- **FastAPI** - Modern Python web framework with auto-docs
-- **Uvicorn** - High-performance ASGI server
-- **Pydantic** - Data validation and serialization
-- **SlowAPI** - Rate limiting and security middleware
-
-#### **AI Services (Google Cloud)**
-- **Gemini API** - Advanced language model for document analysis
-- **Document AI** - OCR and document processing
-- **Translation API** - Neural machine translation
-- **Speech-to-Text** - Accurate speech recognition
-- **Text-to-Speech** - Natural voice synthesis
-- **Natural Language AI** - Text analysis and understanding
-
-## 🏗️ Architecture Overview
-
-### Service Organization
-```
-LegalSaathi/
-├── main.py                     # FastAPI application entry point
-├── controllers/                # API endpoint controllers (MVC pattern)
-│   ├── document_controller.py  # Document analysis endpoints
-│   ├── translation_controller.py # Translation endpoints
-│   ├── speech_controller.py    # Voice input/output endpoints
-│   ├── ai_controller.py        # AI clarification endpoints
-│   └── health_controller.py    # Health check endpoints
-├── models/                     # Pydantic data models
-│   ├── document_models.py      # Document analysis models
-│   ├── translation_models.py   # Translation models
-│   ├── speech_models.py        # Speech service models
-│   └── ai_models.py           # AI service models
-├── services/                   # Business logic services
-│   ├── document_service.py     # Document processing logic
-│   ├── ai_service.py          # Gemini AI integration
-│   ├── cache_service.py       # Caching and performance
-│   ├── file_service.py        # File processing utilities
-│   ├── google_document_ai_service.py    # Google Document AI
-│   ├── google_natural_language_service.py # Google Natural Language
-│   ├── google_speech_service.py         # Google Speech services
-│   └── google_translate_service.py      # Google Translate
-└── client/                     # React frontend application
-    ├── src/components/         # React components
-    ├── src/services/          # API integration services
-    └── dist/                  # Built frontend assets
-```
-
-### Key Architectural Decisions
-- **MVC Pattern**: Clean separation of concerns with controllers, models, and services
-- **Microservice-Ready**: Modular design allows easy service extraction
-- **Google Cloud Integration**: Dedicated service files for each Google Cloud AI service
-- **Async Processing**: FastAPI with async/await for improved performance
-- **Type Safety**: Pydantic models ensure data validation and type safety
-- **Caching Strategy**: Multi-level caching for improved response times
+AI-powered platform for analyzing legal documents with FastAPI backend and React frontend, featuring Firebase authentication.
 
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Python 3.12+
-- Node.js 18+
-- Google Cloud Platform account
-- Git
+- Python 3.8+
+- Node.js 16+ and npm
+- uv (Python package manager) - `pip install uv`
 
-### 1. Clone Repository
+### Installation
+
+#### Option 1: Automated Setup (Recommended)
 ```bash
-git clone https://github.com/yourusername/legalsaathi.git
-cd legalsaathi
+# Clone the repository
+git clone <repository-url>
+cd legal-saathi-document-advisor
+
+# Run complete setup
+python setup.py
 ```
 
-### 2. Backend Setup
+#### Option 2: Manual Setup
 ```bash
-# Create and activate virtual environment
-python -m venv .venv
+# 1. Install Python dependencies
+uv sync
 
-# Windows
-.venv\Scripts\activate
-
-# macOS/Linux
-source .venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
-```
-
-### 3. Frontend Setup
-```bash
+# 2. Install frontend dependencies
 cd client
 npm install
-npm run build
 cd ..
+
+# 3. Configure environment variables (see Configuration section)
 ```
 
-### 4. Environment Configuration
+#### Option 3: Using Makefile
 ```bash
-# Copy environment template
-cp .env.example .env
+make quickstart
+```
 
-# Edit .env with your Google Cloud credentials
+### Configuration
+
+#### 1. Backend Environment (.env)
+```bash
+# Copy and edit the environment file
+cp .env.example .env
 ```
 
 Required environment variables:
 ```env
-GEMINI_API_KEY=your_gemini_api_key_here
-GOOGLE_CLOUD_PROJECT_ID=your_project_id
-GOOGLE_CLOUD_LOCATION=us-central1
-DOCUMENT_AI_PROCESSOR_ID=your_processor_id
-GOOGLE_APPLICATION_CREDENTIALS=./google-cloud-credentials.json
+# API Keys
+GROQ_API_KEY=your-groq-api-key
+GEMINI_API_KEY=your-gemini-api-key
+
+# Google Cloud
+GOOGLE_APPLICATION_CREDENTIALS=google-cloud-credentials.json
+GOOGLE_CLOUD_PROJECT_ID=your-project-id
+
+# Firebase
+FIREBASE_ADMIN_CREDENTIALS_PATH=firebase-admin-credentials.json
 ```
 
-### 5. Google Cloud Setup
+#### 2. Frontend Environment (client/.env.local)
+```bash
+# Create frontend environment file
+cd client
+cp .env.local.example .env.local
+```
 
-1. **Enable APIs** in Google Cloud Console:
-   - AI Platform API (Gemini)
-   - Document AI API
-   - Translation API
-   - Speech-to-Text API
-   - Text-to-Speech API
-   - Natural Language API
+Add your Firebase configuration:
+```env
+VITE_FIREBASE_API_KEY=your-firebase-api-key
+VITE_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=your-project-id
+VITE_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
+VITE_FIREBASE_MESSAGING_SENDER_ID=123456789
+VITE_FIREBASE_APP_ID=your-app-id
+```
 
-2. **Create Service Account**:
-   - Go to IAM & Admin > Service Accounts
-   - Create new service account with required roles
-   - Download JSON key as `google-cloud-credentials.json`
+#### 3. Firebase Setup
+Follow the detailed guide in [FIREBASE_SETUP.md](FIREBASE_SETUP.md) to:
+- Create a Firebase project
+- Enable Email/Password authentication
+- Download service account credentials
+- Configure authentication settings
 
-3. **Get API Keys**:
-   - Gemini API key from AI Studio
-   - Document AI processor ID from Document AI console
-
-### 6. Run Application
+### Running the Application
 
 #### Development Mode
 ```bash
-python start_dev.py
+# Terminal 1 - Start backend server
+python main.py
+
+# Terminal 2 - Start frontend development server
+cd client
+npm run dev
 ```
 
-#### Production Mode
+#### Using Makefile
 ```bash
-uvicorn main:app --host 0.0.0.0 --port 8000 --workers 2
+make dev
 ```
 
-Visit `http://localhost:8000` to access the application.
+The application will be available at:
+- **Frontend**: http://localhost:5173
+- **Backend API**: http://localhost:8000
+- **API Documentation**: http://localhost:8000/docs
+
+## 🔧 Available Commands
+
+### Makefile Commands
+```bash
+make install          # Install all dependencies
+make install-python   # Install Python dependencies only
+make install-frontend # Install frontend dependencies only
+make setup           # Complete setup with environment checks
+make dev             # Start development servers
+make test            # Run tests
+make clean           # Clean build artifacts
+make quickstart      # Complete setup for new developers
+```
+
+### Manual Commands
+```bash
+# Python dependencies
+uv sync                              # Install/update Python packages
+uv add package-name                  # Add new Python package
+
+# Frontend dependencies
+cd client && npm install             # Install Node.js packages
+cd client && npm run dev             # Start development server
+cd client && npm run build           # Build for production
+
+# Development
+python main.py                       # Start backend server
+python scripts/install_frontend.py  # Install frontend dependencies only
+```
+
+## 🏗️ Project Structure
+
+```
+legal-saathi-document-advisor/
+├── main.py                     # FastAPI application entry point
+├── requirements.txt            # Python dependencies
+├── pyproject.toml             # Python project configuration
+├── setup.py                   # Automated setup script
+├── Makefile                   # Development commands
+├── .env                       # Backend environment variables
+├── firebase-admin-credentials.json  # Firebase service account (not in git)
+├── 
+├── controllers/               # API controllers
+├── models/                    # Pydantic models
+├── services/                  # Business logic services
+├── middleware/                # Custom middleware
+├── scripts/                   # Utility scripts
+├── 
+├── client/                    # React frontend
+│   ├── package.json          # Frontend dependencies
+│   ├── .env.local            # Frontend environment (not in git)
+│   ├── src/
+│   │   ├── components/       # React components
+│   │   ├── contexts/         # React contexts (Auth, etc.)
+│   │   ├── services/         # API services
+│   │   └── firebaseConfig.ts # Firebase configuration
+│   └── dist/                 # Built frontend (generated)
+└── 
+└── docs/                      # Documentation
+    ├── FIREBASE_SETUP.md     # Firebase setup guide
+    └── INSTALLATION.md       # Detailed installation guide
+```
+
+## 🔐 Authentication Features
+
+- ✅ User registration with email/password
+- ✅ User login with email/password  
+- ✅ Password reset functionality
+- ✅ Automatic token refresh
+- ✅ Protected routes and API endpoints
+- ✅ User profile management
+- ✅ User-based rate limiting
+- ✅ Session management
+
+## 🛠️ Troubleshooting
+
+### Common Issues
+
+#### 1. Email validator error
+```bash
+ImportError: email-validator is not installed
+```
+**Solution:**
+```bash
+uv sync  # This will install email-validator
+# Or manually: pip install email-validator
+```
+
+#### 2. Firebase configuration errors
+```bash
+Firebase Admin SDK not initialized
+```
+**Solution:**
+```bash
+# Run Firebase setup helper
+python setup_firebase.py
+
+# Or manually:
+# 1. Follow FIREBASE_SETUP.md
+# 2. Download Firebase service account credentials
+# 3. Save as firebase-admin-credentials.json
+```
+
+**Note:** The application will run without Firebase if credentials are not configured, but authentication features will be disabled.
+
+#### 3. Document AI service not configured
+```bash
+Authentication service not configured
+```
+**Solution:**
+```bash
+# Run Document AI setup helper
+python setup_document_ai.py
+
+# Or manually set in .env:
+# DOCUMENT_AI_PROCESSOR_ID=your-processor-id
+```
+
+**Note:** The application will use basic PDF text extraction if Document AI is not configured.
+
+#### 4. Frontend build errors
+```bash
+Cannot find module 'firebase/app'
+```
+**Solution:**
+```bash
+cd client
+npm install
+```
+
+#### 4. Port conflicts
+- Backend runs on port 8000
+- Frontend runs on port 5173
+- Make sure these ports are available
+
+#### 5. CORS errors
+- Add your domain to Firebase Console authorized domains
+- Check CORS middleware configuration in `main.py`
+
+### Getting Help
+
+1. Check error messages in browser console and terminal
+2. Verify all environment variables are set correctly
+3. Ensure Firebase is properly configured
+4. Check that all dependencies are installed
+5. Review the setup guides in the `docs/` directory
 
 ## 📚 Documentation
 
-- **[System Architecture](docs/SYSTEM_ARCHITECTURE.md)** - Detailed technical architecture
-- **[API Documentation](docs/API_DOCUMENTATION.md)** - Complete API reference
-- **[Competition Presentation](docs/COMPETITION_PRESENTATION.md)** - Competition submission details
-- **[Deployment Guide](docs/RENDER_DEPLOYMENT_GUIDE.md)** - Render.com deployment instructions
-- **[Judge Access and Testing](md files/JUDGE_ACCESS_AND_TESTING.md)** - Instructions for judges to access and test the solution
-
-### API Endpoints
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/health` | GET | Health check |
-| `/api/analyze` | POST | Analyze document text |
-| `/api/analyze/file` | POST | Analyze uploaded file |
-| `/api/translate` | POST | Translate text |
-| `/api/speech/speech-to-text` | POST | Convert speech to text |
-| `/api/speech/text-to-speech` | POST | Convert text to speech |
-| `/api/ai/clarify` | POST | Get AI clarification |
-| `/api/compare` | POST | Compare documents |
-
-Interactive API documentation available at `/docs` when running.
-
-## 🚀 Deployment
-
-### Render.com (Recommended)
-
-1. **Connect Repository**: Link your GitHub repo to Render
-2. **Auto-Deploy**: Uses `render.yaml` for automatic configuration
-3. **Environment Variables**: Set in Render dashboard
-4. **Go Live**: Automatic deployment on git push
-
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy)
-
-### Manual Deployment
-
-```bash
-# Build frontend
-cd client && npm run build && cd ..
-
-# Start production server
-uvicorn main:app --host 0.0.0.0 --port $PORT --workers 2
-```
-
-See [Deployment Guide](docs/RENDER_DEPLOYMENT_GUIDE.md) for detailed instructions.
+- [Firebase Setup Guide](FIREBASE_SETUP.md) - Complete Firebase configuration
+- [Installation Guide](INSTALLATION.md) - Detailed installation instructions
+- [API Documentation](http://localhost:8000/docs) - Interactive API docs (when running)
 
 ## 🧪 Testing
 
-### Run Tests
 ```bash
-# Backend tests
-pytest tests/ -v
+# Run Python tests
+uv run pytest
 
-# Frontend tests
+# Run frontend tests (if configured)
 cd client && npm test
 
-# Integration tests
-pytest tests/test_integration.py -v
+# Run all tests
+make test
 ```
 
-### Test Coverage
+## 🚀 Production Deployment
+
+### Backend
+1. Set environment variables in your hosting platform
+2. Use production Firebase project settings
+3. Configure proper CORS settings
+4. Set up monitoring and logging
+
+### Frontend
 ```bash
-pytest --cov=. --cov-report=html
+cd client
+npm run build
 ```
-
-## 🎯 Competition Alignment
-
-### Technical Merit (40%)
-- ✅ **Comprehensive AI Integration**: 5 Google Cloud AI services
-- ✅ **Modern Architecture**: FastAPI + React with best practices
-- ✅ **Scalable Design**: Async, stateless, horizontally scalable
-
-### User Experience (10%)
-- ✅ **Intuitive Interface**: Clean, accessible design
-- ✅ **Multi-Modal Interaction**: Text, voice, and visual interfaces
-- ✅ **Progressive Web App**: Native app experience
-
-### Problem Alignment (15%)
-- ✅ **Perfect Fit**: Directly solves legal document complexity
-- ✅ **Real Impact**: Protects users from legal and financial risks
-- ✅ **Global Reach**: Multi-language accessibility
-
-### Innovation (20%)
-- ✅ **Novel Approach**: First comprehensive AI legal platform
-- ✅ **Creative Features**: Voice interaction, document comparison
-- ✅ **Disruptive Potential**: Democratizes legal understanding
-
-### Market Feasibility (15%)
-- ✅ **Large Market**: $50B+ legal services industry
-- ✅ **Clear Demand**: 89% don't read legal documents
-- ✅ **Proven Model**: Freemium SaaS with enterprise potential
-
-## 📊 Performance
-
-### Benchmarks
-- **Response Time**: <2s for document analysis
-- **Throughput**: 100+ concurrent users
-- **Accuracy**: 95%+ AI analysis confidence
-- **Availability**: 99.9% uptime target
-
-### Optimization Features
-- Response compression (GZip)
-- API response caching
-- Async processing
-- Rate limiting
-- CDN integration
-
-## 🔒 Security
-
-### Security Measures
-- Input validation and sanitization
-- Rate limiting (10-20 requests/minute)
-- CORS protection
-- File upload validation
-- Error handling without data leakage
-- Environment variable encryption
-
-### Privacy
-- No persistent user data storage
-- Temporary file processing
-- Secure API key management
-- GDPR compliance ready
+Deploy the `client/dist/` directory to your static hosting service.
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md).
-
-### Development Setup
 1. Fork the repository
-2. Create feature branch: `git checkout -b feature/amazing-feature`
-3. Make changes and add tests
-4. Commit: `git commit -m 'Add amazing feature'`
-5. Push: `git push origin feature/amazing-feature`
-6. Open Pull Request
-
-### Code Standards
-- Python: Black formatting, type hints, docstrings
-- TypeScript: ESLint, Prettier, strict mode
-- Tests: Minimum 80% coverage
-- Documentation: Update relevant docs
-
-## 📈 Roadmap
-
-### Phase 1 ✅ (Completed)
-- Core document analysis
-- Multi-language translation
-- Voice interface
-- Basic comparison features
-
-### Phase 2 🔄 (In Progress)
-- Advanced risk scoring
-- Expert marketplace
-- Mobile app
-- API integrations
-
-### Phase 3 📋 (Planned)
-- Team collaboration
-- White-label solutions
-- Advanced analytics
-- Enterprise features
-
-### Phase 4 🚀 (Future)
-- Custom AI training
-- Predictive analytics
-- Contract generation
-- Blockchain verification
-
-## 📞 Support
-
-### Getting Help
-- 📖 **Documentation**: Check our comprehensive docs
-- 🐛 **Bug Reports**: Open GitHub issue with details
-- 💡 **Feature Requests**: Discuss in GitHub Discussions
-- 📧 **Contact**: support@legalsaathi.com
-
-### Community
-- GitHub Discussions for questions
-- Twitter [@LegalSaathi](https://twitter.com/legalsaathi) for updates
-- LinkedIn for professional networking
+2. Create a feature branch
+3. Make your changes
+4. Run tests
+5. Submit a pull request
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License.
 
-## 🙏 Acknowledgments
+## 🆘 Support
 
-- **Google Cloud AI** for providing powerful AI services
-- **Render.com** for excellent hosting platform
-- **Open Source Community** for amazing tools and libraries
-- **Legal Professionals** for domain expertise and feedback
-
-
----
-
-<div align="center">
-
-**Made with ❤️ for a more accessible legal world**
-
-[Website](https://legalsaathi-document-advisor.onrender.com) • [Documentation](docs/) • [API](https://legalsaathi-document-advisor.onrender.com/docs) • [Support](mailto:support@legalsaathi.com)
-
-</div>
+If you encounter issues:
+1. Check the troubleshooting section above
+2. Review the documentation in the `docs/` directory
+3. Check existing issues in the repository
+4. Create a new issue with detailed error information
