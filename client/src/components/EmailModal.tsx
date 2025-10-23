@@ -90,9 +90,14 @@ export const EmailModal: React.FC<EmailModalProps> = ({
         analysis_id: emailService.generateAnalysisId(),
         include_pdf: includePdf,
         email_template: emailTemplate,
-        custom_message: customMessage.trim() || undefined,
         priority: 'normal'
       };
+
+      // Only add custom_message if it has content
+      const trimmedMessage = customMessage.trim();
+      if (trimmedMessage) {
+        emailRequest.custom_message = trimmedMessage;
+      }
 
       const response = await emailService.sendAnalysisEmail(emailRequest, analysisData);
 

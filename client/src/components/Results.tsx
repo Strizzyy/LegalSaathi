@@ -28,7 +28,7 @@ import { TranslationModal } from './TranslationModal';
 import { StatusModal } from './StatusModal';
 import { DocumentSummary } from './DocumentSummary';
 import { DocumentComparison } from './DocumentComparison';
-import { DetailedClauseAnalysis } from './DetailedClauseAnalysis';
+
 import { EmailModal } from './EmailModal';
 import { PaginatedClauseAnalysis } from './PaginatedClauseAnalysis';
 import { ActionableInsights } from './ActionableInsights';
@@ -945,8 +945,8 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
         onClose={() => setIsEmailModalOpen(false)}
         analysisData={{
           analysis,
-          file_info: fileInfo || undefined,
-          classification: classification || undefined
+          ...(fileInfo && { file_info: fileInfo }),
+          ...(classification && { classification: classification })
         }}
         userEmail="" // This should come from auth context when available
       />

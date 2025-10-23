@@ -1,4 +1,4 @@
-import { apiService } from './apiService';
+
 import type { AnalysisResult, FileInfo, Classification } from '../App';
 
 export interface EmailNotificationRequest {
