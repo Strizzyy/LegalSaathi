@@ -23,7 +23,7 @@ def check_dependencies():
         import uvicorn
         print("✅ FastAPI and Uvicorn available")
     except ImportError:
-        print("❌ FastAPI/Uvicorn not found. Please install requirements: pip install -r requirements.txt")
+        print("❌ FastAPI/Uvicorn not found. Please install requirements: uv sync (or pip install -r requirements.txt)")
         return False
     
     # Check if client directory exists

@@ -33,13 +33,14 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
+from pydantic import ValidationError
 
-# Configure logging
+# Configure logging with UTF-8 encoding to handle Unicode characters
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('legal_saathi.log'),
+        logging.FileHandler('legal_saathi.log', encoding='utf-8'),
         logging.StreamHandler()
     ]
 )
@@ -84,17 +85,18 @@ from controllers.export_controller import ExportController
 from controllers.email_controller import EmailController
 from controllers.support_controller import router as support_router
 from controllers.auth_controller import AuthController
+from controllers.insights_controller import router as insights_router
 
 # Import services for cleanup
 from services.cache_service import CacheService
 from middleware.firebase_auth_middleware import FirebaseAuthMiddleware, UserBasedRateLimiter
 
-# Configure logging
+# Configure logging with UTF-8 encoding to handle Unicode characters
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('legal_saathi.log'),
+        logging.FileHandler('legal_saathi.log', encoding='utf-8'),
         logging.StreamHandler()
     ]
 )
@@ -199,6 +201,7 @@ except Exception as e:
 
 # Include routers
 app.include_router(support_router)
+app.include_router(insights_router)
 
 
 # Middleware for request logging and performance monitoring
@@ -230,6 +233,20 @@ async def log_requests(request: Request, call_next):
 
 
 # Exception handlers
+@app.exception_handler(ValidationError)
+async def validation_exception_handler(request: Request, exc: ValidationError):
+    """Handle Pydantic validation errors"""
+    logger.error(f"Validation error on {request.url}: {exc}")
+    return JSONResponse(
+        status_code=422,
+        content={
+            "error": "Validation error",
+            "details": exc.errors(),
+            "status_code": 422,
+            "timestamp": datetime.now().isoformat()
+        }
+    )
+
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
     """Handle HTTP exceptions with structured error responses"""
@@ -378,6 +395,47 @@ async def get_analysis_status(analysis_id: str):
     return await document_controller.get_analysis_status(analysis_id)
 
 
+@app.get("/api/analysis/{analysis_id}/clauses")
+async def get_paginated_clauses(
+    analysis_id: str,
+    page: int = 1,
+    page_size: int = 10,
+    risk_filter: str = None,
+    sort_by: str = "risk_score"
+):
+    """Get paginated clause results with filtering and sorting"""
+    return await document_controller.get_paginated_clauses(
+        analysis_id=analysis_id,
+        page=page,
+        page_size=page_size,
+        risk_filter=risk_filter,
+        sort_by=sort_by
+    )
+
+
+@app.get("/api/analysis/{analysis_id}/search")
+async def search_clauses(
+    analysis_id: str,
+    q: str,
+    fields: str = None
+):
+    """Search within analyzed clauses"""
+    return await document_controller.search_clauses(
+        analysis_id=analysis_id,
+        search_query=q,
+        search_fields=fields
+    )
+
+
+@app.get("/api/analysis/{analysis_id}/clauses/{clause_id}")
+async def get_clause_details(analysis_id: str, clause_id: str):
+    """Get detailed information for a specific clause"""
+    return await document_controller.get_clause_details(
+        analysis_id=analysis_id,
+        clause_id=clause_id
+    )
+
+
 @app.post("/api/analysis/{analysis_id}/export")
 async def export_analysis(analysis_id: str, format: str = "pdf"):
     """Export analysis results"""
@@ -447,7 +505,75 @@ async def get_speech_languages():
 @limiter.limit("15/minute")
 async def get_ai_clarification(request: Request, clarification_request: ClarificationRequest):
     """Get AI-powered clarification"""
-    return await ai_controller.get_clarification(clarification_request)
+    try:
+        logger.info(f"Received clarification request: {clarification_request.question[:50] if clarification_request.question else 'No question'}...")
+        logger.debug(f"Request details - Question length: {len(clarification_request.question)}, Experience level: {clarification_request.user_expertise_level}")
+        
+        result = await ai_controller.get_clarification(clarification_request)
+        logger.info(f"AI clarification result: success={result.success}, service_used={result.service_used}")
+        
+        # If AI service failed, return a proper fallback response
+        if not result.success and not result.response:
+            logger.warning("AI service returned empty response, providing fallback")
+            return ClarificationResponse(
+                success=True,
+                response="I'm currently experiencing technical difficulties with my AI services. However, I can see you're asking about your legal document. For the most accurate analysis, I recommend reviewing the specific clauses you're concerned about and considering consultation with a legal professional for detailed guidance.",
+                conversation_id=result.conversation_id or "fallback",
+                confidence_score=25,
+                response_quality="fallback",
+                processing_time=result.processing_time,
+                fallback=True,
+                error_type="AIServiceUnavailable",
+                service_used="fallback_handler",
+                timestamp=datetime.now()
+            )
+        
+        return result
+    except ValidationError as e:
+        logger.error(f"Validation error in clarification: {e}")
+        raise HTTPException(status_code=422, detail=str(e))
+    except Exception as e:
+        logger.error(f"Clarification endpoint error: {e}")
+        # Return a proper error response instead of raising
+        return ClarificationResponse(
+            success=False,
+            response=f"AI clarification service error: {str(e)}",
+            conversation_id="error",
+            confidence_score=0,
+            response_quality="error",
+            processing_time=0.0,
+            fallback=True,
+            error_type=type(e).__name__,
+            service_used="error_handler",
+            timestamp=datetime.now()
+        )
+
+
+@app.get("/api/ai/health")
+async def get_ai_health():
+    """Get AI service health status"""
+    try:
+        # Test a simple clarification request
+        test_request = ClarificationRequest(
+            question="Test question for health check",
+            user_expertise_level="beginner"
+        )
+        result = await ai_controller.get_clarification(test_request)
+        
+        return {
+            "success": True,
+            "ai_service_available": result.success,
+            "service_used": result.service_used,
+            "fallback_mode": result.fallback,
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "ai_service_available": False,
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
+        }
 
 
 @app.get("/api/ai/conversation/summary", response_model=ConversationSummaryResponse)
@@ -474,6 +600,52 @@ async def compare_documents(request: Request, comparison_request: DocumentCompar
 async def get_comparison_summary(comparison_id: str):
     """Get summary of a previous comparison"""
     return await comparison_controller.get_comparison_summary(comparison_id)
+
+
+@app.get("/api/compare/export/formats")
+async def get_comparison_export_formats():
+    """Get available export formats for comparison reports"""
+    return await comparison_controller.get_export_formats()
+
+
+@app.post("/api/compare/export/{format}")
+async def export_comparison_report(
+    format: str,
+    comparison_data: DocumentComparisonResponse,
+    request: Request
+):
+    """Export comparison report in specified format (PDF/Word)"""
+    from fastapi.responses import Response
+    
+    try:
+        # Export the report
+        exported_data = await comparison_controller.export_comparison_report(
+            comparison_data, format
+        )
+        
+        # Set appropriate content type and filename
+        if format.lower() == 'pdf':
+            content_type = 'application/pdf'
+            filename = f"comparison_report_{comparison_data.comparison_id}.pdf"
+        elif format.lower() in ['docx', 'word']:
+            content_type = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            filename = f"comparison_report_{comparison_data.comparison_id}.docx"
+        else:
+            content_type = 'application/octet-stream'
+            filename = f"comparison_report_{comparison_data.comparison_id}.{format}"
+        
+        return Response(
+            content=exported_data,
+            media_type=content_type,
+            headers={
+                "Content-Disposition": f"attachment; filename={filename}",
+                "Content-Length": str(len(exported_data))
+            }
+        )
+        
+    except Exception as e:
+        logger.error(f"Export endpoint failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}")
 
 
 # Export endpoints

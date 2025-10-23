@@ -15,12 +15,15 @@ import { apiService } from './services/apiService';
 import { notificationService } from './services/notificationService';
 
 export interface AnalysisResult {
+  analysis_id: string;
   overall_risk: {
     level: 'RED' | 'YELLOW' | 'GREEN';
     score: number;
     confidence_percentage: number;
     low_confidence_warning?: boolean;
     risk_categories?: Record<string, number>;
+    severity?: string;
+    reasons?: string[];
   };
   summary: string;
   analysis_results: Array<{
@@ -33,6 +36,7 @@ export interface AnalysisResult {
       confidence_percentage: number;
       low_confidence_warning?: boolean;
       risk_categories?: Record<string, number>;
+      reasons?: string[];
     };
     plain_explanation: string;
     legal_implications: string[];
@@ -44,6 +48,10 @@ export interface AnalysisResult {
     document_ai?: any;
     natural_language?: any;
   };
+  document_type?: string;
+  document_text?: string;
+  document_patterns?: string[];
+  compliance_flags?: string[];
 }
 
 export interface FileInfo {

@@ -39,6 +39,31 @@
 
 /* Custom animations and styles */
 @layer components {
+  /* Simple loading animations */
+  @keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+
+  .animate-shimmer {
+    animation: shimmer 3s linear infinite;
+  }
+
+  /* Loading overlay styles */
+  .loading-overlay {
+    backdrop-filter: blur(8px);
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.95) 100%);
+  }
+
+  .spinner {
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
   .traffic-light {
     @apply w-4 h-4 rounded-full inline-block;
   }
@@ -191,14 +216,6 @@
     @apply bg-blue-500/20 border-blue-500/50 text-blue-400;
   }
 
-  .google-cloud-badge {
-    @apply inline-flex items-center space-x-2 px-3 py-1 bg-slate-800/50 border border-slate-600 rounded-full text-xs text-slate-400;
-  }
-
-  .feature-card {
-    @apply bg-slate-800/30 border border-slate-700 rounded-xl;
-  }
-
   .loading-overlay {
     @apply fixed inset-0 bg-slate-900/95 backdrop-blur-sm z-50 flex items-center justify-center;
   }
@@ -279,174 +296,253 @@
   .glass-effect {
     @apply bg-white/5 backdrop-blur-sm border border-white/10;
   }
-} 
- /* Translation and Summarization Components */
-  .clause-translation-container {
-    @apply space-y-2;
-  }
+}
 
-  .translation-display {
-    @apply overflow-hidden;
-  }
+/* Translation and Summarization Components */
+.clause-translation-container {
+  @apply space-y-2;
+}
 
-  .document-summary {
-    @apply w-full;
-  }
+.translation-display {
+  @apply overflow-hidden;
+}
 
-  .document-summary-loading {
-    @apply w-full;
-  }
+.document-summary {
+  @apply w-full;
+}
 
-  .document-summary-error {
-    @apply w-full;
-  }
+.document-summary-loading {
+  @apply w-full;
+}
 
-  .summary-section {
-    @apply space-y-2;
-  }
+.document-summary-error {
+  @apply w-full;
+}
 
-  .clause-summary {
-    @apply inline-block;
-  }
+.summary-section {
+  @apply space-y-2;
+}
 
-  /* Enhanced clause analysis styles */
-  .clause-analysis-item .clause-translation-container,
-  .clause-analysis-item .clause-summary {
-    @apply opacity-90 hover:opacity-100 transition-opacity;
-  }
+.clause-summary {
+  @apply inline-block;
+}
 
-  /* Language selection styles */
-  .language-selector {
-    @apply grid grid-cols-2 md:grid-cols-3 gap-2;
-  }
+/* Enhanced clause analysis styles */
+.clause-analysis-item .clause-translation-container,
+.clause-analysis-item .clause-summary {
+  @apply opacity-90 hover:opacity-100 transition-opacity;
+}
 
-  .language-option {
-    @apply p-3 rounded-lg border text-left transition-all cursor-pointer;
-  }
+/* Language selection styles */
+.language-selector {
+  @apply grid grid-cols-2 md:grid-cols-3 gap-2;
+}
 
-  .language-option.selected {
-    @apply border-cyan-500 bg-cyan-500/10 text-cyan-400;
-  }
+.language-option {
+  @apply p-3 rounded-lg border text-left transition-all cursor-pointer;
+}
 
-  .language-option:not(.selected) {
-    @apply border-slate-600 bg-slate-700/50 text-slate-300 hover:border-slate-500;
-  }
+.language-option.selected {
+  @apply border-cyan-500 bg-cyan-500/10 text-cyan-400;
+}
 
-  /* Side-by-side translation display */
+.language-option:not(.selected) {
+  @apply border-slate-600 bg-slate-700/50 text-slate-300 hover:border-slate-500;
+}
+
+/* Side-by-side translation display */
+.translation-comparison {
+  @apply grid md:grid-cols-2 gap-4;
+}
+
+.translation-original {
+  @apply bg-slate-700/50 border border-slate-600 rounded p-3;
+}
+
+.translation-result {
+  @apply bg-blue-500/10 border border-blue-500/30 rounded p-3;
+}
+
+/* Summary expansion animations */
+.summary-expand-enter {
+  @apply opacity-0 max-h-0;
+}
+
+.summary-expand-enter-active {
+  @apply opacity-100 max-h-screen transition-all duration-300;
+}
+
+.summary-expand-exit {
+  @apply opacity-100 max-h-screen;
+}
+
+.summary-expand-exit-active {
+  @apply opacity-0 max-h-0 transition-all duration-300;
+}
+
+/* Interactive button states */
+.translation-button {
+  @apply inline-flex items-center px-3 py-1 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-lg hover:from-blue-400 hover:to-cyan-400 transition-all text-xs;
+}
+
+.translation-button:disabled {
+  @apply opacity-50 cursor-not-allowed;
+}
+
+.summary-button {
+  @apply inline-flex items-center px-3 py-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:from-purple-400 hover:to-pink-400 transition-all text-xs;
+}
+
+.summary-button:disabled {
+  @apply opacity-50 cursor-not-allowed;
+}
+
+/* Copy button states */
+.copy-button {
+  @apply inline-flex items-center px-2 py-1 text-xs bg-slate-600 text-slate-300 rounded hover:bg-slate-500 transition-colors;
+}
+
+.copy-button.copied {
+  @apply bg-green-600 text-green-200;
+}
+
+/* Loading states */
+.translation-loading {
+  @apply flex items-center justify-center space-x-3 p-4 bg-slate-800/50 border border-slate-700 rounded-lg;
+}
+
+.summary-loading {
+  @apply flex items-center justify-center space-x-3 p-4 bg-slate-800/50 border border-slate-700 rounded-lg;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
   .translation-comparison {
-    @apply grid md:grid-cols-2 gap-4;
+    @apply grid-cols-1 space-y-4;
   }
 
-  .translation-original {
-    @apply bg-slate-700/50 border border-slate-600 rounded p-3;
+  .language-selector {
+    @apply grid-cols-2;
   }
 
-  .translation-result {
-    @apply bg-blue-500/10 border border-blue-500/30 rounded p-3;
+  .clause-analysis-item .flex.flex-wrap {
+    @apply flex-col items-start space-y-2;
   }
+}
 
-  /* Summary expansion animations */
-  .summary-expand-enter {
-    @apply opacity-0 max-h-0;
-  }
+/* Accessibility improvements */
+.translation-button:focus-visible,
+.summary-button:focus-visible,
+.copy-button:focus-visible {
+  @apply ring-2 ring-cyan-500 ring-offset-2 ring-offset-slate-900 outline-none;
+}
 
-  .summary-expand-enter-active {
-    @apply opacity-100 max-h-screen transition-all duration-300;
-  }
+/* Animation for summary sections */
+.summary-section-enter {
+  @apply transform scale-95 opacity-0;
+}
 
-  .summary-expand-exit {
-    @apply opacity-100 max-h-screen;
-  }
+.summary-section-enter-active {
+  @apply transform scale-100 opacity-100 transition-all duration-200;
+}
 
-  .summary-expand-exit-active {
-    @apply opacity-0 max-h-0 transition-all duration-300;
-  }
+/* Enhanced visual feedback */
+.clause-translation-container:hover,
+.clause-summary:hover {
+  @apply transform scale-105 transition-transform duration-200;
+}
 
-  /* Interactive button states */
-  .translation-button {
-    @apply inline-flex items-center px-3 py-1 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-lg hover:from-blue-400 hover:to-cyan-400 transition-all text-xs;
-  }
+/* Status indicators */
+.translation-status {
+  @apply inline-flex items-center space-x-1 text-xs;
+}
 
-  .translation-button:disabled {
-    @apply opacity-50 cursor-not-allowed;
-  }
+.translation-status.loading {
+  @apply text-blue-400;
+}
 
-  .summary-button {
-    @apply inline-flex items-center px-3 py-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:from-purple-400 hover:to-pink-400 transition-all text-xs;
-  }
+.translation-status.success {
+  @apply text-green-400;
+}
 
-  .summary-button:disabled {
-    @apply opacity-50 cursor-not-allowed;
-  }
+.translation-status.error {
+  @apply text-red-400;
+}
 
-  /* Copy button states */
-  .copy-button {
-    @apply inline-flex items-center px-2 py-1 text-xs bg-slate-600 text-slate-300 rounded hover:bg-slate-500 transition-colors;
-  }
+/* Markd
+own content styling */
+.markdown-content {
+  @apply space-y-4;
+}
 
-  .copy-button.copied {
-    @apply bg-green-600 text-green-200;
-  }
+.markdown-content h3 {
+  @apply text-lg font-bold text-white mb-3 flex items-center border-b border-slate-700/50 pb-2;
+}
 
-  /* Loading states */
-  .translation-loading {
-    @apply flex items-center justify-center space-x-3 p-4 bg-slate-800/50 border border-slate-700 rounded-lg;
-  }
+.markdown-content h3 .w-2 {
+  @apply rounded-full mr-3;
+  background-color: rgb(34 211 238);
+}
 
-  .summary-loading {
-    @apply flex items-center justify-center space-x-3 p-4 bg-slate-800/50 border border-slate-700 rounded-lg;
-  }
+.markdown-content p {
+  @apply text-slate-200 leading-relaxed mb-3;
+}
 
-  /* Responsive adjustments */
-  @media (max-width: 768px) {
-    .translation-comparison {
-      @apply grid-cols-1 space-y-4;
-    }
+.markdown-content strong {
+  @apply font-bold text-white;
+}
 
-    .language-selector {
-      @apply grid-cols-2;
-    }
+.markdown-content ul {
+  @apply space-y-2 my-3;
+}
 
-    .clause-analysis-item .flex.flex-wrap {
-      @apply flex-col items-start space-y-2;
-    }
-  }
+.markdown-content ol {
+  @apply space-y-2 my-3;
+}
 
-  /* Accessibility improvements */
-  .translation-button:focus-visible,
-  .summary-button:focus-visible,
-  .copy-button:focus-visible {
-    @apply ring-2 ring-cyan-500 ring-offset-2 ring-offset-slate-900 outline-none;
-  }
+.markdown-content li {
+  @apply flex items-start space-x-2 text-slate-200;
+}
 
-  /* Animation for summary sections */
-  .summary-section-enter {
-    @apply transform scale-95 opacity-0;
-  }
+.markdown-content ul li .w-2 {
+  @apply rounded-full mt-2 flex-shrink-0;
+  background-color: rgb(34 211 238);
+}
 
-  .summary-section-enter-active {
-    @apply transform scale-100 opacity-100 transition-all duration-200;
-  }
+.markdown-content ol li .w-6 {
+  @apply rounded-full flex items-center justify-center flex-shrink-0 mt-0.5;
+  background-color: rgb(6 182 212 / 0.2);
+}
 
-  /* Enhanced visual feedback */
-  .clause-translation-container:hover,
-  .clause-summary:hover {
-    @apply transform scale-105 transition-transform duration-200;
-  }
+.markdown-content ol li .text-cyan-400 {
+  @apply text-xs font-bold;
+  color: rgb(34 211 238);
+}
 
-  /* Status indicators */
-  .translation-status {
-    @apply inline-flex items-center space-x-1 text-xs;
-  }
+/* Improved spacing and typography */
+.markdown-content .mb-4:last-child {
+  @apply mb-0;
+}
 
-  .translation-status.loading {
-    @apply text-blue-400;
-  }
+.markdown-content .ml-5 {
+  @apply text-slate-200 leading-relaxed;
+}
 
-  .translation-status.success {
-    @apply text-green-400;
-  }
+/* Enhanced readability */
+.markdown-content {
+  @apply text-base leading-7;
+}
 
-  .translation-status.error {
-    @apply text-red-400;
-  }
+.markdown-content .text-sm {
+  @apply leading-6;
+}
+
+/* Better section spacing */
+.markdown-content>div:not(:last-child) {
+  @apply mb-6;
+}
+
+/* Highlight important sections */
+.markdown-content h3:first-child {
+  color: rgb(34 211 238);
+}

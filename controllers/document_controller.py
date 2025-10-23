@@ -196,6 +196,162 @@ class DocumentController:
                 detail=f"Failed to get status: {str(e)}"
             )
     
+    async def get_paginated_clauses(
+        self, 
+        analysis_id: str, 
+        page: int = 1, 
+        page_size: int = 10,
+        risk_filter: Optional[str] = None,
+        sort_by: str = "risk_score"
+    ) -> dict:
+        """Get paginated clause results with filtering and sorting"""
+        try:
+            # Validate parameters
+            if page < 1:
+                raise HTTPException(status_code=400, detail="Page must be >= 1")
+            if page_size < 1 or page_size > 50:
+                raise HTTPException(status_code=400, detail="Page size must be between 1 and 50")
+            
+            valid_risk_filters = ['red', 'yellow', 'green']
+            if risk_filter and risk_filter.lower() not in valid_risk_filters:
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Invalid risk filter. Must be one of: {valid_risk_filters}"
+                )
+            
+            valid_sort_options = ['risk_score', 'risk_level', 'clause_id', 'confidence']
+            if sort_by not in valid_sort_options:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid sort option. Must be one of: {valid_sort_options}"
+                )
+            
+            result = await self.document_service.get_paginated_clauses(
+                analysis_id=analysis_id,
+                page=page,
+                page_size=page_size,
+                risk_filter=risk_filter,
+                sort_by=sort_by
+            )
+            
+            logger.info(f"Paginated clauses retrieved: {analysis_id}, page {page}")
+            return result
+            
+        except ValueError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Failed to get paginated clauses: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to get clauses: {str(e)}"
+            )
+    
+    async def search_clauses(
+        self,
+        analysis_id: str,
+        search_query: str,
+        search_fields: Optional[str] = None
+    ) -> dict:
+        """Search within analyzed clauses"""
+        try:
+            # Validate search query
+            if not search_query or len(search_query.strip()) < 2:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Search query must be at least 2 characters long"
+                )
+            
+            if len(search_query) > 200:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Search query too long (max 200 characters)"
+                )
+            
+            # Parse search fields
+            fields_list = None
+            if search_fields:
+                valid_fields = ['clause_text', 'plain_explanation', 'legal_implications', 'recommendations', 'reasons']
+                fields_list = [f.strip() for f in search_fields.split(',')]
+                invalid_fields = [f for f in fields_list if f not in valid_fields]
+                if invalid_fields:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Invalid search fields: {invalid_fields}. Valid fields: {valid_fields}"
+                    )
+            
+            result = await self.document_service.search_clauses(
+                analysis_id=analysis_id,
+                search_query=search_query,
+                search_fields=fields_list
+            )
+            
+            logger.info(f"Clause search completed: {analysis_id}, query '{search_query}', {result['total_matches']} matches")
+            return result
+            
+        except ValueError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Clause search failed: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Search failed: {str(e)}"
+            )
+    
+    async def get_clause_details(self, analysis_id: str, clause_id: str) -> dict:
+        """Get detailed information for a specific clause"""
+        try:
+            if analysis_id not in self.document_service.analysis_storage:
+                raise HTTPException(status_code=404, detail=f"Analysis {analysis_id} not found")
+            
+            stored_analysis = self.document_service.analysis_storage[analysis_id]
+            clause_assessments = stored_analysis['clause_assessments']
+            
+            # Find the specific clause
+            target_clause = None
+            for clause in clause_assessments:
+                if clause.clause_id == clause_id:
+                    target_clause = clause
+                    break
+            
+            if not target_clause:
+                raise HTTPException(status_code=404, detail=f"Clause {clause_id} not found")
+            
+            # Return detailed clause information
+            result = {
+                'clause_id': target_clause.clause_id,
+                'clause_text': target_clause.clause_text,
+                'risk_assessment': {
+                    'level': target_clause.risk_assessment.level.value,
+                    'score': target_clause.risk_assessment.score,
+                    'severity': target_clause.risk_assessment.severity,
+                    'confidence_percentage': target_clause.risk_assessment.confidence_percentage,
+                    'reasons': target_clause.risk_assessment.reasons,
+                    'risk_categories': target_clause.risk_assessment.risk_categories,
+                    'low_confidence_warning': target_clause.risk_assessment.low_confidence_warning
+                },
+                'plain_explanation': target_clause.plain_explanation,
+                'legal_implications': target_clause.legal_implications,
+                'recommendations': target_clause.recommendations,
+                'translation_available': target_clause.translation_available,
+                'analysis_id': analysis_id
+            }
+            
+            logger.info(f"Clause details retrieved: {analysis_id}, clause {clause_id}")
+            return result
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Failed to get clause details: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to get clause details: {str(e)}"
+            )
+    
     async def export_analysis(self, analysis_id: str, format: str = "pdf") -> dict:
         """Export analysis results to PDF or Word format"""
         try:

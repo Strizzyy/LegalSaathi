@@ -15,7 +15,7 @@ export interface DocumentComparisonRequest {
 // Valid document types that match backend enum
 const VALID_DOCUMENT_TYPES = [
   'rental_agreement',
-  'employment_contract', 
+  'employment_contract',
   'nda',
   'loan_agreement',
   'partnership_agreement',
@@ -74,7 +74,7 @@ class ComparisonService {
   // Helper method to normalize document type to backend enum format
   private normalizeDocumentType(type: string): string {
     const normalized = type.toLowerCase().replace(/\s+/g, '_');
-    
+
     // Map common variations to valid enum values
     const typeMapping: Record<string, string> = {
       'rental': 'rental_agreement',
@@ -119,19 +119,91 @@ class ComparisonService {
         comparison_focus: request.comparison_focus || 'overall'
       };
 
-      console.log('Sending comparison request:', normalizedRequest);
-      
+      console.log('🚀 Sending ULTRA-FAST comparison request:', normalizedRequest);
+
       const response = await apiService.post('/api/compare', normalizedRequest);
       return response.data;
     } catch (error: any) {
       console.error('Document comparison failed:', error);
-      
+
       // Provide more specific error messages
       if (error.status === 422) {
         const errorDetail = error.message || 'Invalid request format';
         throw new Error(`Validation error: ${errorDetail}. Please check that both documents have sufficient content (minimum 100 characters).`);
       }
-      
+
+      throw new Error(error.response?.data?.message || error.message || 'Failed to compare documents');
+    }
+  }
+
+  async compareDocumentsWithProgress(
+    request: DocumentComparisonRequest,
+    onProgress?: (progress: number, message: string) => void
+  ): Promise<DocumentComparisonResponse> {
+    try {
+      // Normalize document types to match backend enum
+      const normalizedRequest = {
+        ...request,
+        document1_type: this.normalizeDocumentType(request.document1_type),
+        document2_type: this.normalizeDocumentType(request.document2_type),
+        comparison_focus: request.comparison_focus || 'overall'
+      };
+
+      console.log('🚀 Starting comparison with progress tracking:', normalizedRequest);
+
+      // Simple linear progress simulation
+      let currentProgress = 0;
+      const startTime = Date.now();
+      const estimatedDuration = 35000; // 35 seconds estimated
+
+      const progressMessages = [
+        'Validating documents...',
+        'Preparing document analysis...',
+        'Analyzing document 1...',
+        'Analyzing document 2...',
+        'Comparing clauses and risks...',
+        'Generating comparison results...',
+        'Finalizing analysis...'
+      ];
+
+      const progressInterval = setInterval(() => {
+        const elapsed = Date.now() - startTime;
+        const timeBasedProgress = Math.min((elapsed / estimatedDuration) * 90, 90);
+
+        // Ensure progress only increases
+        if (timeBasedProgress > currentProgress) {
+          currentProgress = timeBasedProgress;
+
+          // Select message based on progress
+          let messageIndex = Math.floor((currentProgress / 90) * (progressMessages.length - 1));
+          messageIndex = Math.min(messageIndex, progressMessages.length - 1);
+
+          onProgress?.(currentProgress, progressMessages[messageIndex]);
+        }
+      }, 500); // Update every 500ms for smooth progress
+
+      try {
+        onProgress?.(0, 'Starting comparison...');
+
+        const response = await apiService.post('/api/compare', normalizedRequest);
+
+        clearInterval(progressInterval);
+        onProgress?.(100, 'Comparison completed!');
+
+        return response.data;
+      } catch (error) {
+        clearInterval(progressInterval);
+        throw error;
+      }
+    } catch (error: any) {
+      console.error('Document comparison failed:', error);
+
+      // Provide more specific error messages
+      if (error.status === 422) {
+        const errorDetail = error.message || 'Invalid request format';
+        throw new Error(`Validation error: ${errorDetail}. Please check that both documents have sufficient content (minimum 100 characters).`);
+      }
+
       throw new Error(error.response?.data?.message || error.message || 'Failed to compare documents');
     }
   }
@@ -143,6 +215,38 @@ class ComparisonService {
     } catch (error: any) {
       console.error('Failed to get comparison summary:', error);
       throw new Error(error.response?.data?.message || 'Failed to get comparison summary');
+    }
+  }
+
+  async getExportFormats(): Promise<any> {
+    try {
+      const response = await apiService.get('/api/compare/export/formats');
+      return response.data;
+    } catch (error: any) {
+      console.error('Failed to get export formats:', error);
+      throw new Error(error.response?.data?.message || 'Failed to get export formats');
+    }
+  }
+
+  async exportComparisonReport(comparisonResult: DocumentComparisonResponse, format: string): Promise<Blob> {
+    try {
+      // Use fetch directly for blob response since apiService doesn't support responseType
+      const response = await fetch(`/api/compare/export/${format}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(comparisonResult),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Export failed: ${response.statusText}`);
+      }
+
+      return await response.blob();
+    } catch (error: any) {
+      console.error('Failed to export comparison report:', error);
+      throw new Error(error.message || 'Failed to export comparison report');
     }
   }
 
@@ -163,7 +267,7 @@ class ComparisonService {
   // Helper method to format risk score difference
   formatRiskDifference(difference: number): { text: string; color: string } {
     const absDiff = Math.abs(difference);
-    
+
     if (absDiff < 0.1) {
       return { text: 'Similar risk levels', color: 'text-gray-400' };
     } else if (difference > 0.3) {

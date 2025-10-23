@@ -73,6 +73,9 @@ client/.parcel-cache
 *.swo
 *~
 
+# Kiro
+.kiro/
+
 # OS
 .DS_Store
 .DS_Store?

@@ -12,6 +12,7 @@ import {
   Shield
 } from 'lucide-react';
 import { summarizationService, type ClauseSummary } from '../services/summarizationService';
+import { MarkdownRenderer } from '../utils/markdownRenderer';
 import { ProgressBar } from './ProgressBar';
 import { cn } from '../utils';
 
@@ -44,6 +45,8 @@ export function ClauseSummary({ clauseId, clauseData, className = '' }: ClauseSu
   }, [clauseId]);
 
   const handleGenerateSummary = async () => {
+    // Force clear any existing summary to ensure fresh generation
+    summarizationService.clearClauseSummary(clauseId);
     await summarizationService.generateClauseSummary(clauseId, clauseData);
   };
 
@@ -141,7 +144,7 @@ export function ClauseSummary({ clauseId, clauseData, className = '' }: ClauseSu
                   clauseData.risk_level.level === 'YELLOW' ? "bg-yellow-500/5 border-yellow-500/20" :
                   "bg-green-500/5 border-green-500/20"
                 )}>
-                  <p className="text-sm text-slate-200 leading-relaxed">{summary.plainLanguage}</p>
+                  <MarkdownRenderer text={summary.plainLanguage} className="text-sm" />
                 </div>
               </div>
 
@@ -215,7 +218,7 @@ export function ClauseSummary({ clauseId, clauseData, className = '' }: ClauseSu
               {/* Summary Footer */}
               <div className="pt-2 border-t border-purple-500/20">
                 <div className="flex items-center justify-between text-xs text-slate-400">
-                  <span>Generated: {summary.timestamp.toLocaleString()}</span>
+                  <span>Generated: {new Date(summary.timestamp).toLocaleString()}</span>
                   <div className="flex items-center space-x-1">
                     <Lightbulb className="w-3 h-3" />
                     <span>AI Summary</span>
