@@ -81,10 +81,13 @@ from controllers.health_controller import HealthController
 from controllers.ai_controller import AIController
 from controllers.comparison_controller import ComparisonController
 from controllers.export_controller import ExportController
+from controllers.email_controller import EmailController
 from controllers.support_controller import router as support_router
+from controllers.auth_controller import AuthController
 
 # Import services for cleanup
 from services.cache_service import CacheService
+from middleware.firebase_auth_middleware import FirebaseAuthMiddleware, UserBasedRateLimiter
 
 # Configure logging
 logging.basicConfig(
@@ -102,6 +105,9 @@ limiter = Limiter(key_func=get_remote_address)
 
 # Initialize cache service for cleanup
 cache_service = CacheService()
+
+# Initialize user-based rate limiter
+user_rate_limiter = UserBasedRateLimiter()
 
 
 @asynccontextmanager
@@ -140,6 +146,14 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# Add Firebase authentication middleware
+try:
+    app.add_middleware(FirebaseAuthMiddleware)
+    logger.info("Firebase authentication middleware added")
+except Exception as e:
+    logger.warning(f"Firebase authentication middleware failed to initialize: {e}")
+    logger.info("Application will run without Firebase authentication")
+
 # Add rate limiting middleware
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
@@ -169,6 +183,19 @@ health_controller = HealthController()
 ai_controller = AIController()
 comparison_controller = ComparisonController()
 export_controller = ExportController()
+try:
+    email_controller = EmailController()
+    logger.info("Email controller initialized")
+except Exception as e:
+    logger.warning(f"Email controller failed to initialize: {e}")
+    email_controller = None
+
+try:
+    auth_controller = AuthController()
+    logger.info("Authentication controller initialized")
+except Exception as e:
+    logger.warning(f"Authentication controller failed to initialize: {e}")
+    auth_controller = None
 
 # Include routers
 app.include_router(support_router)
@@ -230,6 +257,69 @@ async def general_exception_handler(request: Request, exc: Exception):
             "timestamp": datetime.now().isoformat()
         }
     )
+
+
+# Authentication endpoints
+@app.post("/api/auth/verify-token")
+async def verify_token(token_request: dict):
+    """Verify Firebase ID token"""
+    if not auth_controller:
+        return {"success": False, "error": "Authentication service not available"}
+    from models.auth_models import FirebaseTokenRequest
+    request = FirebaseTokenRequest(token=token_request.get('token', ''))
+    return await auth_controller.verify_token(request)
+
+
+@app.post("/api/auth/register")
+async def register_user(registration_request: dict):
+    """Register a new user account"""
+    if not auth_controller:
+        return {"success": False, "error": "Authentication service not available"}
+    from models.auth_models import UserRegistrationRequest
+    request = UserRegistrationRequest(**registration_request)
+    return await auth_controller.register_user(request)
+
+
+@app.get("/api/auth/user-info")
+async def get_user_info(request: Request):
+    """Get current user information"""
+    if not auth_controller:
+        return {"success": False, "error": "Authentication service not available"}
+    return await auth_controller.get_user_info(request)
+
+
+@app.post("/api/auth/refresh-token")
+async def refresh_token(refresh_request: dict):
+    """Refresh Firebase token"""
+    if not auth_controller:
+        return {"success": False, "error": "Authentication service not available"}
+    from models.auth_models import RefreshTokenRequest
+    request = RefreshTokenRequest(refresh_token=refresh_request.get('refresh_token', ''))
+    return await auth_controller.refresh_token(request)
+
+
+@app.get("/api/auth/current-user")
+async def get_current_user(request: Request):
+    """Get current authenticated user"""
+    if not auth_controller:
+        return {"success": False, "error": "Authentication service not available"}
+    return await auth_controller.get_current_user(request)
+
+
+@app.put("/api/auth/profile")
+async def update_user_profile(request: Request, update_data: dict):
+    """Update user profile"""
+    if not auth_controller:
+        return {"success": False, "error": "Authentication service not available"}
+    return await auth_controller.update_user_profile(request, update_data)
+
+
+@app.delete("/api/auth/account")
+async def delete_user_account(request: Request):
+    """Delete user account"""
+    if not auth_controller:
+        return {"success": False, "error": "Authentication service not available"}
+    return await auth_controller.delete_user_account(request)
 
 
 # Health check endpoints
@@ -399,6 +489,93 @@ async def export_to_pdf(request: Request, data: dict):
 async def export_to_word(request: Request, data: dict):
     """Export analysis results to Word document"""
     return await export_controller.export_to_word(data)
+
+
+# Email notification endpoints
+@app.post("/api/email/send-analysis")
+@limiter.limit("5/hour")
+async def send_analysis_email(request: Request, email_request: dict):
+    """Send analysis report via email"""
+    if not email_controller:
+        return {"success": False, "error": "Email service not available"}
+    
+    try:
+        from models.email_models import EmailNotificationRequest
+        
+        # Get current user from request state (set by Firebase middleware)
+        current_user = getattr(request.state, 'user', None)
+        
+        # Parse email request
+        notification_request = EmailNotificationRequest(**email_request['notification'])
+        analysis_data = email_request.get('analysis_data', {})
+        
+        response = await email_controller.send_analysis_email(
+            request=notification_request,
+            analysis_data=analysis_data,
+            current_user=current_user
+        )
+        
+        return response.dict()
+        
+    except Exception as e:
+        logger.error(f"Email endpoint error: {e}")
+        return {
+            "success": False,
+            "delivery_status": "failed",
+            "error_message": f"Email request failed: {str(e)}"
+        }
+
+
+@app.get("/api/email/rate-limit/{user_id}")
+async def get_email_rate_limit(user_id: str):
+    """Get email rate limit information for user"""
+    if not email_controller:
+        return {"success": False, "error": "Email service not available"}
+    
+    try:
+        rate_limit_info = await email_controller.get_email_rate_limit_info(user_id)
+        return rate_limit_info.dict()
+    except Exception as e:
+        logger.error(f"Rate limit check error: {e}")
+        return {"success": False, "error": str(e)}
+
+
+@app.get("/api/email/test")
+async def test_email_service():
+    """Test email service availability"""
+    if not email_controller:
+        return {"success": False, "error": "Email service not available"}
+    
+    return await email_controller.test_email_service()
+
+
+@app.post("/api/email/send-test")
+@limiter.limit("2/hour")
+async def send_test_email(request: Request, test_request: dict):
+    """Send test email to verify functionality"""
+    if not email_controller:
+        return {"success": False, "error": "Email service not available"}
+    
+    try:
+        # Get current user from request state (set by Firebase middleware)
+        current_user = getattr(request.state, 'user', None)
+        user_id = current_user.get('uid', 'anonymous') if current_user else 'anonymous'
+        
+        user_email = test_request.get('email')
+        if not user_email:
+            return {"success": False, "error": "Email address required"}
+        
+        response = await email_controller.send_test_email(
+            user_email=user_email,
+            user_id=user_id,
+            subject=test_request.get('subject', 'LegalSaathi Test Email')
+        )
+        
+        return response.dict()
+        
+    except Exception as e:
+        logger.error(f"Test email error: {e}")
+        return {"success": False, "error": str(e)}
 
 
 # Background tasks endpoint

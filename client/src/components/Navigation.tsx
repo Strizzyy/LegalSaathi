@@ -1,9 +1,18 @@
 import { useState, useEffect } from 'react';
-import { Shield, Wifi, WifiOff } from 'lucide-react';
+import { Shield, Wifi, WifiOff, User, LogIn, UserPlus } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useAuth } from '../contexts/AuthContext';
+import { Button } from './ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 
-export function Navigation() {
+interface NavigationProps {
+  onShowAuth?: (mode: 'login' | 'register') => void;
+  onShowProfile?: () => void;
+}
+
+export function Navigation({ onShowAuth, onShowProfile }: NavigationProps) {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const { user, loading } = useAuth();
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -17,6 +26,15 @@ export function Navigation() {
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
+
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(word => word.charAt(0))
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
 
   return (
     <motion.nav 
@@ -77,6 +95,51 @@ export function Navigation() {
               <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
               <span className="text-emerald-400 text-sm hidden sm:inline">AI Ready</span>
             </div>
+
+            {/* Authentication Section */}
+            {loading ? (
+              <div className="w-8 h-8 bg-slate-700 rounded-full animate-pulse"></div>
+            ) : user ? (
+              /* Authenticated User */
+              <motion.button
+                onClick={onShowProfile}
+                className="flex items-center space-x-2 p-2 rounded-lg hover:bg-slate-800 transition-colors"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={user.photoURL || undefined} alt={user.displayName || 'User'} />
+                  <AvatarFallback className="text-xs bg-cyan-500 text-white">
+                    {user.displayName ? getInitials(user.displayName) : <User className="h-4 w-4" />}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="text-white text-sm hidden md:inline">
+                  {user.displayName || user.email?.split('@')[0] || 'User'}
+                </span>
+              </motion.button>
+            ) : (
+              /* Unauthenticated User */
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onShowAuth?.('login')}
+                  className="text-white hover:text-cyan-400 hover:bg-slate-800"
+                >
+                  <LogIn className="w-4 h-4 mr-2" />
+                  <span className="hidden sm:inline">Sign In</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onShowAuth?.('register')}
+                  className="border-cyan-500 text-cyan-400 hover:bg-cyan-500 hover:text-white"
+                >
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  <span className="hidden sm:inline">Sign Up</span>
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </div>

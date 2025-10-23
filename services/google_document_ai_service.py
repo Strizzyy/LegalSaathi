@@ -40,20 +40,55 @@ class GoogleDocumentAIService:
             opts = ClientOptions(api_endpoint=f"{self.location}-documentai.googleapis.com")
             self.client = documentai.DocumentProcessorServiceClient(client_options=opts)
             
-            # For now, we'll use a general processor or create one if processor_id is not set
+            # Try to find or create a general document processor
             if self.processor_id:
                 self.processor_name = self.client.processor_path(
                     self.project_id, self.location, self.processor_id
                 )
+                logger.info(f"Using configured processor: {self.processor_id}")
             else:
-                # Use a fallback approach without specific processor
-                self.processor_name = None
-                logger.info("Document AI initialized without specific processor - will use basic processing")
+                # Try to find an existing general document processor
+                try:
+                    parent = f"projects/{self.project_id}/locations/{self.location}"
+                    processors = self.client.list_processors(parent=parent)
+                    
+                    # Look for a general document processor
+                    general_processor = None
+                    for processor in processors:
+                        if processor.type_ in ["FORM_PARSER_PROCESSOR", "OCR_PROCESSOR", "GENERAL_PROCESSOR"]:
+                            general_processor = processor
+                            break
+                    
+                    if general_processor:
+                        self.processor_name = general_processor.name
+                        logger.info(f"Using existing general processor: {general_processor.display_name}")
+                    else:
+                        # Create a new general processor
+                        processor = documentai.Processor(
+                            display_name="Legal Document Processor",
+                            type_="FORM_PARSER_PROCESSOR"
+                        )
+                        operation = self.client.create_processor(
+                            parent=parent,
+                            processor=processor
+                        )
+                        result = operation.result()
+                        self.processor_name = result.name
+                        logger.info(f"Created new processor: {result.display_name}")
+                        
+                except Exception as e:
+                    logger.warning(f"Could not create/find processor: {e}")
+                    # Fall back to basic processing without Document AI
+                    self.processor_name = None
+                    self.enabled = False
+                    logger.info("Document AI will use fallback processing")
+                    return
             
             self.enabled = True
             logger.info("Google Document AI service initialized successfully")
         except Exception as e:
             logger.error(f"Failed to initialize Document AI: {e}")
+            logger.warning("Document AI will use fallback processing")
             self.enabled = False
     
     def process_legal_document(self, document_content: bytes, mime_type: str = "application/pdf") -> Dict[str, Any]:
@@ -67,7 +102,8 @@ class GoogleDocumentAIService:
         Returns:
             Dict containing extracted entities, tables, and structured data
         """
-        if not self.enabled:
+        if not self.enabled or not self.processor_name:
+            logger.info("Document AI not available, using fallback processing")
             return self._fallback_processing(document_content)
             
         try:
@@ -100,6 +136,7 @@ class GoogleDocumentAIService:
             
         except Exception as e:
             logger.error(f"Document AI processing failed: {e}")
+            logger.info("Falling back to basic text processing")
             return self._fallback_processing(document_content)
     
     def _extract_entities(self, document) -> List[Dict[str, Any]]:
@@ -229,16 +266,44 @@ class GoogleDocumentAIService:
     
     def _fallback_processing(self, document_content: bytes) -> Dict[str, Any]:
         """Fallback processing when Document AI is not available"""
-        return {
-            'success': False,
-            'text': "",
-            'entities': [],
-            'tables': [],
-            'key_value_pairs': [],
-            'legal_clauses': [],
-            'confidence_scores': {'overall_extraction': 0.0},
-            'error': 'Google Document AI not available - using basic text processing'
-        }
+        try:
+            # Try to extract text using PyPDF2 for PDF files
+            import io
+            from PyPDF2 import PdfReader
+            
+            text = ""
+            try:
+                pdf_reader = PdfReader(io.BytesIO(document_content))
+                for page in pdf_reader.pages:
+                    text += page.extract_text() + "\n"
+                logger.info(f"Fallback processing extracted {len(text)} characters using PyPDF2")
+            except Exception as e:
+                logger.warning(f"PyPDF2 extraction failed: {e}")
+                text = "Text extraction failed - Document AI not configured"
+            
+            return {
+                'success': True,
+                'text': text,
+                'entities': [],
+                'tables': [],
+                'key_value_pairs': [],
+                'legal_clauses': [],
+                'confidence_scores': {'overall_extraction': 0.5 if text else 0.0},
+                'fallback_used': True,
+                'message': 'Using basic PDF text extraction - Document AI not configured'
+            }
+        except Exception as e:
+            logger.error(f"Fallback processing failed: {e}")
+            return {
+                'success': False,
+                'text': "",
+                'entities': [],
+                'tables': [],
+                'key_value_pairs': [],
+                'legal_clauses': [],
+                'confidence_scores': {'overall_extraction': 0.0},
+                'error': 'Document processing failed - Document AI not available and fallback failed'
+            }
         
     async def verify_credentials(self) -> bool:
         """Verify if Google Cloud Document AI credentials are valid and service is accessible"""

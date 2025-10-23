@@ -15,7 +15,8 @@ import {
   MessageCircle,
   Activity,
   Users,
-  Loader2
+  Loader2,
+  Mail
 } from 'lucide-react';
 import { cn, formatFileSize, formatPercentage, getRiskColor, getRiskBadgeColor, getConfidenceColor } from '../utils';
 import { exportService } from '../services/exportService';
@@ -30,6 +31,7 @@ import { ClauseTranslationButton } from './ClauseTranslationButton';
 import { ClauseSummary } from './ClauseSummary';
 import { DocumentComparison } from './DocumentComparison';
 import { DetailedClauseAnalysis } from './DetailedClauseAnalysis';
+import { EmailModal } from './EmailModal';
 import type { AnalysisResult, FileInfo, Classification } from '../App';
 import type { ClauseContext, DocumentContext } from '../types/chat';
 
@@ -68,6 +70,7 @@ export const Results = React.memo(function Results({ analysis, fileInfo, classif
   const [translationTitle, setTranslationTitle] = useState('');
   const [activeChatClause, setActiveChatClause] = useState<ClauseContext | undefined>(undefined);
   const [isExporting, setIsExporting] = useState<{ pdf: boolean; word: boolean }>({ pdf: false, word: false });
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
 
   if (!analysis) {
     return (
@@ -1033,7 +1036,7 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
               <p className="text-slate-400">Professional report generation with multiple formats</p>
             </div>
             
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
               <button
                 onClick={() => exportToPDF()}
                 disabled={isExporting.pdf}
@@ -1068,6 +1071,14 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
                     Export Word
                   </>
                 )}
+              </button>
+              
+              <button
+                onClick={() => setIsEmailModalOpen(true)}
+                className="inline-flex items-center justify-center px-4 py-3 bg-purple-500/20 text-purple-400 border border-purple-500/50 rounded-lg hover:bg-purple-500/30 transition-colors"
+              >
+                <Mail className="w-4 h-4 mr-2" />
+                Send to Email
               </button>
               
               <button
@@ -1151,6 +1162,18 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
           }}
         />
       )}
+
+      {/* Email Modal */}
+      <EmailModal
+        isOpen={isEmailModalOpen}
+        onClose={() => setIsEmailModalOpen(false)}
+        analysisData={{
+          analysis,
+          file_info: fileInfo || undefined,
+          classification: classification || undefined
+        }}
+        userEmail="" // This should come from auth context when available
+      />
     </>
   );
 });

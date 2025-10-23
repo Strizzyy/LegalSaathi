@@ -5,6 +5,8 @@
 .env.test.local
 .env.production.local
 google-cloud-credentials.json
+firebase-admin-credentials.json
+client/.env.local
 
 # Python
 __pycache__/
@@ -150,6 +152,9 @@ jspm_packages/
 legal_saathi.log
 uploads/
 temp/
+
+# Kiro IDE configuration and specs
+.kiro/
 
 # Temporary files
 *.tmp

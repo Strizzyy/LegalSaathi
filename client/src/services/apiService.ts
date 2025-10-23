@@ -34,6 +34,27 @@ class APIService {
     // API service uses relative URLs for backend communication
   }
 
+  private async getAuthHeaders(): Promise<Record<string, string>> {
+    const headers: Record<string, string> = {};
+    
+    // Try to get Firebase auth token if available
+    try {
+      const { getAuth } = await import('firebase/auth');
+      const { getIdToken } = await import('firebase/auth');
+      const auth = getAuth();
+      
+      if (auth.currentUser) {
+        const token = await getIdToken(auth.currentUser);
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+    } catch (error) {
+      // Firebase not available or user not authenticated
+      console.debug('No authentication token available');
+    }
+    
+    return headers;
+  }
+
   private async handleResponse<T>(response: Response): Promise<T> {
     if (!response.ok) {
       let errorMessage = `HTTP error! status: ${response.status}`;
@@ -87,6 +108,7 @@ class APIService {
     
     const isFileUpload = formData.get('is_file_upload') === 'true';
     const timestamp = Date.now();
+    const authHeaders = await this.getAuthHeaders();
 
     let requestOptions: RequestInit;
     let endpoint: string;
@@ -104,7 +126,8 @@ class APIService {
           'Accept': 'application/json',
           'Cache-Control': 'no-cache, no-store, must-revalidate',
           'Pragma': 'no-cache',
-          'Expires': '0'
+          'Expires': '0',
+          ...authHeaders
         },
         body: formData, // Send FormData as-is for file uploads
       };
@@ -133,7 +156,8 @@ class APIService {
           'Accept': 'application/json',
           'Cache-Control': 'no-cache, no-store, must-revalidate',
           'Pragma': 'no-cache',
-          'Expires': '0'
+          'Expires': '0',
+          ...authHeaders
         },
         body: JSON.stringify(jsonPayload),
       };
@@ -436,6 +460,70 @@ class APIService {
       return {
         success: false,
         error: 'Failed to process analysis response'
+      };
+    }
+  }
+
+  // Authentication methods
+  async verifyToken(token: string): Promise<{ success: boolean; user?: any; error?: string }> {
+    try {
+      const response = await fetch('/api/auth/verify-token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({ token }),
+      });
+
+      return await this.handleResponse<any>(response);
+    } catch (error) {
+      console.error('Token verification error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Token verification failed'
+      };
+    }
+  }
+
+  async registerUser(email: string, password: string, displayName?: string): Promise<{ success: boolean; user?: any; error?: string }> {
+    try {
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({ email, password, display_name: displayName }),
+      });
+
+      return await this.handleResponse<any>(response);
+    } catch (error) {
+      console.error('User registration error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'User registration failed'
+      };
+    }
+  }
+
+  async getCurrentUser(): Promise<{ success: boolean; user?: any; error?: string }> {
+    try {
+      const authHeaders = await this.getAuthHeaders();
+      const response = await fetch('/api/auth/current-user', {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          ...authHeaders
+        },
+      });
+
+      return await this.handleResponse<any>(response);
+    } catch (error) {
+      console.error('Get current user error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get user information'
       };
     }
   }
