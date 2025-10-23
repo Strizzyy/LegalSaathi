@@ -17,6 +17,7 @@ from services.ai_service import AIService
 from services.cache_service import CacheService
 from services.google_document_ai_service import document_ai_service
 from services.google_natural_language_service import natural_language_service
+from services.legal_insights_engine import legal_insights_engine
 
 logger = logging.getLogger(__name__)
 
@@ -24,11 +25,21 @@ logger = logging.getLogger(__name__)
 class DocumentService:
     """Service for handling document analysis operations"""
     
+    _instance = None
+    _initialized = False
+    
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(DocumentService, cls).__new__(cls)
+        return cls._instance
+    
     def __init__(self):
-        self.ai_service = AIService()
-        self.cache_service = CacheService()
-        self.processing_jobs = {}  # Store async processing jobs
-        self.analysis_storage = {}  # Store complete analysis results for pagination/search
+        if not self._initialized:
+            self.ai_service = AIService()
+            self.cache_service = CacheService()
+            self.processing_jobs = {}  # Store async processing jobs
+            self.analysis_storage = {}  # Store complete analysis results for pagination/search
+            DocumentService._initialized = True
         
     async def analyze_document(self, request: DocumentAnalysisRequest) -> DocumentAnalysisResponse:
         """
@@ -93,6 +104,16 @@ class DocumentService:
                 logger.warning("⚠️ Analysis quality validation failed - retrying with enhanced parameters")
                 # Could implement retry logic here if needed
             
+            # Generate actionable insights using the Legal Insights Engine
+            actionable_insights = await self.generate_actionable_insights(
+                request.document_text,
+                clause_assessments,
+                request.document_type.value
+            )
+            
+            # Merge enhanced insights with actionable insights
+            enhanced_insights['actionable_insights'] = actionable_insights
+
             # Create response (timestamp auto-generated with current time)
             response = DocumentAnalysisResponse(
                 analysis_id=analysis_id,
@@ -191,7 +212,7 @@ class DocumentService:
             })
     
     async def _get_enhanced_insights(self, document_text: str, document_type: str) -> Dict[str, Any]:
-        """Get enhanced insights from Google Cloud AI services"""
+        """Get enhanced insights from Google Cloud AI services and Legal Insights Engine"""
         insights = {}
         
         try:
@@ -208,6 +229,127 @@ class DocumentService:
             logger.warning(f"Enhanced insights failed: {e}")
         
         return insights
+    
+    async def generate_actionable_insights(
+        self, 
+        document_text: str, 
+        clause_analyses: List[ClauseAnalysis],
+        document_type: str = "general_contract"
+    ) -> Dict[str, Any]:
+        """Generate comprehensive actionable insights using the Legal Insights Engine"""
+        
+        try:
+            logger.info(f"Generating actionable insights for document type: {document_type}")
+            
+            # Generate insights using the advanced engine
+            actionable_insights = await legal_insights_engine.generate_actionable_insights(
+                document_text, clause_analyses, document_type
+            )
+            
+            # Convert to serializable format
+            insights_dict = {
+                'entity_relationships': [
+                    {
+                        'entity1': rel.entity1,
+                        'entity2': rel.entity2,
+                        'relationship_type': rel.relationship_type,
+                        'description': rel.description,
+                        'legal_significance': rel.legal_significance,
+                        'confidence': rel.confidence
+                    }
+                    for rel in actionable_insights.entity_relationships
+                ],
+                'conflict_analysis': [
+                    {
+                        'conflict_id': conflict.conflict_id,
+                        'clause_ids': conflict.clause_ids,
+                        'conflict_type': conflict.conflict_type,
+                        'description': conflict.description,
+                        'severity': conflict.severity.value,
+                        'resolution_suggestions': conflict.resolution_suggestions,
+                        'confidence': conflict.confidence
+                    }
+                    for conflict in actionable_insights.conflict_analysis
+                ],
+                'bias_indicators': [
+                    {
+                        'bias_type': bias.bias_type,
+                        'clause_id': bias.clause_id,
+                        'biased_language': bias.biased_language,
+                        'explanation': bias.explanation,
+                        'suggested_alternative': bias.suggested_alternative,
+                        'severity': bias.severity.value,
+                        'confidence': bias.confidence
+                    }
+                    for bias in actionable_insights.bias_indicators
+                ],
+                'negotiation_points': [
+                    {
+                        'clause_id': point.clause_id,
+                        'negotiation_type': point.negotiation_type,
+                        'current_language': point.current_language,
+                        'suggested_language': point.suggested_language,
+                        'rationale': point.rationale,
+                        'priority': point.priority.value,
+                        'potential_impact': point.potential_impact,
+                        'confidence': point.confidence
+                    }
+                    for point in actionable_insights.negotiation_points
+                ],
+                'compliance_flags': [
+                    {
+                        'regulation_type': flag.regulation_type,
+                        'clause_id': flag.clause_id,
+                        'issue_description': flag.issue_description,
+                        'compliance_risk': flag.compliance_risk,
+                        'recommended_action': flag.recommended_action,
+                        'severity': flag.severity.value,
+                        'confidence': flag.confidence
+                    }
+                    for flag in actionable_insights.compliance_flags
+                ],
+                'overall_intelligence_score': actionable_insights.overall_intelligence_score,
+                'generation_timestamp': actionable_insights.generation_timestamp.isoformat(),
+                'summary': {
+                    'total_relationships': len(actionable_insights.entity_relationships),
+                    'total_conflicts': len(actionable_insights.conflict_analysis),
+                    'total_bias_indicators': len(actionable_insights.bias_indicators),
+                    'total_negotiation_points': len(actionable_insights.negotiation_points),
+                    'total_compliance_flags': len(actionable_insights.compliance_flags),
+                    'critical_issues': len([
+                        item for item in (
+                            actionable_insights.conflict_analysis + 
+                            actionable_insights.bias_indicators + 
+                            actionable_insights.compliance_flags
+                        ) 
+                        if hasattr(item, 'severity') and item.severity.value == 'critical'
+                    ])
+                }
+            }
+            
+            logger.info(f"Generated actionable insights: {insights_dict['summary']}")
+            return insights_dict
+            
+        except Exception as e:
+            logger.error(f"Failed to generate actionable insights: {e}")
+            return {
+                'entity_relationships': [],
+                'conflict_analysis': [],
+                'bias_indicators': [],
+                'negotiation_points': [],
+                'compliance_flags': [],
+                'overall_intelligence_score': 0.0,
+                'generation_timestamp': datetime.now().isoformat(),
+                'summary': {
+                    'total_relationships': 0,
+                    'total_conflicts': 0,
+                    'total_bias_indicators': 0,
+                    'total_negotiation_points': 0,
+                    'total_compliance_flags': 0,
+                    'critical_issues': 0
+                },
+                'error': str(e)
+            }
     
 
     
