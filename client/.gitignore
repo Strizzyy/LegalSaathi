@@ -128,3 +128,7 @@ coverage/
 
 # Local development
 *.local
+
+# Firebase configuration files (sensitive)
+*firebase-adminsdk*.json
+client_secret*.json
