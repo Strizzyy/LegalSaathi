@@ -51,4 +51,4 @@ dev-dependencies = [
 ]
 
 [project.scripts]
-install-frontend = "cd client && npm install"
+install-frontend = "cd client && npm install && npm install firebase"
