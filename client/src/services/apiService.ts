@@ -242,6 +242,105 @@ class APIService {
     }
   }
 
+  async translateDocumentSummary(
+    summaryContent: any,
+    targetLanguage: string,
+    sourceLanguage: string = 'en',
+    userId?: string
+  ): Promise<any> {
+    try {
+      const headers = await this.getAuthHeaders();
+      
+      const response = await fetch('/api/translate/document-summary', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          ...headers
+        },
+        body: JSON.stringify({
+          summary_content: summaryContent,
+          target_language: targetLanguage,
+          source_language: sourceLanguage,
+          preserve_formatting: true,
+          user_id: userId || 'anonymous'
+        }),
+      });
+
+      return await this.handleResponse(response);
+    } catch (error) {
+      console.error('Document summary translation error:', error);
+      throw error;
+    }
+  }
+
+  async translateSummarySection(
+    sectionContent: string,
+    sectionType: string,
+    targetLanguage: string,
+    sourceLanguage: string = 'en',
+    userId?: string
+  ): Promise<any> {
+    try {
+      const headers = await this.getAuthHeaders();
+      
+      const response = await fetch('/api/translate/summary-section', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          ...headers
+        },
+        body: JSON.stringify({
+          section_content: sectionContent,
+          section_type: sectionType,
+          target_language: targetLanguage,
+          source_language: sourceLanguage,
+          user_id: userId || 'anonymous'
+        }),
+      });
+
+      return await this.handleResponse(response);
+    } catch (error) {
+      console.error('Summary section translation error:', error);
+      throw error;
+    }
+  }
+
+  async getEnhancedSupportedLanguages(): Promise<any> {
+    try {
+      const response = await fetch('/api/translate/languages/enhanced', {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+        },
+      });
+
+      return await this.handleResponse(response);
+    } catch (error) {
+      console.error('Failed to get enhanced supported languages:', error);
+      throw error;
+    }
+  }
+
+  async getTranslationUsageStats(userId?: string): Promise<any> {
+    try {
+      const url = userId ? `/api/translate/usage-stats?user_id=${userId}` : '/api/translate/usage-stats';
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+        },
+      });
+
+      return await this.handleResponse(response);
+    } catch (error) {
+      console.error('Failed to get translation usage stats:', error);
+      throw error;
+    }
+  }
+
   async askClarification(question: string, context: any, experienceLevel?: string): Promise<ClarificationResponse> {
     try {
       // Validate question length

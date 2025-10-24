@@ -1,5 +1,6 @@
 """
 Translation controller for FastAPI backend
+Enhanced with document summary translation capabilities
 """
 
 import logging
@@ -8,20 +9,26 @@ from fastapi import HTTPException
 from models.translation_models import (
     TranslationRequest, TranslationResponse,
     ClauseTranslationRequest, ClauseTranslationResponse,
-    SupportedLanguagesResponse
+    SupportedLanguagesResponse,
+    DocumentSummaryTranslationRequest, DocumentSummaryTranslationResponse,
+    SummarySectionTranslationRequest, SummarySectionTranslationResponse,
+    EnhancedSupportedLanguagesResponse, SupportedLanguage,
+    TranslationUsageStats
 )
 from services.google_translate_service import GoogleTranslateService
 from services.cache_service import CacheService
+from services.document_summary_translation_service import DocumentSummaryTranslationService
 
 logger = logging.getLogger(__name__)
 
 
 class TranslationController:
-    """Controller for translation operations"""
+    """Controller for translation operations with document summary support"""
     
     def __init__(self):
         self.translation_service = GoogleTranslateService()
         self.cache_service = CacheService()
+        self.summary_translation_service = DocumentSummaryTranslationService()
     
     async def translate_text(self, request: TranslationRequest) -> TranslationResponse:
         """Handle general text translation requests"""
@@ -178,4 +185,179 @@ class TranslationController:
             raise HTTPException(
                 status_code=500,
                 detail=f"Failed to get supported languages: {str(e)}"
+            )
+    
+    async def get_enhanced_supported_languages(self) -> EnhancedSupportedLanguagesResponse:
+        """Get enhanced list of supported languages with metadata for document summary translation"""
+        try:
+            # Get supported languages from document summary translation service
+            languages_dict = self.summary_translation_service.get_supported_languages()
+            
+            # Format for enhanced API response
+            language_list = [
+                SupportedLanguage(
+                    code=code,
+                    name=info['name'],
+                    native_name=info['native'],
+                    flag=info['flag']
+                )
+                for code, info in languages_dict.items()
+            ]
+            
+            return EnhancedSupportedLanguagesResponse(
+                success=True,
+                languages=language_list,
+                total_count=len(language_list)
+            )
+            
+        except Exception as e:
+            logger.error(f"Failed to get enhanced supported languages: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to get enhanced supported languages: {str(e)}"
+            )
+    
+    async def translate_document_summary(
+        self, 
+        request: DocumentSummaryTranslationRequest
+    ) -> DocumentSummaryTranslationResponse:
+        """Translate complete document summary with all sections"""
+        try:
+            logger.info(f"Translating document summary to {request.target_language} for user {request.user_id}")
+            
+            # Perform translation using document summary translation service
+            result = await self.summary_translation_service.translate_document_summary(
+                summary_content=request.summary_content,
+                target_language=request.target_language,
+                source_language=request.source_language,
+                user_id=request.user_id
+            )
+            
+            if not result.get('success', False):
+                error_msg = result.get('error', 'Document summary translation failed')
+                
+                # Check for rate limiting
+                if 'rate limit' in error_msg.lower():
+                    raise HTTPException(
+                        status_code=429,
+                        detail=error_msg
+                    )
+                
+                # Check for daily limits
+                if 'daily' in error_msg.lower() and 'limit' in error_msg.lower():
+                    raise HTTPException(
+                        status_code=503,
+                        detail=error_msg
+                    )
+                
+                raise HTTPException(
+                    status_code=500,
+                    detail=error_msg
+                )
+            
+            # Create response
+            response = DocumentSummaryTranslationResponse(
+                success=result['success'],
+                translated_summary=result.get('translated_summary'),
+                source_language=result['source_language'],
+                target_language=result['target_language'],
+                language_name=result['language_name'],
+                sections_translated=result.get('sections_translated', 0),
+                overall_confidence=result.get('overall_confidence', 0.0),
+                failed_sections=result.get('failed_sections', 0),
+                warnings=result.get('warnings'),
+                failed_details=result.get('failed_details'),
+                fallback_summary=result.get('fallback_summary')
+            )
+            
+            logger.info(f"Document summary translation completed: {response.sections_translated} sections")
+            return response
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Document summary translation failed: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Document summary translation failed: {str(e)}"
+            )
+    
+    async def translate_summary_section(
+        self, 
+        request: SummarySectionTranslationRequest
+    ) -> SummarySectionTranslationResponse:
+        """Translate individual summary section with legal context"""
+        try:
+            logger.info(f"Translating summary section {request.section_type} to {request.target_language}")
+            
+            # Perform section translation
+            result = await self.summary_translation_service.translate_summary_section(
+                section_content=request.section_content,
+                section_type=request.section_type,
+                target_language=request.target_language,
+                source_language=request.source_language,
+                user_id=request.user_id
+            )
+            
+            if not result.get('success', False):
+                error_msg = result.get('error', 'Section translation failed')
+                
+                # Check for rate limiting
+                if 'rate limit' in error_msg.lower():
+                    raise HTTPException(
+                        status_code=429,
+                        detail=error_msg,
+                        headers={"Retry-After": str(result.get('retry_after', 60))}
+                    )
+                
+                raise HTTPException(
+                    status_code=500,
+                    detail=error_msg
+                )
+            
+            # Create response
+            response = SummarySectionTranslationResponse(
+                success=result['success'],
+                section_type=result['section_type'],
+                original_text=result['original_text'],
+                translated_text=result.get('translated_text'),
+                source_language=result['source_language'],
+                target_language=result['target_language'],
+                language_name=result['language_name'],
+                confidence_score=result.get('confidence_score')
+            )
+            
+            logger.info(f"Summary section translation completed: {request.section_type}")
+            return response
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Summary section translation failed: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Summary section translation failed: {str(e)}"
+            )
+    
+    async def get_translation_usage_stats(self, user_id: str = None) -> TranslationUsageStats:
+        """Get translation usage statistics for monitoring"""
+        try:
+            stats = await self.summary_translation_service.get_usage_stats(user_id)
+            
+            return TranslationUsageStats(
+                daily_requests=stats['daily_requests'],
+                daily_characters=stats['daily_characters'],
+                daily_request_limit=stats['daily_request_limit'],
+                daily_character_limit=stats['daily_character_limit'],
+                supported_languages_count=stats['supported_languages_count'],
+                cache_ttl_hours=stats['cache_ttl_hours'],
+                user_requests_in_window=stats.get('user_requests_in_window'),
+                user_rate_limit=stats.get('user_rate_limit')
+            )
+            
+        except Exception as e:
+            logger.error(f"Failed to get translation usage stats: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to get usage statistics: {str(e)}"
             )

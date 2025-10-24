@@ -32,6 +32,8 @@ import { EmailModal } from './EmailModal';
 import { PaginatedClauseAnalysis } from './PaginatedClauseAnalysis';
 import { ActionableInsights } from './ActionableInsights';
 import { MarkdownRenderer } from '../utils/markdownRenderer';
+import GlobalTranslationPanel from './GlobalTranslationPanel';
+import type { DocumentSummaryContent } from '../services/documentSummaryTranslationService';
 import type { AnalysisResult, FileInfo, Classification } from '../App';
 import type { ClauseContext, DocumentContext } from '../types/chat';
 
@@ -47,6 +49,11 @@ import React from 'react';
 
 export const Results = React.memo(function Results({ analysis, fileInfo, classification, warnings, onBackToHome }: ResultsProps) {
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
+  
+  // Overall Risk Assessment translation state
+  const [showRiskTranslation, setShowRiskTranslation] = useState(false);
+  const [translatedRiskSummary, setTranslatedRiskSummary] = useState<string>('');
+  const [riskCurrentLanguage, setRiskCurrentLanguage] = useState('en');
 
   // Debug: Log the analysis data to see what we're receiving
   React.useEffect(() => {
@@ -142,6 +149,28 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
   const openHumanSupport = (clauseContext?: ClauseContext) => {
     setActiveChatClause(clauseContext);
     setIsHumanSupportOpen(true);
+  };
+
+  // Risk Assessment translation handlers
+  const handleRiskTranslationComplete = (translatedContent: DocumentSummaryContent, language: string) => {
+    // Extract the risk summary from translated content
+    const riskSummary = translatedContent.risk_assessment || 
+                       translatedContent.what_this_document_means || 
+                       analysis.summary;
+    setTranslatedRiskSummary(riskSummary);
+    setRiskCurrentLanguage(language);
+  };
+
+  const toggleRiskTranslationPanel = () => {
+    setShowRiskTranslation(!showRiskTranslation);
+  };
+
+  // Get the content to display (translated or original)
+  const getRiskDisplayContent = () => {
+    if (riskCurrentLanguage === 'en' || !translatedRiskSummary) {
+      return analysis.summary;
+    }
+    return translatedRiskSummary;
   };
 
   // Create document context for chat
@@ -444,20 +473,57 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
                 )} />
                 <div>
                   <h2 className="text-2xl font-bold text-white">Overall Risk Assessment</h2>
-                  <p className="text-slate-400">Complete document analysis summary</p>
+                  <p className="text-slate-400">
+                    {riskCurrentLanguage === 'en' 
+                      ? 'Complete document analysis summary' 
+                      : `Translated to ${riskCurrentLanguage.toUpperCase()}`
+                    }
+                  </p>
                 </div>
               </div>
 
-              {analysis.overall_risk.low_confidence_warning && (
-                <div className={cn(
-                  "px-3 py-1 rounded-full border text-sm",
-                  getRiskBadgeColor('YELLOW')
-                )}>
-                  <AlertTriangle className="w-4 h-4 inline mr-1" />
-                  Low Confidence: {analysis.overall_risk.confidence_percentage}%
-                </div>
-              )}
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={toggleRiskTranslationPanel}
+                  className={`inline-flex items-center px-3 py-2 rounded-lg transition-colors text-sm ${
+                    showRiskTranslation 
+                      ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' 
+                      : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                  }`}
+                >
+                  <Globe className="w-4 h-4 mr-2" />
+                  Translate
+                </button>
+
+                {analysis.overall_risk.low_confidence_warning && (
+                  <div className={cn(
+                    "px-3 py-1 rounded-full border text-sm",
+                    getRiskBadgeColor('YELLOW')
+                  )}>
+                    <AlertTriangle className="w-4 h-4 inline mr-1" />
+                    Low Confidence: {analysis.overall_risk.confidence_percentage}%
+                  </div>
+                )}
+              </div>
             </div>
+
+            {/* Risk Assessment Translation Panel */}
+            {showRiskTranslation && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="mb-6"
+              >
+                <GlobalTranslationPanel
+                  summaryContent={{
+                    risk_assessment: analysis.summary,
+                    what_this_document_means: analysis.summary
+                  }}
+                  onTranslationComplete={handleRiskTranslationComplete}
+                />
+              </motion.div>
+            )}
 
             <div className={cn(
               "rounded-xl p-4 mb-6 border",
@@ -466,7 +532,7 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
                   "bg-green-500/10 border-green-500/30"
             )}>
               <div className="text-lg leading-relaxed">
-                <MarkdownRenderer text={analysis.summary} />
+                <MarkdownRenderer text={getRiskDisplayContent()} />
               </div>
             </div>
 

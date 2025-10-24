@@ -53,7 +53,10 @@ from models.document_models import (
 from models.translation_models import (
     TranslationRequest, TranslationResponse,
     ClauseTranslationRequest, ClauseTranslationResponse,
-    SupportedLanguagesResponse as TranslationLanguagesResponse
+    SupportedLanguagesResponse as TranslationLanguagesResponse,
+    DocumentSummaryTranslationRequest, DocumentSummaryTranslationResponse,
+    SummarySectionTranslationRequest, SummarySectionTranslationResponse,
+    EnhancedSupportedLanguagesResponse, TranslationUsageStats
 )
 from models.speech_models import (
     SpeechToTextRequest, SpeechToTextResponse,
@@ -461,6 +464,33 @@ async def translate_clause(request: Request, clause_request: ClauseTranslationRe
 async def get_translation_languages():
     """Get supported languages for translation"""
     return await translation_controller.get_supported_languages()
+
+
+# Document Summary Translation endpoints
+@app.post("/api/translate/document-summary", response_model=DocumentSummaryTranslationResponse)
+@limiter.limit("10/minute")
+async def translate_document_summary(request: Request, summary_request: DocumentSummaryTranslationRequest):
+    """Translate complete document summary with all sections"""
+    return await translation_controller.translate_document_summary(summary_request)
+
+
+@app.post("/api/translate/summary-section", response_model=SummarySectionTranslationResponse)
+@limiter.limit("20/minute")
+async def translate_summary_section(request: Request, section_request: SummarySectionTranslationRequest):
+    """Translate individual summary section with legal context"""
+    return await translation_controller.translate_summary_section(section_request)
+
+
+@app.get("/api/translate/languages/enhanced", response_model=EnhancedSupportedLanguagesResponse)
+async def get_enhanced_translation_languages():
+    """Get enhanced supported languages with metadata for document summary translation"""
+    return await translation_controller.get_enhanced_supported_languages()
+
+
+@app.get("/api/translate/usage-stats", response_model=TranslationUsageStats)
+async def get_translation_usage_stats(user_id: str = None):
+    """Get translation usage statistics for monitoring"""
+    return await translation_controller.get_translation_usage_stats(user_id)
 
 
 # Speech endpoints

@@ -108,7 +108,7 @@ class ChatService {
         id: `msg_${Date.now() + 1}`,
         type: 'system',
         content: "I'm having trouble processing your question right now. Would you like to connect with a human expert for immediate assistance?",
-        timestamp: new Date(),
+        timestamp: new Date(),  
         clauseReference: session.clauseContext?.clauseId || undefined
       };
 

@@ -9,10 +9,13 @@ import {
   RefreshCw,
   BookOpen,
   Target,
-  Shield
+  Shield,
+  Languages
 } from 'lucide-react';
 import { summarizationService, type SummaryData } from '../services/summarizationService';
 import { MarkdownRenderer } from '../utils/markdownRenderer';
+import GlobalTranslationPanel from './GlobalTranslationPanel';
+import type { DocumentSummaryContent } from '../services/documentSummaryTranslationService';
 
 import type { AnalysisResult } from '../App';
 
@@ -26,6 +29,9 @@ export function DocumentSummary({ analysis, className = '' }: DocumentSummaryPro
   const [allExpanded, setAllExpanded] = useState(true);
   const [summary, setSummary] = useState<SummaryData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [showTranslation, setShowTranslation] = useState(false);
+  const [translatedSummary, setTranslatedSummary] = useState<DocumentSummaryContent | null>(null);
+  const [currentLanguage, setCurrentLanguage] = useState('en');
 
   // Subscribe to summarization service state changes
   useEffect(() => {
@@ -143,6 +149,34 @@ export function DocumentSummary({ analysis, className = '' }: DocumentSummaryPro
     setExpandedSection(null);
   };
 
+  const handleTranslationComplete = (translatedContent: DocumentSummaryContent, language: string) => {
+    setTranslatedSummary(translatedContent);
+    setCurrentLanguage(language);
+  };
+
+  const toggleTranslationPanel = () => {
+    setShowTranslation(!showTranslation);
+  };
+
+  // Get the content to display (translated or original)
+  const getDisplayContent = () => {
+    if (currentLanguage === 'en' || !translatedSummary) {
+      return summary;
+    }
+
+    // Map translated content to SummaryData format
+    return {
+      keyPoints: translatedSummary.keyPoints || translatedSummary.key_points || summary?.keyPoints || [],
+      riskSummary: translatedSummary.riskSummary || translatedSummary.risk_assessment || summary?.riskSummary || '',
+      recommendations: translatedSummary.recommendations || translatedSummary.what_you_should_do || summary?.recommendations || [],
+      simplifiedExplanation: translatedSummary.simplifiedExplanation || translatedSummary.simple_explanation || summary?.simplifiedExplanation || '',
+      jargonFreeVersion: translatedSummary.jargonFreeVersion || translatedSummary.what_this_document_means || summary?.jargonFreeVersion || '',
+      timestamp: summary?.timestamp || new Date()
+    };
+  };
+
+  const displayContent = getDisplayContent();
+
   if (isLoading) {
     return (
       <div className={`document-summary-loading ${className}`}>
@@ -212,11 +246,27 @@ export function DocumentSummary({ analysis, className = '' }: DocumentSummaryPro
             </div>
             <div>
               <h2 className="text-xl font-bold text-white">Document Summary</h2>
-              <p className="text-slate-400 text-sm">Jargon-free explanation of your document</p>
+              <p className="text-slate-400 text-sm">
+                {currentLanguage === 'en' 
+                  ? 'Jargon-free explanation of your document' 
+                  : `Translated to ${currentLanguage.toUpperCase()}`
+                }
+              </p>
             </div>
           </div>
           
           <div className="flex items-center space-x-2">
+            <button
+              onClick={toggleTranslationPanel}
+              className={`inline-flex items-center px-3 py-2 rounded-lg transition-colors text-sm ${
+                showTranslation 
+                  ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' 
+                  : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+              }`}
+            >
+              <Languages className="w-4 h-4 mr-2" />
+              Translate
+            </button>
             <button
               onClick={toggleAllSections}
               className="inline-flex items-center px-3 py-2 bg-slate-700 text-slate-300 rounded-lg hover:bg-slate-600 transition-colors text-sm"
@@ -232,6 +282,27 @@ export function DocumentSummary({ analysis, className = '' }: DocumentSummaryPro
             </button>
           </div>
         </div>
+
+        {/* Translation Panel */}
+        {showTranslation && summary && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="mb-6"
+          >
+            <GlobalTranslationPanel
+              summaryContent={{
+                what_this_document_means: summary.jargonFreeVersion,
+                key_points: summary.keyPoints,
+                risk_assessment: summary.riskSummary,
+                what_you_should_do: summary.recommendations,
+                simple_explanation: summary.simplifiedExplanation
+              }}
+              onTranslationComplete={handleTranslationComplete}
+            />
+          </motion.div>
+        )}
 
         {/* Summary Sections */}
         <div className="space-y-4">
@@ -256,7 +327,7 @@ export function DocumentSummary({ analysis, className = '' }: DocumentSummaryPro
                 animate={{ opacity: 1, height: 'auto' }}
                 className="mt-3 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg"
               >
-                <MarkdownRenderer text={summary.jargonFreeVersion} />
+                <MarkdownRenderer text={displayContent?.jargonFreeVersion || ''} />
               </motion.div>
             )}
           </div>
@@ -271,7 +342,7 @@ export function DocumentSummary({ analysis, className = '' }: DocumentSummaryPro
                 <Target className="w-5 h-5 text-green-400" />
                 <span className="font-semibold text-white">Key Points</span>
                 <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded-full">
-                  {summary.keyPoints.length}
+                  {displayContent?.keyPoints?.length || 0}
                 </span>
               </div>
               <div className="text-slate-400">
@@ -286,7 +357,7 @@ export function DocumentSummary({ analysis, className = '' }: DocumentSummaryPro
                 className="mt-3 p-4 bg-green-500/10 border border-green-500/30 rounded-lg"
               >
                 <ul className="space-y-2">
-                  {summary.keyPoints.map((point, index) => (
+                  {(displayContent?.keyPoints || []).map((point, index) => (
                     <li key={index} className="flex items-start space-x-2">
                       <CheckCircle className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
                       <span className="text-slate-200">{point}</span>
@@ -318,7 +389,7 @@ export function DocumentSummary({ analysis, className = '' }: DocumentSummaryPro
                 animate={{ opacity: 1, height: 'auto' }}
                 className="mt-3 p-4 bg-orange-500/10 border border-orange-500/30 rounded-lg"
               >
-                <MarkdownRenderer text={summary.riskSummary} />
+                <MarkdownRenderer text={displayContent?.riskSummary || ''} />
               </motion.div>
             )}
           </div>
@@ -333,7 +404,7 @@ export function DocumentSummary({ analysis, className = '' }: DocumentSummaryPro
                 <AlertTriangle className="w-5 h-5 text-cyan-400" />
                 <span className="font-semibold text-white">What You Should Do</span>
                 <span className="text-xs bg-cyan-500/20 text-cyan-400 px-2 py-1 rounded-full">
-                  {summary.recommendations.length}
+                  {displayContent?.recommendations?.length || 0}
                 </span>
               </div>
               <div className="text-slate-400">
@@ -348,7 +419,7 @@ export function DocumentSummary({ analysis, className = '' }: DocumentSummaryPro
                 className="mt-3 p-4 bg-cyan-500/10 border border-cyan-500/30 rounded-lg"
               >
                 <ul className="space-y-3">
-                  {summary.recommendations.map((recommendation, index) => (
+                  {(displayContent?.recommendations || []).map((recommendation, index) => (
                     <li key={index} className="flex items-start space-x-2">
                       <div className="w-6 h-6 bg-cyan-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
                         <span className="text-cyan-400 text-xs font-bold">{index + 1}</span>
@@ -382,7 +453,7 @@ export function DocumentSummary({ analysis, className = '' }: DocumentSummaryPro
                 animate={{ opacity: 1, height: 'auto' }}
                 className="mt-3 p-4 bg-purple-500/10 border border-purple-500/30 rounded-lg"
               >
-                <MarkdownRenderer text={summary.simplifiedExplanation} />
+                <MarkdownRenderer text={displayContent?.simplifiedExplanation || ''} />
               </motion.div>
             )}
           </div>
@@ -391,10 +462,15 @@ export function DocumentSummary({ analysis, className = '' }: DocumentSummaryPro
         {/* Footer */}
         <div className="mt-6 pt-4 border-t border-slate-700">
           <div className="flex items-center justify-between text-sm text-slate-400">
-            <span>Summary generated: {summary.timestamp.toLocaleString()}</span>
+            <span>Summary generated: {displayContent?.timestamp?.toLocaleString()}</span>
             <span className="flex items-center space-x-1">
               <Lightbulb className="w-4 h-4" />
-              <span>AI-powered jargon-free analysis</span>
+              <span>
+                {currentLanguage === 'en' 
+                  ? 'AI-powered jargon-free analysis' 
+                  : `AI-powered analysis • Translated to ${currentLanguage.toUpperCase()}`
+                }
+              </span>
             </span>
           </div>
         </div>
