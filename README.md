@@ -302,7 +302,7 @@ cd client && npm run build           # Build for production
 
 # Development
 python main.py                       # Start backend server
-python scripts/install_frontend.py  # Install frontend dependencies only
+uv run install-frontend            # Install frontend dependencies only
 ```
 
 ## 🏗️ Project Structure
@@ -321,8 +321,6 @@ legal-saathi-document-advisor/
 ├── models/                    # Pydantic models
 ├── services/                  # Business logic services
 ├── middleware/                # Custom middleware
-├── scripts/                   # Utility scripts
-├── 
 ├── client/                    # React frontend
 │   ├── package.json          # Frontend dependencies
 │   ├── .env.local            # Frontend environment (not in git)

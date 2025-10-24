@@ -51,4 +51,4 @@ dev-dependencies = [
 ]
 
 [project.scripts]
-install-frontend = "python scripts/install_frontend.py"
+install-frontend = "cd client && npm install"

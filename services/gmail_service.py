@@ -62,7 +62,7 @@ class GmailService:
     def _initialize_gmail_client(self):
         """Initialize Gmail API client with OAuth2 authentication"""
         try:
-            # Check for OAuth2 credentials
+            # Check for OAuth2 credentials (JSON string first, then file path)
             oauth_credentials = os.getenv('GMAIL_OAUTH_CREDENTIALS')
             if oauth_credentials and oauth_credentials.strip():
                 try:
@@ -75,7 +75,26 @@ class GmailService:
                     
                     # Build Gmail service
                     self.gmail_client = build('gmail', 'v1', credentials=self.credentials)
-                    logger.info("Gmail service initialized successfully with OAuth2 credentials")
+                    logger.info("Gmail service initialized successfully with OAuth2 credentials from environment JSON")
+                    return
+                except json.JSONDecodeError as e:
+                    logger.warning(f"Invalid Gmail OAuth credentials JSON: {e}")
+            
+            # Fallback to file path
+            oauth_credentials_path = os.getenv('GMAIL_OAUTH_CREDENTIALS_PATH')
+            if oauth_credentials_path and os.path.exists(oauth_credentials_path):
+                try:
+                    with open(oauth_credentials_path, 'r') as f:
+                        credentials_dict = json.load(f)
+                    self.credentials = Credentials.from_authorized_user_info(credentials_dict)
+                    
+                    # Refresh credentials if needed
+                    if self.credentials.expired and self.credentials.refresh_token:
+                        self.credentials.refresh(Request())
+                    
+                    # Build Gmail service
+                    self.gmail_client = build('gmail', 'v1', credentials=self.credentials)
+                    logger.info(f"Gmail service initialized successfully with OAuth2 credentials from {oauth_credentials_path}")
                     return
                     
                 except json.JSONDecodeError as e:
