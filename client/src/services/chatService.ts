@@ -1,9 +1,9 @@
 import { apiService } from './apiService';
 import { experienceLevelService } from './experienceLevelService';
-import type { 
-  ChatMessage, 
-  ChatSession, 
-  ClauseContext, 
+import type {
+  ChatMessage,
+  ChatSession,
+  ClauseContext,
   DocumentContext
 } from '../types/chat';
 
@@ -20,7 +20,7 @@ class ChatService {
 
   createSession(documentContext: DocumentContext, clauseContext?: ClauseContext): ChatSession {
     const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
+
     const initialMessage: ChatMessage = {
       id: `msg_${Date.now()}`,
       type: 'ai',
@@ -41,7 +41,7 @@ class ChatService {
 
     this.sessions.set(sessionId, session);
     this.currentSessionId = sessionId;
-    
+
     return session;
   }
 
@@ -79,9 +79,9 @@ class ChatService {
 
       // Get user experience level from service
       const experienceLevel = experienceLevelService.getLevelForAPI();
-      
+
       const result = await apiService.askClarification(content, enhancedContext, experienceLevel);
-      
+
       if (result.success && result.response) {
         const aiMessage: ChatMessage = {
           id: `msg_${Date.now() + 1}`,
@@ -95,20 +95,20 @@ class ChatService {
 
         session.messages.push(aiMessage);
         session.lastActivity = new Date();
-        
+
         return aiMessage;
       } else {
         throw new Error(result.error || 'AI service unavailable');
       }
     } catch (error) {
       console.error('Chat service error:', error);
-      
+
       // Add fallback message
       const fallbackMessage: ChatMessage = {
         id: `msg_${Date.now() + 1}`,
         type: 'system',
         content: "I'm having trouble processing your question right now. Would you like to connect with a human expert for immediate assistance?",
-        timestamp: new Date(),  
+        timestamp: new Date(),
         clauseReference: session.clauseContext?.clauseId || undefined
       };
 
@@ -120,11 +120,11 @@ class ChatService {
   // Generate contextual greeting based on document and clause context
   private generateContextualGreeting(documentContext: DocumentContext, clauseContext?: ClauseContext): string {
     const baseGreeting = `Hello! I'm your AI legal assistant, here to help you understand your ${documentContext.documentType}.`;
-    
+
     if (clauseContext) {
       return `${baseGreeting} I see you're looking at Clause ${clauseContext.clauseId}, which has a ${clauseContext.riskLevel.toLowerCase()} risk level. What specific questions do you have about this clause?`;
     }
-    
+
     return `${baseGreeting} Your document has an overall ${documentContext.overallRisk.toLowerCase()} risk assessment. I can help clarify any clauses, explain legal terms, or discuss potential implications. What would you like to know?`;
   }
 
@@ -153,7 +153,7 @@ class ChatService {
   // Generate contextual examples based on user's question
   private generateContextualExamples(userQuestion: string, _clauseContext?: ClauseContext): string[] {
     const lowerQuestion = userQuestion.toLowerCase();
-    
+
     if (lowerQuestion.includes('risk') || lowerQuestion.includes('danger')) {
       return [
         "Can you give me a real-world example?",
@@ -162,7 +162,7 @@ class ChatService {
         "How can I minimize this risk?"
       ];
     }
-    
+
     if (lowerQuestion.includes('mean') || lowerQuestion.includes('explain')) {
       return [
         "Can you break this down further?",
@@ -171,7 +171,7 @@ class ChatService {
         "How does this compare to standard terms?"
       ];
     }
-    
+
     return [
       "Can you provide more details?",
       "What should I do next?",
@@ -184,25 +184,25 @@ class ChatService {
   private enhanceAIResponse(response: string, clauseContext?: ClauseContext): string {
     // Add practical context and examples
     let enhancedResponse = response;
-    
+
     // Add practical examples for complex legal terms
     if (response.includes('liability') || response.includes('indemnification')) {
       enhancedResponse += "\n\n💡 **Real-world example**: Think of this like car insurance - if something goes wrong, who pays for the damages? This clause determines that responsibility.";
     }
-    
+
     if (response.includes('termination') || response.includes('breach')) {
       enhancedResponse += "\n\n💡 **In simple terms**: This is like the 'rules for breaking up' - what happens if one party wants to end the agreement or doesn't follow the rules.";
     }
-    
+
     if (response.includes('intellectual property') || response.includes('IP')) {
       enhancedResponse += "\n\n💡 **Think of it as**: Who owns the ideas, designs, or creations? It's like putting your name on your artwork - this clause decides ownership rights.";
     }
-    
+
     // Add risk-specific guidance
     if (clauseContext?.riskLevel === 'RED') {
       enhancedResponse += "\n\n⚠️ **Important**: This is a high-risk area. Consider getting professional legal advice before proceeding.";
     }
-    
+
     return enhancedResponse;
   }
 
@@ -210,12 +210,12 @@ class ChatService {
   private calculateResponseConfidence(response: string): number {
     // Simple heuristic based on response characteristics
     let confidence = 85; // Base confidence
-    
+
     if (response.length < 50) confidence -= 15; // Very short responses
     if (response.includes('I\'m not sure') || response.includes('unclear')) confidence -= 20;
     if (response.includes('consult') || response.includes('lawyer')) confidence -= 10; // Appropriate caution
     if (response.includes('example') || response.includes('specifically')) confidence += 10;
-    
+
     return Math.max(60, Math.min(95, confidence)); // Clamp between 60-95%
   }
 

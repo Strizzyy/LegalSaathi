@@ -293,33 +293,6 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
             </div>
 
             <div className="flex items-center space-x-4 mt-4 sm:mt-0">
-              <div className="relative">
-                <label htmlFor="language-select-header" className="sr-only">
-                  Select display language
-                </label>
-                <select
-                  id="language-select-header"
-                  value={currentLanguage}
-                  onChange={(e) => setCurrentLanguage(e.target.value)}
-                  className="px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:border-cyan-500 focus:outline-none appearance-none pr-8"
-                  aria-label="Select display language"
-                >
-                  <option value="en">🇺🇸 English</option>
-                  <option value="hi">🇮🇳 Hindi</option>
-                  <option value="es">🇪🇸 Spanish</option>
-                  <option value="fr">🇫🇷 French</option>
-                  <option value="de">🇩🇪 German</option>
-                  <option value="it">🇮🇹 Italian</option>
-                  <option value="pt">🇵🇹 Portuguese</option>
-                  <option value="ru">🇷🇺 Russian</option>
-                  <option value="ja">🇯🇵 Japanese</option>
-                  <option value="ko">🇰🇷 Korean</option>
-                  <option value="zh">🇨🇳 Chinese</option>
-                  <option value="ar">🇸🇦 Arabic</option>
-                </select>
-                <Globe className="w-4 h-4 text-slate-400 absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none" />
-              </div>
-
               <button
                 onClick={onBackToHome}
                 className="inline-flex items-center px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-colors"
