@@ -9,14 +9,15 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Alert, AlertDescription } from '../ui/alert';
-import { Loader2, Eye, EyeOff } from 'lucide-react';
+import { Loader2, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 
 interface LoginFormProps {
   onSuccess?: () => void;
   onSwitchToRegister?: () => void;
+  onBack?: () => void;
 }
 
-export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess, onSwitchToRegister }) => {
+export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess, onSwitchToRegister, onBack }) => {
   const { signIn, sendPasswordReset } = useAuth();
   const [formData, setFormData] = useState({
     email: '',
@@ -94,6 +95,17 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess, onSwitchToRegis
   return (
     <Card className="w-full max-w-md mx-auto">
       <CardHeader className="space-y-1">
+        {onBack && (
+          <button
+            type="button"
+            onClick={onBack}
+            className="flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors mb-2"
+            disabled={loading}
+          >
+            <ArrowLeft size={16} className="mr-1" />
+            Back
+          </button>
+        )}
         <CardTitle className="text-2xl font-bold text-center">Sign In</CardTitle>
         <CardDescription className="text-center">
           Enter your credentials to access your account
@@ -134,7 +146,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess, onSwitchToRegis
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                 disabled={loading}
               >
                 {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -189,7 +201,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess, onSwitchToRegis
             <button
               type="button"
               onClick={handlePasswordReset}
-              className="text-sm text-blue-600 hover:text-blue-800 underline"
+              className="text-sm text-primary hover:text-primary/80 underline transition-colors"
               disabled={loading}
             >
               Forgot your password?
@@ -199,12 +211,12 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess, onSwitchToRegis
           {/* Switch to Register */}
           {onSwitchToRegister && (
             <div className="text-center">
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-muted-foreground">
                 Don't have an account?{' '}
                 <button
                   type="button"
                   onClick={onSwitchToRegister}
-                  className="text-blue-600 hover:text-blue-800 underline"
+                  className="text-primary hover:text-primary/80 underline transition-colors"
                   disabled={loading}
                 >
                   Sign up

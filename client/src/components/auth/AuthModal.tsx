@@ -2,7 +2,7 @@
  * Authentication Modal Component
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import { LoginForm } from './LoginForm';
 import { RegisterForm } from './RegisterForm';
@@ -19,6 +19,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   initialMode = 'login' 
 }) => {
   const [mode, setMode] = useState<'login' | 'register'>(initialMode);
+
+  // Update mode when initialMode prop changes
+  useEffect(() => {
+    setMode(initialMode);
+  }, [initialMode]);
 
   const handleSuccess = () => {
     onClose();
@@ -41,11 +46,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           <LoginForm
             onSuccess={handleSuccess}
             onSwitchToRegister={handleSwitchMode}
+            onBack={onClose}
           />
         ) : (
           <RegisterForm
             onSuccess={handleSuccess}
             onSwitchToLogin={handleSwitchMode}
+            onBack={onClose}
           />
         )}
       </DialogContent>

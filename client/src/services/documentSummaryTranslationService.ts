@@ -70,8 +70,7 @@ class DocumentSummaryTranslationService {
     translatedSummaries: new Map(),
     isTranslating: false,
     translationProgress: new Map(),
-    supportedLanguages: [],
-    lastError: undefined
+    supportedLanguages: []
   };
 
   private listeners: Set<() => void> = new Set();
@@ -270,7 +269,7 @@ class DocumentSummaryTranslationService {
     }
 
     this.state.isTranslating = true;
-    this.state.lastError = undefined;
+    delete this.state.lastError;
     this.notify();
 
     try {
@@ -361,7 +360,7 @@ class DocumentSummaryTranslationService {
   async translateSummaryInRealTime(
     summaryContent: DocumentSummaryContent,
     targetLanguage: string,
-    onProgress?: (progress: { section: string; completed: boolean }) => void
+    _onProgress?: (progress: { section: string; completed: boolean }) => void
   ): Promise<TranslatedDocumentSummary | null> {
     if (targetLanguage === 'en') {
       return {
@@ -427,7 +426,7 @@ class DocumentSummaryTranslationService {
   }
 
   clearError(): void {
-    this.state.lastError = undefined;
+    delete this.state.lastError;
     this.notify();
   }
 }

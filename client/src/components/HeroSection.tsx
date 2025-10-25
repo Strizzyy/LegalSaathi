@@ -1,7 +1,7 @@
 
 import { motion } from 'framer-motion';
 import { Shield, Zap, Globe, Users, ArrowDown } from 'lucide-react';
-import { Robot3D } from './Robot3D';
+import { Robot3DLazy } from './Robot3DLazy';
 
 export function HeroSection() {
   const scrollToUpload = () => {
@@ -126,8 +126,10 @@ export function HeroSection() {
               <span className="mr-2">Start Analysis</span>
               <ArrowDown className="w-5 h-5 group-hover:translate-y-1 transition-transform" />
             </button>
-            <Robot3D />
           </motion.div>
+
+          {/* Robot positioned outside main content flow */}
+          <Robot3DLazy />
 
           {/* Google Cloud AI Badge */}
           <motion.div

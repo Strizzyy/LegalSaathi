@@ -8,9 +8,11 @@ import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 interface NavigationProps {
   onShowAuth?: (mode: 'login' | 'register') => void;
   onShowProfile?: () => void;
+  onShowAbout?: () => void;
+  onShowContact?: () => void;
 }
 
-export function Navigation({ onShowAuth, onShowProfile }: NavigationProps) {
+export function Navigation({ onShowAuth, onShowProfile, onShowAbout, onShowContact }: NavigationProps) {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const { user, loading } = useAuth();
 
@@ -65,6 +67,22 @@ export function Navigation({ onShowAuth, onShowProfile }: NavigationProps) {
           </motion.a>
 
           <div className="flex items-center space-x-4">
+            {/* Navigation Links */}
+            <div className="hidden md:flex items-center space-x-6">
+              <button
+                onClick={onShowAbout}
+                className="text-slate-300 hover:text-cyan-400 transition-colors font-medium"
+              >
+                About Us
+              </button>
+              <button
+                onClick={onShowContact}
+                className="text-slate-300 hover:text-cyan-400 transition-colors font-medium"
+              >
+                Contact
+              </button>
+            </div>
+
             {/* Connection Status */}
             <div className="flex items-center space-x-2">
               {isOnline ? (
