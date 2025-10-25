@@ -160,6 +160,9 @@ function App() {
     
     // Update URL without page reload
     window.history.pushState({}, '', '/');
+    
+    // Scroll to top of the page smoothly
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleShowAuth = (mode: 'login' | 'register' = 'login') => {

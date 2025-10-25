@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Mail, Linkedin, Phone, Github, ArrowLeft } from 'lucide-react';
 
@@ -17,6 +18,19 @@ interface AboutUsProps {
 }
 
 export function AboutUs({ onClose }: AboutUsProps) {
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  // Track scroll position to show/hide floating back button
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollTop = window.scrollY;
+      setIsScrolled(scrollTop > 200); // Show floating button after scrolling 200px
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   const teamMembers: TeamMember[] = [
     {
       name: "Rohan Singh",
@@ -82,7 +96,26 @@ export function AboutUs({ onClose }: AboutUsProps) {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 pt-20">
+    <div className="min-h-screen bg-slate-900 pt-20 relative">
+      {/* Floating Back Button */}
+      <motion.button
+        onClick={onClose}
+        initial={{ opacity: 0, scale: 0.8 }}
+        animate={{ 
+          opacity: isScrolled ? 1 : 0, 
+          scale: isScrolled ? 1 : 0.8,
+          y: isScrolled ? 0 : 20
+        }}
+        transition={{ duration: 0.3 }}
+        className={`fixed top-24 left-6 z-50 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white p-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 group ${
+          isScrolled ? 'pointer-events-auto' : 'pointer-events-none'
+        }`}
+        style={{ backdropFilter: 'blur(10px)' }}
+      >
+        <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+        <span className="sr-only">Back to Home</span>
+      </motion.button>
+
       <div className="container mx-auto px-6 py-12">
         {/* Header */}
         <motion.div
@@ -91,13 +124,17 @@ export function AboutUs({ onClose }: AboutUsProps) {
           transition={{ duration: 0.6 }}
           className="text-center mb-16"
         >
-          <button
+          {/* Static Back Button - visible at top */}
+          <motion.button
             onClick={onClose}
+            initial={{ opacity: 1 }}
+            animate={{ opacity: isScrolled ? 0.5 : 1 }}
+            transition={{ duration: 0.3 }}
             className="inline-flex items-center space-x-2 text-cyan-400 hover:text-cyan-300 transition-colors mb-8 group"
           >
             <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
             <span>Back to Home</span>
-          </button>
+          </motion.button>
           
           <h1 className="text-5xl font-bold text-white mb-6">
             Meet Our <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">Team</span>
