@@ -452,6 +452,11 @@ const handleSubmit = useCallback((e: React.FormEvent<HTMLFormElement>) => {
                     }}
                     onError={(error) => setErrors({ ...errors, voice: error })}
                     language="en-US"
+                    forceEnglish={true}
+                    showLanguageSelector={true}
+                    onLanguageChange={(language) => {
+                      console.log('Voice input language changed to:', language);
+                    }}
                   />
                   <span className="text-sm text-slate-400">Alternative to file upload</span>
                 </div>

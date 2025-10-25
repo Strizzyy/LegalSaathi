@@ -18,6 +18,7 @@ import { cn, formatPercentage } from '../utils';
 import { ClauseTranslationButton } from './ClauseTranslationButton';
 import { ClauseSummary } from './ClauseSummary';
 import { DetailedClauseAnalysis } from './DetailedClauseAnalysis';
+import { TranslationAwareAudioButton } from './TranslationAwareAudioButton';
 import type { ClauseContext } from '../types/chat';
 
 interface PaginatedClauseAnalysisProps {
@@ -572,6 +573,17 @@ export function PaginatedClauseAnalysis({
                     Expert Help
                   </button>
                 </div>
+
+                {/* Translation-Aware Audio Player for Clause */}
+                <TranslationAwareAudioButton
+                  clauseData={{
+                    id: clause.clause_id,
+                    text: clause.clause_text,
+                    index: index
+                  }}
+                  originalExplanation={clause.plain_explanation}
+                  className="mb-4"
+                />
 
                 {/* Detailed Analysis */}
                 <DetailedClauseAnalysis 

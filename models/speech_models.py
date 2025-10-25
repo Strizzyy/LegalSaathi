@@ -3,7 +3,7 @@ Pydantic models for speech-to-text and text-to-speech requests and responses
 """
 
 from pydantic import BaseModel, Field, validator
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 from datetime import datetime
 
 
@@ -34,6 +34,7 @@ class SpeechToTextResponse(BaseModel):
     processing_time: float
     error_message: Optional[str] = None
     timestamp: datetime = Field(default_factory=datetime.now)
+    usage_stats: Optional[Dict[str, Any]] = None
 
 
 class TextToSpeechRequest(BaseModel):
@@ -76,6 +77,8 @@ class TextToSpeechResponse(BaseModel):
     processing_time: float
     error_message: Optional[str] = None
     timestamp: datetime = Field(default_factory=datetime.now)
+    cached: Optional[bool] = None
+    usage_stats: Optional[Dict[str, Any]] = None
 
 
 class SupportedLanguagesResponse(BaseModel):

@@ -1,5 +1,5 @@
-import { useState, useRef, useCallback } from 'react';
-import { Mic, MicOff } from 'lucide-react';
+import { useState, useRef, useCallback, useEffect } from 'react';
+import { Mic, MicOff, Globe, ChevronDown } from 'lucide-react';
 import { cn } from '../utils';
 import { notificationService } from '../services/notificationService';
 
@@ -9,19 +9,53 @@ interface VoiceInputProps {
   language?: string;
   className?: string;
   disabled?: boolean;
+  showLanguageSelector?: boolean;
+  onLanguageChange?: (language: string) => void;
+  forceEnglish?: boolean; // Force English as default language
 }
+
+interface SupportedLanguage {
+  code: string;
+  name: string;
+  flag: string;
+}
+
+const SUPPORTED_LANGUAGES: SupportedLanguage[] = [
+  { code: 'en-US', name: 'English (US)', flag: '🇺🇸' },
+  { code: 'en-GB', name: 'English (UK)', flag: '🇬🇧' },
+  { code: 'hi-IN', name: 'Hindi (India)', flag: '🇮🇳' },
+  { code: 'es-US', name: 'Spanish (US)', flag: '🇺🇸' },
+  { code: 'es-ES', name: 'Spanish (Spain)', flag: '🇪🇸' },
+  { code: 'fr-FR', name: 'French (France)', flag: '🇫🇷' },
+  { code: 'de-DE', name: 'German (Germany)', flag: '🇩🇪' },
+  { code: 'it-IT', name: 'Italian (Italy)', flag: '🇮🇹' },
+  { code: 'pt-BR', name: 'Portuguese (Brazil)', flag: '🇧🇷' },
+  { code: 'ja-JP', name: 'Japanese (Japan)', flag: '🇯🇵' },
+  { code: 'ko-KR', name: 'Korean (South Korea)', flag: '🇰🇷' },
+  { code: 'zh-CN', name: 'Chinese (Simplified)', flag: '🇨🇳' }
+];
 
 export const VoiceInput: React.FC<VoiceInputProps> = ({
   onTranscript,
   onError,
-  language = 'en-US',
+  language = 'en-US', // Force English as default
   className,
-  disabled = false
+  disabled = false,
+  showLanguageSelector = true,
+  onLanguageChange,
+  forceEnglish = true // Force English by default
 }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [audioLevel, setAudioLevel] = useState(0);
+  const [selectedLanguage, setSelectedLanguage] = useState(() => {
+    // Force English as default if forceEnglish is true
+    const defaultLang = forceEnglish ? 'en-US' : (language || 'en-US');
+    console.log('VoiceInput initialized with language:', language, '-> using:', defaultLang, 'forceEnglish:', forceEnglish);
+    return defaultLang;
+  });
+  const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -29,6 +63,7 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number | null>(null);
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
 
   const startRecording = useCallback(async () => {
     if (disabled || isRecording) return;
@@ -86,28 +121,36 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({
         try {
           const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm;codecs=opus' });
           
-          // Send to backend for transcription
-          const formData = new FormData();
-          formData.append('audio_file', audioBlob, 'recording.webm');
-          formData.append('language_code', language);
-          formData.append('enable_punctuation', 'true');
-
-          const response = await fetch('/api/speech/speech-to-text', {
+          // Send to backend for transcription using enhanced API
+          const result = await fetch('/api/speech/speech-to-text', {
             method: 'POST',
-            body: formData
+            body: (() => {
+              const formData = new FormData();
+              formData.append('audio_file', audioBlob, 'recording.webm');
+              formData.append('language_code', selectedLanguage); // Use selected language
+              formData.append('enable_punctuation', 'true');
+              return formData;
+            })()
+          }).then(async (response) => {
+            if (!response.ok) {
+              const errorData = await response.json().catch(() => ({}));
+              throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+            }
+            return response.json();
           });
-
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
-
-          const result = await response.json();
 
           if (result.success && result.transcript) {
             onTranscript(result.transcript);
-            notificationService.success('Voice input transcribed successfully');
+            
+            // Show enhanced success message with confidence if available
+            const confidence = result.confidence ? Math.round(result.confidence * 100) : null;
+            const message = confidence 
+              ? `Voice input transcribed successfully (${confidence}% confidence)`
+              : 'Voice input transcribed successfully';
+            
+            notificationService.success(message);
           } else {
-            throw new Error(result.error_message || 'Transcription failed');
+            throw new Error(result.error_message || result.error || 'Transcription failed');
           }
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Voice transcription failed';
@@ -137,13 +180,13 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({
       // Start audio level monitoring
       monitorAudioLevel();
 
-      notificationService.success('Recording started');
+      notificationService.success(`Recording started in ${getCurrentLanguage().name}`);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to start recording';
       onError(errorMessage);
       notificationService.error(errorMessage);
     }
-  }, [disabled, isRecording, language, onTranscript, onError]);
+  }, [disabled, isRecording, selectedLanguage, onTranscript, onError]);
 
   const stopRecording = useCallback(() => {
     if (!isRecording || !mediaRecorderRef.current) return;
@@ -170,8 +213,79 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const getCurrentLanguage = (): SupportedLanguage => {
+    return SUPPORTED_LANGUAGES.find(lang => lang.code === selectedLanguage) || SUPPORTED_LANGUAGES[0];
+  };
+
+  const handleLanguageChange = (languageCode: string) => {
+    setSelectedLanguage(languageCode);
+    setShowLanguageDropdown(false);
+    onLanguageChange?.(languageCode);
+    notificationService.success(`Voice input language changed to ${SUPPORTED_LANGUAGES.find(l => l.code === languageCode)?.name}`);
+  };
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowLanguageDropdown(false);
+      }
+    };
+
+    if (showLanguageDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showLanguageDropdown]);
+
   return (
     <div className={cn("flex items-center space-x-3", className)}>
+      {/* Language Selector */}
+      {showLanguageSelector && !isRecording && !isProcessing && (
+        <div className="relative" ref={dropdownRef}>
+          <button
+            type="button"
+            onClick={() => setShowLanguageDropdown(!showLanguageDropdown)}
+            disabled={disabled}
+            className={cn(
+              "flex items-center space-x-2 px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition-colors text-sm",
+              disabled && "opacity-50 cursor-not-allowed"
+            )}
+          >
+            <Globe className="w-4 h-4" />
+            <span className="text-lg">{getCurrentLanguage().flag}</span>
+            <span className="hidden sm:inline">{getCurrentLanguage().name}</span>
+            <ChevronDown className="w-4 h-4" />
+          </button>
+
+          {/* Language Dropdown */}
+          {showLanguageDropdown && (
+            <div className="absolute top-full left-0 mt-2 w-64 bg-slate-800 border border-slate-600 rounded-lg shadow-lg z-50 max-h-64 overflow-y-auto">
+              {SUPPORTED_LANGUAGES.map((lang) => (
+                <button
+                  key={lang.code}
+                  onClick={() => handleLanguageChange(lang.code)}
+                  className={cn(
+                    "w-full flex items-center space-x-3 px-4 py-3 text-left hover:bg-slate-700 transition-colors",
+                    selectedLanguage === lang.code && "bg-slate-700 text-blue-400"
+                  )}
+                >
+                  <span className="text-lg">{lang.flag}</span>
+                  <div>
+                    <div className="text-sm font-medium text-white">{lang.name}</div>
+                    <div className="text-xs text-slate-400">{lang.code}</div>
+                  </div>
+                  {selectedLanguage === lang.code && (
+                    <div className="ml-auto w-2 h-2 bg-blue-400 rounded-full" />
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Microphone Button */}
       <button
         type="button"
         onClick={isRecording ? stopRecording : startRecording}
@@ -206,31 +320,37 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({
         )}
       </button>
 
-      {/* Recording status */}
-      {isRecording && (
-        <div className="flex items-center space-x-2 text-sm">
-          <div className="flex items-center space-x-1 text-red-400">
-            <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-            <span>Recording</span>
+      {/* Status Display */}
+      <div className="flex-1 min-w-0">
+        {/* Recording status */}
+        {isRecording && (
+          <div className="flex items-center space-x-2 text-sm">
+            <div className="flex items-center space-x-1 text-red-400">
+              <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+              <span>Recording in {getCurrentLanguage().name}</span>
+            </div>
+            <span className="text-slate-400">{formatTime(recordingTime)}</span>
           </div>
-          <span className="text-slate-400">{formatTime(recordingTime)}</span>
-        </div>
-      )}
+        )}
 
-      {/* Processing status */}
-      {isProcessing && (
-        <div className="flex items-center space-x-2 text-sm text-blue-400">
-          <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
-          <span>Processing...</span>
-        </div>
-      )}
+        {/* Processing status */}
+        {isProcessing && (
+          <div className="flex items-center space-x-2 text-sm text-blue-400">
+            <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+            <span>Processing {getCurrentLanguage().name}...</span>
+          </div>
+        )}
 
-      {/* Instructions */}
-      {!isRecording && !isProcessing && (
-        <span className="text-sm text-slate-400">
-          Click to start voice input
-        </span>
-      )}
+        {/* Instructions */}
+        {!isRecording && !isProcessing && (
+          <div className="text-sm text-slate-400">
+            <div>Click to start voice input</div>
+            <div className="text-xs text-slate-500">
+              Language: {getCurrentLanguage().flag} {getCurrentLanguage().name}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

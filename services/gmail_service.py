@@ -270,13 +270,19 @@ class GmailService:
             
             # Add attachments
             for attachment in email_request.attachments:
-                part = MIMEBase('application', 'octet-stream')
+                if attachment.content_type == "application/pdf":
+                    part = MIMEBase('application', 'pdf')
+                else:
+                    part = MIMEBase('application', 'octet-stream')
+                
                 part.set_payload(attachment.data)
                 encoders.encode_base64(part)
                 part.add_header(
                     'Content-Disposition',
-                    f'attachment; filename= {attachment.filename}'
+                    f'attachment; filename="{attachment.filename}"'
                 )
+                if attachment.content_type:
+                    part.add_header('Content-Type', attachment.content_type)
                 message.attach(part)
             
             # Encode message

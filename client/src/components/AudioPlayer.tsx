@@ -1,50 +1,139 @@
-import { useState, useRef, useEffect } from 'react';
-import { Play, Pause, Volume2, VolumeX, RotateCcw, Download } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Play, Pause, Volume2, VolumeX, Loader2 } from 'lucide-react';
 import { cn } from '../utils';
+import { apiService } from '../services/apiService';
 import { notificationService } from '../services/notificationService';
 
 interface AudioPlayerProps {
   text: string;
-  language?: string;
+  languageCode?: string;
   voiceGender?: 'MALE' | 'FEMALE' | 'NEUTRAL';
   speakingRate?: number;
-  autoPlay?: boolean;
   className?: string;
+  onPlay?: () => void;
+  onPause?: () => void;
   onError?: (error: string) => void;
+  disabled?: boolean;
+}
+
+interface AudioCache {
+  [key: string]: Blob;
+}
+
+class AudioManager {
+  private static instance: AudioManager;
+  private audioCache: AudioCache = {};
+  private currentAudio: HTMLAudioElement | null = null;
+
+  static getInstance(): AudioManager {
+    if (!AudioManager.instance) {
+      AudioManager.instance = new AudioManager();
+    }
+    return AudioManager.instance;
+  }
+
+  private generateCacheKey(text: string, languageCode: string, voiceGender: string, speakingRate: number): string {
+    return `${text.substring(0, 100)}_${languageCode}_${voiceGender}_${speakingRate}`;
+  }
+
+  async generateAudio(
+    text: string, 
+    languageCode: string = 'en-US',
+    voiceGender: string = 'NEUTRAL',
+    speakingRate: number = 0.9
+  ): Promise<Blob> {
+    const cacheKey = this.generateCacheKey(text, languageCode, voiceGender, speakingRate);
+    
+    // Check cache first
+    if (this.audioCache[cacheKey]) {
+      return this.audioCache[cacheKey];
+    }
+
+    // Generate new audio
+    const audioBlob = await apiService.textToSpeech(text, {
+      languageCode,
+      voiceGender,
+      speakingRate
+    });
+
+    if (!audioBlob) {
+      throw new Error('Failed to generate audio');
+    }
+
+    // Cache the result
+    this.audioCache[cacheKey] = audioBlob;
+    
+    return audioBlob;
+  }
+
+  async playAudio(audioBlob: Blob): Promise<HTMLAudioElement> {
+    // Stop current audio if playing
+    if (this.currentAudio) {
+      this.currentAudio.pause();
+      this.currentAudio = null;
+    }
+
+    const audioUrl = URL.createObjectURL(audioBlob);
+    const audio = new Audio(audioUrl);
+    
+    this.currentAudio = audio;
+
+    // Clean up URL when audio ends
+    audio.addEventListener('ended', () => {
+      URL.revokeObjectURL(audioUrl);
+      if (this.currentAudio === audio) {
+        this.currentAudio = null;
+      }
+    });
+
+    return audio;
+  }
+
+  stopCurrentAudio(): void {
+    if (this.currentAudio) {
+      this.currentAudio.pause();
+      this.currentAudio = null;
+    }
+  }
+
+  clearCache(): void {
+    this.audioCache = {};
+  }
+
+  getCacheSize(): number {
+    return Object.keys(this.audioCache).length;
+  }
 }
 
 export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   text,
-  language = 'en-US',
+  languageCode = 'en-US',
   voiceGender = 'NEUTRAL',
   speakingRate = 0.9,
-  autoPlay = false,
   className,
-  onError
+  onPlay,
+  onPause,
+  onError,
+  disabled = false
 }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
+  const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [audioUrl, setAudioUrl] = useState<string | null>(null);
   
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const progressRef = useRef<HTMLDivElement | null>(null);
+  const audioManager = AudioManager.getInstance();
 
-  // Generate audio when text changes
+  // Clean up audio when component unmounts
   useEffect(() => {
-    if (text && text.length > 0) {
-      generateAudio();
-    }
-  }, [text, language, voiceGender, speakingRate]);
-
-  // Auto-play if enabled
-  useEffect(() => {
-    if (autoPlay && audioUrl && !isPlaying) {
-      handlePlay();
-    }
-  }, [audioUrl, autoPlay]);
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, []);
 
   // Update progress
   useEffect(() => {
@@ -52,68 +141,60 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     if (!audio) return;
 
     const updateProgress = () => {
-      setCurrentTime(audio.currentTime);
+      if (audio.duration) {
+        setProgress((audio.currentTime / audio.duration) * 100);
+      }
+    };
+
+    const updateDuration = () => {
       setDuration(audio.duration || 0);
     };
 
     const handleEnded = () => {
       setIsPlaying(false);
-      setCurrentTime(0);
+      setProgress(0);
+      audioRef.current = null;
     };
 
     audio.addEventListener('timeupdate', updateProgress);
+    audio.addEventListener('loadedmetadata', updateDuration);
     audio.addEventListener('ended', handleEnded);
-    audio.addEventListener('loadedmetadata', updateProgress);
 
     return () => {
       audio.removeEventListener('timeupdate', updateProgress);
+      audio.removeEventListener('loadedmetadata', updateDuration);
       audio.removeEventListener('ended', handleEnded);
-      audio.removeEventListener('loadedmetadata', updateProgress);
     };
-  }, [audioUrl]);
+  }, [audioRef.current]);
 
-  const generateAudio = async () => {
-    if (!text || text.length === 0) return;
+  const handlePlay = async () => {
+    if (disabled || !text.trim()) return;
 
-    setIsLoading(true);
-    
     try {
-      const response = await fetch('/api/speech/text-to-speech', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          text: text.substring(0, 5000), // Limit text length
-          language_code: language,
-          voice_gender: voiceGender,
-          speaking_rate: speakingRate,
-          pitch: 0.0,
-          audio_encoding: 'MP3'
-        })
-      });
+      setIsLoading(true);
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+      // Generate or get cached audio
+      const audioBlob = await audioManager.generateAudio(
+        text,
+        languageCode,
+        voiceGender,
+        speakingRate
+      );
 
-      const audioBlob = await response.blob();
-      const url = URL.createObjectURL(audioBlob);
+      // Create and play audio
+      const audio = await audioManager.playAudio(audioBlob);
+      audioRef.current = audio;
+
+      // Set up audio properties
+      audio.volume = isMuted ? 0 : 1;
       
-      // Clean up previous URL
-      if (audioUrl) {
-        URL.revokeObjectURL(audioUrl);
-      }
-      
-      setAudioUrl(url);
-      
-      // Create new audio element
-      if (audioRef.current) {
-        audioRef.current.src = url;
-      }
-      
+      await audio.play();
+      setIsPlaying(true);
+      onPlay?.();
+
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to generate audio';
+      const errorMessage = error instanceof Error ? error.message : 'Failed to play audio';
+      console.error('Audio playback error:', error);
       onError?.(errorMessage);
       notificationService.error(errorMessage);
     } finally {
@@ -121,61 +202,32 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     }
   };
 
-  const handlePlay = async () => {
-    if (!audioRef.current || !audioUrl) return;
-
-    try {
-      if (isPlaying) {
-        audioRef.current.pause();
-        setIsPlaying(false);
-      } else {
-        await audioRef.current.play();
-        setIsPlaying(true);
-      }
-    } catch (error) {
-      const errorMessage = 'Failed to play audio';
-      onError?.(errorMessage);
-      notificationService.error(errorMessage);
-    }
-  };
-
-  const handleMute = () => {
+  const handlePause = () => {
     if (audioRef.current) {
-      audioRef.current.muted = !isMuted;
-      setIsMuted(!isMuted);
+      audioRef.current.pause();
+      setIsPlaying(false);
+      onPause?.();
     }
   };
 
-  const handleRestart = () => {
+  const handleToggleMute = () => {
     if (audioRef.current) {
-      audioRef.current.currentTime = 0;
-      setCurrentTime(0);
+      const newMutedState = !isMuted;
+      audioRef.current.volume = newMutedState ? 0 : 1;
+      setIsMuted(newMutedState);
     }
   };
 
-  const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!audioRef.current || !progressRef.current || duration === 0) return;
+  const handleProgressClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (!audioRef.current || !duration) return;
 
-    const rect = progressRef.current.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const percentage = clickX / rect.width;
-    const newTime = percentage * duration;
-    
+    const rect = event.currentTarget.getBoundingClientRect();
+    const clickX = event.clientX - rect.left;
+    const newProgress = (clickX / rect.width) * 100;
+    const newTime = (newProgress / 100) * duration;
+
     audioRef.current.currentTime = newTime;
-    setCurrentTime(newTime);
-  };
-
-  const handleDownload = () => {
-    if (!audioUrl) return;
-
-    const link = document.createElement('a');
-    link.href = audioUrl;
-    link.download = 'legal-document-audio.mp3';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    notificationService.success('Audio downloaded successfully');
+    setProgress(newProgress);
   };
 
   const formatTime = (seconds: number): string => {
@@ -184,122 +236,92 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const progressPercentage = duration > 0 ? (currentTime / duration) * 100 : 0;
-
-  if (!text || text.length === 0) {
-    return null;
-  }
+  const getLanguageFlag = (langCode: string): string => {
+    const flagMap: { [key: string]: string } = {
+      'en-US': '🇺🇸',
+      'en-GB': '🇬🇧',
+      'hi-IN': '🇮🇳',
+      'es-US': '🇺🇸',
+      'es-ES': '🇪🇸',
+      'fr-FR': '🇫🇷',
+      'de-DE': '🇩🇪',
+      'it-IT': '🇮🇹',
+      'pt-BR': '🇧🇷',
+      'ja-JP': '🇯🇵',
+      'ko-KR': '🇰🇷',
+      'zh-CN': '🇨🇳'
+    };
+    return flagMap[langCode] || '🌐';
+  };
 
   return (
-    <div className={cn("bg-slate-800/50 border border-slate-600 rounded-xl p-4", className)}>
-      {/* Hidden audio element */}
-      <audio
-        ref={audioRef}
-        preload="metadata"
-        muted={isMuted}
-      />
-
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center space-x-2">
-          <Volume2 className="w-5 h-5 text-slate-400" />
-          <span className="text-sm font-medium text-white">Audio Playback</span>
-        </div>
-        <div className="flex items-center space-x-2 text-xs text-slate-400">
-          <span>{language}</span>
-          <span>•</span>
-          <span>{voiceGender.toLowerCase()}</span>
-        </div>
-      </div>
-
-      {/* Controls */}
-      <div className="flex items-center space-x-3 mb-4">
-        <button
-          onClick={handlePlay}
-          disabled={isLoading || !audioUrl}
-          className={cn(
-            "flex items-center justify-center w-10 h-10 rounded-full transition-all",
-            isLoading || !audioUrl
-              ? "bg-slate-700 text-slate-500 cursor-not-allowed"
-              : "bg-blue-500 hover:bg-blue-600 text-white hover:scale-105"
-          )}
-        >
-          {isLoading ? (
-            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-          ) : isPlaying ? (
-            <Pause className="w-5 h-5" />
-          ) : (
-            <Play className="w-5 h-5 ml-0.5" />
-          )}
-        </button>
-
-        <button
-          onClick={handleRestart}
-          disabled={!audioUrl}
-          className="p-2 text-slate-400 hover:text-white transition-colors disabled:opacity-50"
-        >
-          <RotateCcw className="w-4 h-4" />
-        </button>
-
-        <button
-          onClick={handleMute}
-          disabled={!audioUrl}
-          className="p-2 text-slate-400 hover:text-white transition-colors disabled:opacity-50"
-        >
-          {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-        </button>
-
-        <button
-          onClick={handleDownload}
-          disabled={!audioUrl}
-          className="p-2 text-slate-400 hover:text-white transition-colors disabled:opacity-50"
-        >
-          <Download className="w-4 h-4" />
-        </button>
-
-        {/* Time display */}
-        <div className="flex-1 text-right">
-          <span className="text-sm text-slate-400 font-mono">
-            {formatTime(currentTime)} / {formatTime(duration)}
-          </span>
-        </div>
-      </div>
-
-      {/* Progress bar */}
-      <div
-        ref={progressRef}
-        onClick={handleProgressClick}
-        className="relative h-2 bg-slate-700 rounded-full cursor-pointer group"
-      >
-        <div
-          className="absolute top-0 left-0 h-full bg-blue-500 rounded-full transition-all"
-          style={{ width: `${progressPercentage}%` }}
-        />
-        <div
-          className="absolute top-1/2 transform -translate-y-1/2 w-3 h-3 bg-blue-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-          style={{ left: `calc(${progressPercentage}% - 6px)` }}
-        />
-      </div>
-
-      {/* Text preview */}
-      <div className="mt-4 p-3 bg-slate-900/50 rounded-lg">
-        <p className="text-sm text-slate-300 line-clamp-3">
-          {text.length > 200 ? `${text.substring(0, 200)}...` : text}
-        </p>
-        {text.length > 5000 && (
-          <p className="text-xs text-yellow-400 mt-2">
-            Note: Only the first 5000 characters will be converted to speech
-          </p>
+    <div className={cn("flex items-center space-x-2 p-2 bg-slate-800 rounded-lg", className)}>
+      {/* Play/Pause Button */}
+      <button
+        onClick={isPlaying ? handlePause : handlePlay}
+        disabled={disabled || isLoading || !text.trim()}
+        className={cn(
+          "flex items-center justify-center w-8 h-8 rounded-full transition-all duration-200",
+          isPlaying
+            ? "bg-red-500 hover:bg-red-600 text-white"
+            : "bg-blue-500 hover:bg-blue-600 text-white",
+          disabled || !text.trim()
+            ? "opacity-50 cursor-not-allowed"
+            : "hover:scale-105"
         )}
-      </div>
+      >
+        {isLoading ? (
+          <Loader2 className="w-4 h-4 animate-spin" />
+        ) : isPlaying ? (
+          <Pause className="w-4 h-4" />
+        ) : (
+          <Play className="w-4 h-4 ml-0.5" />
+        )}
+      </button>
 
-      {/* Loading state */}
-      {isLoading && (
-        <div className="mt-4 flex items-center justify-center space-x-2 text-sm text-blue-400">
-          <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
-          <span>Generating audio...</span>
+      {/* Progress Bar */}
+      {(isPlaying || progress > 0) && (
+        <div className="flex-1 flex items-center space-x-2">
+          <div
+            className="flex-1 h-2 bg-slate-600 rounded-full cursor-pointer overflow-hidden"
+            onClick={handleProgressClick}
+          >
+            <div
+              className="h-full bg-blue-500 transition-all duration-100"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+          
+          {duration > 0 && (
+            <span className="text-xs text-slate-400 min-w-[40px]">
+              {formatTime((progress / 100) * duration)} / {formatTime(duration)}
+            </span>
+          )}
         </div>
       )}
+
+      {/* Volume Control */}
+      <button
+        onClick={handleToggleMute}
+        disabled={!isPlaying}
+        className={cn(
+          "flex items-center justify-center w-6 h-6 text-slate-400 hover:text-white transition-colors",
+          !isPlaying && "opacity-50 cursor-not-allowed"
+        )}
+      >
+        {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+      </button>
+
+      {/* Language Indicator */}
+      <div className="flex items-center space-x-1 text-xs text-slate-400">
+        <span>{getLanguageFlag(languageCode)}</span>
+        <span className="hidden sm:inline">{languageCode}</span>
+      </div>
+
+      {/* Voice Gender Indicator */}
+      <div className="text-xs text-slate-500 hidden md:block">
+        {voiceGender === 'MALE' ? '♂' : voiceGender === 'FEMALE' ? '♀' : '⚲'}
+      </div>
     </div>
   );
 };

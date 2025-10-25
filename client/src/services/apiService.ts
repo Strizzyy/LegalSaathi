@@ -413,7 +413,7 @@ class APIService {
     }
   }
 
-  async speechToText(audioBlob: Blob, languageCode: string = 'en-US'): Promise<{ success: boolean; transcript?: string; error?: string }> {
+  async speechToText(audioBlob: Blob, languageCode: string = 'en-US'): Promise<{ success: boolean; transcript?: string; error?: string; confidence?: number; processingTime?: number }> {
     try {
       const formData = new FormData();
       formData.append('audio_file', audioBlob, 'recording.webm');
@@ -423,6 +423,9 @@ class APIService {
       const response = await fetch('/api/speech/speech-to-text', {
         method: 'POST',
         body: formData,
+        headers: {
+          'Authorization': `Bearer ${this.getAuthToken()}`
+        }
       });
 
       const result = await this.handleResponse<any>(response);
@@ -430,7 +433,9 @@ class APIService {
       return {
         success: result.success,
         transcript: result.transcript,
-        error: result.error_message
+        error: result.error_message,
+        confidence: result.confidence,
+        processingTime: result.processing_time
       };
     } catch (error) {
       console.error('Speech-to-text error:', error);
@@ -451,6 +456,7 @@ class APIService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.getAuthToken()}`
         },
         body: JSON.stringify({
           text,
@@ -463,7 +469,8 @@ class APIService {
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
       }
 
       return await response.blob();
@@ -471,6 +478,36 @@ class APIService {
       console.error('Text-to-speech error:', error);
       return null;
     }
+  }
+
+  async getSpeechUsageStats(): Promise<{ success: boolean; data?: any; error?: string }> {
+    try {
+      const response = await fetch('/api/speech/usage-stats', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${this.getAuthToken()}`
+        }
+      });
+
+      const result = await this.handleResponse<any>(response);
+
+      return {
+        success: true,
+        data: result
+      };
+    } catch (error) {
+      console.error('Speech usage stats error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get usage stats'
+      };
+    }
+  }
+
+  private getAuthToken(): string {
+    // This should get the Firebase auth token from your auth context
+    // For now, return empty string - you'll need to implement this based on your auth setup
+    return '';
   }
 
   async getSupportedLanguages(): Promise<{ success: boolean; languages?: any[]; error?: string }> {
@@ -719,10 +756,27 @@ class APIService {
       });
 
       if (!response.ok) {
-        throw new Error(`PDF export failed: ${response.status}`);
+        const errorText = await response.text();
+        console.error('PDF export failed:', response.status, errorText);
+        throw new Error(`PDF export failed: ${response.status} - ${errorText}`);
       }
 
-      return await response.blob();
+      const blob = await response.blob();
+      
+      // Validate blob
+      if (!blob || blob.size === 0) {
+        console.error('Received empty PDF blob');
+        return null;
+      }
+
+      // Check if we received an error response disguised as a blob
+      if (blob.type === 'application/json') {
+        const text = await blob.text();
+        console.error('Received JSON error response:', text);
+        return null;
+      }
+
+      return blob;
     } catch (error) {
       console.error('PDF export error:', error);
       return null;

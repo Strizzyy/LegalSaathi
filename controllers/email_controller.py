@@ -82,8 +82,13 @@ class EmailController:
             try:
                 if request.include_pdf:
                     pdf_content = await self.export_controller.generate_enhanced_pdf(analysis)
-                    if not pdf_content:
-                        raise Exception("PDF generation returned empty content")
+                    if not pdf_content or len(pdf_content) == 0:
+                        logger.warning("PDF generation returned empty content, trying fallback")
+                        # Try fallback PDF generation
+                        pdf_content = await self.export_controller._generate_simple_pdf_content({'analysis': analysis.model_dump()})
+                        if not pdf_content or len(pdf_content) == 0:
+                            raise Exception("Both enhanced and simple PDF generation failed")
+                    logger.info(f"PDF generated successfully, size: {len(pdf_content)} bytes")
                 else:
                     pdf_content = b""  # Empty PDF content if not requested
                     

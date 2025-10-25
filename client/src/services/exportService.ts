@@ -20,16 +20,30 @@ export interface ExportData {
 class ExportService {
   private downloadFile(blob: Blob, filename: string): void {
     try {
+      // Validate blob
+      if (!blob || blob.size === 0) {
+        throw new Error('Invalid or empty file content');
+      }
+
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = filename;
+      a.style.display = 'none';
       document.body.appendChild(a);
       a.click();
       
-      // Cleanup
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      // Clean up with a small delay to ensure download starts
+      setTimeout(() => {
+        try {
+          window.URL.revokeObjectURL(url);
+          if (document.body.contains(a)) {
+            document.body.removeChild(a);
+          }
+        } catch (cleanupError) {
+          console.warn('Cleanup error:', cleanupError);
+        }
+      }, 100);
     } catch (error) {
       console.error('Download error:', error);
       throw new Error('Failed to download file');
@@ -53,9 +67,14 @@ class ExportService {
       
       const blob = await apiService.exportToPDF(apiData);
 
-      if (!blob) {
-        // Fallback to text export if PDF service is unavailable
-        console.warn('PDF export service unavailable, falling back to text export');
+      if (!blob || blob.size === 0) {
+        console.warn('PDF export service returned empty content, falling back to text export');
+        return this.exportAsText(data);
+      }
+
+      // Validate that we received a PDF blob
+      if (blob.type && !blob.type.includes('pdf') && !blob.type.includes('octet-stream')) {
+        console.warn('Received non-PDF content, falling back to text export');
         return this.exportAsText(data);
       }
 

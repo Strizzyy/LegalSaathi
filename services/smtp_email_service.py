@@ -131,7 +131,7 @@ class SMTPEmailService:
             msg.attach(html_part)
             
             # Add PDF attachment if provided
-            if pdf_content:
+            if pdf_content and len(pdf_content) > 0:
                 pdf_attachment = MIMEBase('application', 'pdf')
                 pdf_attachment.set_payload(pdf_content)
                 encoders.encode_base64(pdf_attachment)
@@ -139,12 +139,24 @@ class SMTPEmailService:
                     'Content-Disposition',
                     f'attachment; filename="legal_analysis_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf"'
                 )
+                pdf_attachment.add_header('Content-Type', 'application/pdf')
                 msg.attach(pdf_attachment)
+                logger.info(f"PDF attachment added, size: {len(pdf_content)} bytes")
+            else:
+                logger.warning("No PDF content to attach or PDF content is empty")
             
             # Send email
+            logger.info(f"Attempting SMTP connection to {self.smtp_server}:{self.smtp_port}")
+            logger.info(f"Using sender email: {self.sender_email}")
+            logger.info(f"App password length: {len(self.sender_password)} characters")
+            
             with smtplib.SMTP(self.smtp_server, self.smtp_port) as server:
+                server.set_debuglevel(1)  # Enable SMTP debugging
+                logger.info("Starting TLS...")
                 server.starttls()
+                logger.info("Attempting login...")
                 server.login(self.sender_email, self.sender_password)
+                logger.info("Login successful, sending message...")
                 server.send_message(msg)
             
             logger.info(f"SMTP email sent successfully to {to_email}")

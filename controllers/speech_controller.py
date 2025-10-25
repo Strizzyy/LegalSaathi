@@ -1,11 +1,13 @@
 """
-Speech controller for FastAPI backend
+Enhanced Speech controller for FastAPI backend with user-based rate limiting,
+audio validation, caching, and comprehensive error handling
 """
 
 import logging
-from fastapi import HTTPException, UploadFile, File
+from fastapi import HTTPException, UploadFile, File, Request
 from fastapi.responses import StreamingResponse
 import io
+from typing import Optional
 
 from models.speech_models import (
     SpeechToTextRequest, SpeechToTextResponse,
@@ -13,25 +15,40 @@ from models.speech_models import (
     SupportedLanguagesResponse
 )
 from services.google_speech_service import speech_service
+from middleware.firebase_auth_middleware import UserBasedRateLimiter
 
 logger = logging.getLogger(__name__)
 
 
 class SpeechController:
-    """Controller for speech-to-text and text-to-speech operations"""
+    """Enhanced controller for speech-to-text and text-to-speech operations"""
     
     def __init__(self):
         self.speech_service = speech_service
+        self.rate_limiter = UserBasedRateLimiter()
     
     async def speech_to_text(
         self, 
+        request: Request,
         audio_file: UploadFile = File(...),
         language_code: str = "en-US",
         enable_punctuation: bool = True
     ) -> SpeechToTextResponse:
-        """Handle speech-to-text conversion for document input"""
+        """Handle speech-to-text conversion with enhanced validation and rate limiting"""
         try:
-            logger.info(f"Processing speech-to-text for language: {language_code}")
+            # Get user info from request state
+            user_id = getattr(request.state, 'user_id', None) or "anonymous"
+            is_authenticated = getattr(request.state, 'is_authenticated', False)
+            
+            # Check rate limits
+            if not self.rate_limiter.check_rate_limit(user_id, 'speech_to_text', request):
+                rate_info = self.rate_limiter.get_rate_limit_info(user_id, 'speech_to_text')
+                raise HTTPException(
+                    status_code=429,
+                    detail=f"Speech-to-text rate limit exceeded. Try again in {rate_info.get('reset_time', 3600)} seconds."
+                )
+            
+            logger.info(f"Processing speech-to-text for user: {user_id}, language: {language_code}")
             
             if not self.speech_service.enabled:
                 raise HTTPException(
@@ -46,21 +63,13 @@ class SpeechController:
             # Read audio content
             audio_content = await audio_file.read()
             
-            if len(audio_content) == 0:
-                raise HTTPException(status_code=400, detail="Empty audio file")
-            
-            # Validate file size (max 10MB)
-            if len(audio_content) > 10 * 1024 * 1024:
-                raise HTTPException(
-                    status_code=400, 
-                    detail="Audio file too large (max 10MB)"
-                )
-            
-            # Process speech-to-text
+            # Process speech-to-text with enhanced service
             result = self.speech_service.speech_to_text(
                 audio_content=audio_content,
                 language_code=language_code,
-                enable_punctuation=enable_punctuation
+                enable_punctuation=enable_punctuation,
+                user_id=user_id,
+                filename=audio_file.filename or ""
             )
             
             if not result['success']:
@@ -71,14 +80,20 @@ class SpeechController:
             
             # Create response
             response = SpeechToTextResponse(
-                success=True,
-                transcript=result['transcript'],
-                confidence=result.get('confidence', 0.9),
+                success=result['success'],
+                transcript=result.get('transcript', ''),
+                confidence=result.get('confidence', 0.0),
                 language_detected=result.get('language_detected', language_code),
-                processing_time=result.get('processing_time', 0.0)
+                processing_time=result.get('processing_time', 0.0),
+                error_message=result.get('error') if not result['success'] else None,
+                usage_stats=result.get('usage_stats')
             )
             
-            logger.info("Speech-to-text conversion completed successfully")
+            if result['success']:
+                logger.info(f"Speech-to-text conversion completed successfully for user: {user_id}")
+            else:
+                logger.warning(f"Speech-to-text failed for user: {user_id}, error: {result.get('error')}")
+            
             return response
             
         except HTTPException:
@@ -90,10 +105,22 @@ class SpeechController:
                 detail=f"Speech-to-text conversion failed: {str(e)}"
             )
     
-    async def text_to_speech(self, request: TextToSpeechRequest) -> StreamingResponse:
-        """Handle text-to-speech conversion for accessibility"""
+    async def text_to_speech(self, request_obj: Request, tts_request: TextToSpeechRequest) -> StreamingResponse:
+        """Handle text-to-speech conversion with enhanced caching and rate limiting"""
         try:
-            logger.info(f"Processing text-to-speech for language: {request.language_code}")
+            # Get user info from request state
+            user_id = getattr(request_obj.state, 'user_id', None) or "anonymous"
+            is_authenticated = getattr(request_obj.state, 'is_authenticated', False)
+            
+            # Check rate limits
+            if not self.rate_limiter.check_rate_limit(user_id, 'text_to_speech', request_obj):
+                rate_info = self.rate_limiter.get_rate_limit_info(user_id, 'text_to_speech')
+                raise HTTPException(
+                    status_code=429,
+                    detail=f"Text-to-speech rate limit exceeded. Try again in {rate_info.get('reset_time', 3600)} seconds."
+                )
+            
+            logger.info(f"Processing text-to-speech for user: {user_id}, language: {tts_request.language_code}")
             
             if not self.speech_service.enabled:
                 raise HTTPException(
@@ -101,20 +128,14 @@ class SpeechController:
                     detail="Speech service is not available"
                 )
             
-            # Validate text length
-            if len(request.text) > 5000:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Text too long for speech synthesis (max 5000 characters)"
-                )
-            
-            # Process text-to-speech
+            # Process text-to-speech with enhanced service
             result = self.speech_service.text_to_speech(
-                text=request.text,
-                language_code=request.language_code,
-                voice_gender=request.voice_gender,
-                speaking_rate=request.speaking_rate,
-                pitch=request.pitch
+                text=tts_request.text,
+                language_code=tts_request.language_code,
+                voice_gender=tts_request.voice_gender,
+                speaking_rate=tts_request.speaking_rate,
+                pitch=tts_request.pitch,
+                user_id=user_id
             )
             
             if not result['success']:
@@ -125,7 +146,6 @@ class SpeechController:
             
             # Create audio stream
             audio_content = result['audio_content']
-            audio_stream = io.BytesIO(audio_content)
             
             # Determine content type based on encoding
             content_type_map = {
@@ -133,17 +153,25 @@ class SpeechController:
                 'WAV': 'audio/wav',
                 'OGG_OPUS': 'audio/ogg'
             }
-            content_type = content_type_map.get(request.audio_encoding, 'audio/mpeg')
+            content_type = content_type_map.get(tts_request.audio_encoding, 'audio/mpeg')
             
-            logger.info("Text-to-speech conversion completed successfully")
+            # Add cache headers if content was cached
+            headers = {
+                "Content-Disposition": "attachment; filename=speech.mp3",
+                "Content-Length": str(len(audio_content))
+            }
+            
+            if result.get('cached'):
+                headers["X-Cache-Status"] = "HIT"
+                logger.info(f"Text-to-speech served from cache for user: {user_id}")
+            else:
+                headers["X-Cache-Status"] = "MISS"
+                logger.info(f"Text-to-speech conversion completed for user: {user_id}")
             
             return StreamingResponse(
                 io.BytesIO(audio_content),
                 media_type=content_type,
-                headers={
-                    "Content-Disposition": "attachment; filename=speech.mp3",
-                    "Content-Length": str(len(audio_content))
-                }
+                headers=headers
             )
             
         except HTTPException:
@@ -155,9 +183,12 @@ class SpeechController:
                 detail=f"Text-to-speech conversion failed: {str(e)}"
             )
     
-    async def get_text_to_speech_info(self, request: TextToSpeechRequest) -> TextToSpeechResponse:
+    async def get_text_to_speech_info(self, request_obj: Request, tts_request: TextToSpeechRequest) -> TextToSpeechResponse:
         """Get text-to-speech info without returning audio content"""
         try:
+            # Get user info from request state
+            user_id = getattr(request_obj.state, 'user_id', None) or "anonymous"
+            
             if not self.speech_service.enabled:
                 raise HTTPException(
                     status_code=503,
@@ -166,11 +197,12 @@ class SpeechController:
             
             # Process text-to-speech to get metadata
             result = self.speech_service.text_to_speech(
-                text=request.text,
-                language_code=request.language_code,
-                voice_gender=request.voice_gender,
-                speaking_rate=request.speaking_rate,
-                pitch=request.pitch
+                text=tts_request.text,
+                language_code=tts_request.language_code,
+                voice_gender=tts_request.voice_gender,
+                speaking_rate=tts_request.speaking_rate,
+                pitch=tts_request.pitch,
+                user_id=user_id
             )
             
             if not result['success']:
@@ -181,12 +213,15 @@ class SpeechController:
             
             # Create response with metadata only
             response = TextToSpeechResponse(
-                success=True,
-                audio_content_type=f"audio/{request.audio_encoding.lower()}",
-                audio_size_bytes=len(result['audio_content']),
-                language_code=request.language_code,
-                voice_gender=request.voice_gender,
-                processing_time=result.get('processing_time', 0.0)
+                success=result['success'],
+                audio_content_type=f"audio/{tts_request.audio_encoding.lower()}",
+                audio_size_bytes=len(result.get('audio_content', b'')),
+                language_code=tts_request.language_code,
+                voice_gender=tts_request.voice_gender,
+                processing_time=result.get('processing_time', 0.0),
+                error_message=result.get('error') if not result['success'] else None,
+                cached=result.get('cached'),
+                usage_stats=result.get('usage_stats')
             )
             
             return response
@@ -237,3 +272,30 @@ class SpeechController:
                 status_code=500,
                 detail=f"Failed to get supported languages: {str(e)}"
             )
+    
+    async def get_usage_stats(self, request: Request) -> dict:
+        """Get usage statistics for the current user"""
+        try:
+            user_id = getattr(request.state, 'user_id', None) or "anonymous"
+            
+            if not self.speech_service.enabled:
+                return {
+                    'error': 'Speech service not available',
+                    'user_id': user_id
+                }
+            
+            stats = self.speech_service.get_usage_stats(user_id)
+            stats['user_id'] = user_id
+            stats['rate_limits'] = {
+                'speech_to_text': self.rate_limiter.get_rate_limit_info(user_id, 'speech_to_text'),
+                'text_to_speech': self.rate_limiter.get_rate_limit_info(user_id, 'text_to_speech')
+            }
+            
+            return stats
+            
+        except Exception as e:
+            logger.error(f"Failed to get usage stats: {e}")
+            return {
+                'error': f"Failed to get usage stats: {str(e)}",
+                'user_id': getattr(request.state, 'user_id', None) or "anonymous"
+            }

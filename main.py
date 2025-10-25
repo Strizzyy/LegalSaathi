@@ -495,15 +495,15 @@ async def get_translation_usage_stats(user_id: str = None):
 
 # Speech endpoints
 @app.post("/api/speech/speech-to-text", response_model=SpeechToTextResponse)
-@limiter.limit("10/minute")
 async def speech_to_text(
     request: Request,
     audio_file: UploadFile = File(...),
     language_code: str = Form("en-US"),
     enable_punctuation: bool = Form(True)
 ):
-    """Convert speech to text"""
+    """Convert speech to text with enhanced validation and rate limiting"""
     return await speech_controller.speech_to_text(
+        request=request,
         audio_file=audio_file,
         language_code=language_code,
         enable_punctuation=enable_punctuation
@@ -511,23 +511,27 @@ async def speech_to_text(
 
 
 @app.post("/api/speech/text-to-speech")
-@limiter.limit("10/minute")
 async def text_to_speech(request: Request, tts_request: TextToSpeechRequest):
-    """Convert text to speech"""
-    return await speech_controller.text_to_speech(tts_request)
+    """Convert text to speech with enhanced caching and rate limiting"""
+    return await speech_controller.text_to_speech(request, tts_request)
 
 
 @app.post("/api/speech/text-to-speech/info", response_model=TextToSpeechResponse)
-@limiter.limit("15/minute")
 async def text_to_speech_info(request: Request, tts_request: TextToSpeechRequest):
     """Get text-to-speech metadata without audio"""
-    return await speech_controller.get_text_to_speech_info(tts_request)
+    return await speech_controller.get_text_to_speech_info(request, tts_request)
 
 
 @app.get("/api/speech/languages", response_model=SpeechLanguagesResponse)
 async def get_speech_languages():
     """Get supported languages for speech services"""
     return await speech_controller.get_supported_languages()
+
+
+@app.get("/api/speech/usage-stats")
+async def get_speech_usage_stats(request: Request):
+    """Get speech service usage statistics for current user"""
+    return await speech_controller.get_usage_stats(request)
 
 
 # AI clarification endpoints
