@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Navigation } from './components/Navigation';
 import { HeroSection } from './components/HeroSection';
 import { DocumentUpload } from './components/DocumentUpload';
@@ -11,6 +11,8 @@ import { AuthProvider } from './contexts/AuthContext';
 import { AuthModal } from './components/auth/AuthModal';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { UserProfile } from './components/auth/UserProfile';
+import { PrivacyPolicy } from './components/PrivacyPolicy';
+import { TermsOfService } from './components/TermsOfService';
 import { apiService } from './services/apiService';
 import { notificationService } from './services/notificationService';
 
@@ -65,7 +67,7 @@ export interface Classification {
 }
 
 function App() {
-  const [currentView, setCurrentView] = useState<'home' | 'results' | 'profile'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'results' | 'profile' | 'privacy' | 'terms'>('home');
   const [isLoading, setIsLoading] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [fileInfo, setFileInfo] = useState<FileInfo | null>(null);
@@ -73,6 +75,14 @@ function App() {
   const [warnings, setWarnings] = useState<string[]>([]);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<'login' | 'register'>('login');
+
+  // Handle scroll behavior when view changes
+  useEffect(() => {
+    if (currentView === 'privacy' || currentView === 'terms') {
+      // Ensure we're at the top when viewing legal documents
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [currentView]);
 
   // React app handles routing internally - no server-side navigation needed
 
@@ -159,6 +169,18 @@ function App() {
     setCurrentView('profile');
   };
 
+  const handleShowPrivacy = () => {
+    setCurrentView('privacy');
+    // Smooth scroll to top when navigating to legal documents
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleShowTerms = () => {
+    setCurrentView('terms');
+    // Smooth scroll to top when navigating to legal documents
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   return (
     <ErrorBoundary>
       <AuthProvider>
@@ -195,6 +217,10 @@ function App() {
                     <UserProfile />
                   </ProtectedRoute>
                 </div>
+              ) : currentView === 'privacy' ? (
+                <PrivacyPolicy onClose={handleBackToHome} />
+              ) : currentView === 'terms' ? (
+                <TermsOfService onClose={handleBackToHome} />
               ) : (
                 <ErrorBoundary fallback={
                   <div className="py-20 text-center">
@@ -219,7 +245,10 @@ function App() {
               )}
             </main>
             
-            <Footer />
+            <Footer 
+              onShowPrivacy={handleShowPrivacy}
+              onShowTerms={handleShowTerms}
+            />
             
             {isLoading && <LoadingOverlay />}
             

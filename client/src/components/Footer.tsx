@@ -2,7 +2,12 @@
 import { motion } from 'framer-motion';
 import { Shield, Heart, Zap } from 'lucide-react';
 
-export function Footer() {
+interface FooterProps {
+  onShowPrivacy?: () => void;
+  onShowTerms?: () => void;
+}
+
+export function Footer({ onShowPrivacy, onShowTerms }: FooterProps) {
   return (
     <footer className="py-16 bg-slate-950 text-white relative z-10 border-t border-slate-800">
       <div className="container mx-auto px-6">
@@ -61,12 +66,18 @@ export function Footer() {
               <a href="#" className="block text-slate-400 hover:text-cyan-400 transition-colors">
                 Contact Us
               </a>
-              <a href="#" className="block text-slate-400 hover:text-cyan-400 transition-colors">
+              <button 
+                onClick={onShowPrivacy}
+                className="block text-slate-400 hover:text-cyan-400 transition-colors text-left"
+              >
                 Privacy Policy
-              </a>
-              <a href="#" className="block text-slate-400 hover:text-cyan-400 transition-colors">
+              </button>
+              <button 
+                onClick={onShowTerms}
+                className="block text-slate-400 hover:text-cyan-400 transition-colors text-left"
+              >
                 Terms of Service
-              </a>
+              </button>
               <a href="#" className="block text-slate-400 hover:text-cyan-400 transition-colors">
                 API Documentation
               </a>
