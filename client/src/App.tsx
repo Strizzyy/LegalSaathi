@@ -13,6 +13,8 @@ import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { UserProfile } from './components/auth/UserProfile';
 import { PrivacyPolicy } from './components/PrivacyPolicy';
 import { TermsOfService } from './components/TermsOfService';
+import { AboutUs } from './components/AboutUs';
+import { ContactUs } from './components/ContactUs';
 import { apiService } from './services/apiService';
 import { notificationService } from './services/notificationService';
 
@@ -67,7 +69,7 @@ export interface Classification {
 }
 
 function App() {
-  const [currentView, setCurrentView] = useState<'home' | 'results' | 'profile' | 'privacy' | 'terms'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'results' | 'profile' | 'privacy' | 'terms' | 'about' | 'contact'>('home');
   const [isLoading, setIsLoading] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [fileInfo, setFileInfo] = useState<FileInfo | null>(null);
@@ -78,8 +80,8 @@ function App() {
 
   // Handle scroll behavior when view changes
   useEffect(() => {
-    if (currentView === 'privacy' || currentView === 'terms') {
-      // Ensure we're at the top when viewing legal documents
+    if (currentView === 'privacy' || currentView === 'terms' || currentView === 'about' || currentView === 'contact') {
+      // Ensure we're at the top when viewing full-page components
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   }, [currentView]);
@@ -181,6 +183,18 @@ function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const handleShowAbout = () => {
+    setCurrentView('about');
+    // Smooth scroll to top when navigating to about page
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleShowContact = () => {
+    setCurrentView('contact');
+    // Smooth scroll to top when navigating to contact page
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   return (
     <ErrorBoundary>
       <AuthProvider>
@@ -189,6 +203,8 @@ function App() {
             <Navigation 
               onShowAuth={handleShowAuth}
               onShowProfile={handleShowProfile}
+              onShowAbout={handleShowAbout}
+              onShowContact={handleShowContact}
             />
             
             <main>
@@ -221,6 +237,10 @@ function App() {
                 <PrivacyPolicy onClose={handleBackToHome} />
               ) : currentView === 'terms' ? (
                 <TermsOfService onClose={handleBackToHome} />
+              ) : currentView === 'about' ? (
+                <AboutUs onClose={handleBackToHome} />
+              ) : currentView === 'contact' ? (
+                <ContactUs onClose={handleBackToHome} />
               ) : (
                 <ErrorBoundary fallback={
                   <div className="py-20 text-center">
