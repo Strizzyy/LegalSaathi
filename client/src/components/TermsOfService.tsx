@@ -352,8 +352,8 @@ export function TermsOfService({ onClose }: TermsOfServiceProps) {
                 <h3 className="text-lg font-medium text-cyan-300 mb-2">Contact Us</h3>
                 <p>For questions about these Terms of Service:</p>
                 <ul className="space-y-1 ml-4 mt-2">
-                  <li>• Email: legal@legalsaathi.com</li>
-                  <li>• Support: support@legalsaathi.com</li>
+                  <li>• Email: legalsaathiadvisor@gmail.com</li>
+                  <li>• Support: legalsaathiadvisor@gmail.com</li>
                   <li>• Response time: Within 48 hours</li>
                 </ul>
               </div>

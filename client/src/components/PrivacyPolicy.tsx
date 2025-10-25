@@ -282,13 +282,13 @@ export function PrivacyPolicy({ onClose }: PrivacyPolicyProps) {
               <div className="grid md:grid-cols-2 gap-6">
                 <div>
                   <h3 className="text-lg font-medium text-cyan-300 mb-2">General Inquiries</h3>
-                  <p>Email: privacy@legalsaathi.com</p>
+                  <p>Email: legalsaathiadvisor@gmail.com</p>
                   <p>Response time: Within 48 hours</p>
                 </div>
                 
                 <div>
                   <h3 className="text-lg font-medium text-cyan-300 mb-2">Data Protection Officer</h3>
-                  <p>Email: dpo@legalsaathi.com</p>
+                  <p>Email: legalsaathiadvisor@gmail.com</p>
                   <p>For data protection and privacy concerns</p>
                 </div>
               </div>
