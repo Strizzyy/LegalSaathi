@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.9"
 resolution-markers = [
     "python_full_version >= '3.14'",
@@ -859,6 +859,22 @@ wheels = [
 ]
 
 [[package]]
+name = "google-cloud-vision"
+version = "3.11.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "google-api-core", extra = ["grpc"] },
+    { name = "google-auth" },
+    { name = "grpcio" },
+    { name = "proto-plus" },
+    { name = "protobuf" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/e2/83/8a5de5968933671badfffd1738eac489b29c557274d97191a4acbe0a5d9a/google_cloud_vision-3.11.0.tar.gz", hash = "sha256:c3cb57df2cf152ebe62ebaae9b1d5deff5a26aec5bd6e1c7f67e44bf6f4518f4", size = 570943, upload-time = "2025-10-20T14:57:34.107Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/cc/ca/8c5ff6041a081a6271159b2e5d378be69c964da75191ff79ef241c6ccbb3/google_cloud_vision-3.11.0-py3-none-any.whl", hash = "sha256:8910f743a87a34058dd6e5e41790be1eb100a0b91c20cc6372a2388b328c8890", size = 529092, upload-time = "2025-10-20T14:55:33.756Z" },
+]
+
+[[package]]
 name = "google-crc32c"
 version = "1.7.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1272,12 +1288,15 @@ dependencies = [
     { name = "google-cloud-speech" },
     { name = "google-cloud-texttospeech" },
     { name = "google-cloud-translate" },
+    { name = "google-cloud-vision" },
     { name = "google-generativeai" },
     { name = "groq" },
     { name = "httpx" },
     { name = "numpy", version = "2.0.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.10.*'" },
     { name = "numpy", version = "2.3.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "pillow", version = "11.3.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "pillow", version = "12.0.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "psutil" },
     { name = "pydantic", extra = ["email"] },
     { name = "pydub" },
@@ -1319,10 +1338,12 @@ requires-dist = [
     { name = "google-cloud-speech", specifier = ">=2.21.0" },
     { name = "google-cloud-texttospeech", specifier = ">=2.16.0" },
     { name = "google-cloud-translate", specifier = ">=3.12.0" },
+    { name = "google-cloud-vision", specifier = ">=3.4.0" },
     { name = "google-generativeai", specifier = ">=0.3.0" },
     { name = "groq", specifier = ">=0.31.0" },
     { name = "httpx", specifier = ">=0.25.0" },
     { name = "numpy", specifier = ">=1.24.0" },
+    { name = "pillow", specifier = ">=10.0.0" },
     { name = "psutil", specifier = "==6.1.0" },
     { name = "pydantic", extras = ["email"], specifier = ">=2.0.0" },
     { name = "pydub", specifier = ">=0.25.1" },

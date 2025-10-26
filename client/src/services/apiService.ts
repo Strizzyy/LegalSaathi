@@ -1,5 +1,6 @@
 import type { AnalysisResult } from '../App';
 import { experienceLevelService } from './experienceLevelService';
+import { processingNotificationService } from './processingNotificationService';
 
 export interface APIError extends Error {
   status?: number;
@@ -111,13 +112,61 @@ class APIService {
     }
     
     const isFileUpload = formData.get('is_file_upload') === 'true';
+    const isImageUpload = formData.get('is_image_upload') === 'true';
+    const isMultipleImageUpload = formData.get('is_multiple_image_upload') === 'true';
+    
+    // Debug the flags
+    console.log('🔍 API Service Debug:', {
+      isFileUpload,
+      isImageUpload,
+      isMultipleImageUpload,
+      formDataKeys: Array.from(formData.keys()),
+      filesCount: formData.getAll('files').length
+    });
+    
     const timestamp = Date.now();
     const authHeaders = await this.getAuthHeaders();
 
     let requestOptions: RequestInit;
     let endpoint: string;
 
-    if (isFileUpload) {
+    if (isMultipleImageUpload) {
+      // Multiple image upload endpoint (Vision API)
+      endpoint = `/api/vision/analyze-multiple-documents?t=${timestamp}`;
+      
+      // Remove the marker field before sending
+      formData.delete('is_multiple_image_upload');
+      
+      requestOptions = {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+          ...authHeaders
+        },
+        body: formData, // Send FormData as-is for multiple image uploads
+      };
+    } else if (isImageUpload) {
+      // Image upload endpoint (Vision API)
+      endpoint = `/api/vision/analyze-document?t=${timestamp}`;
+      
+      // Remove the marker field before sending
+      formData.delete('is_image_upload');
+      
+      requestOptions = {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+          ...authHeaders
+        },
+        body: formData, // Send FormData as-is for image uploads
+      };
+    } else if (isFileUpload) {
       // File upload endpoint
       endpoint = `/api/analyze/file?t=${timestamp}`;
       
@@ -168,7 +217,15 @@ class APIService {
     }
 
     console.log('Making request to:', endpoint);
-    console.log('Request method:', isFileUpload ? 'FormData (file)' : 'JSON (text)');
+    console.log('Request method:', 
+      isMultipleImageUpload ? 'FormData (multiple images)' :
+      isImageUpload ? 'FormData (single image)' :
+      isFileUpload ? 'FormData (file)' : 'JSON (text)'
+    );
+    
+    if (isMultipleImageUpload) {
+      console.log('Multiple image files being sent:', formData.getAll('files').length);
+    }
 
     const response = await fetch(endpoint, requestOptions);
     console.log('Fetch response status:', response.status, response.statusText);
@@ -195,7 +252,10 @@ class APIService {
     const requestId = Math.random().toString(36).substring(2, 15);
     console.log(`[${requestId}] Backend response received at`, new Date().toISOString(), ':', backendResponse);
 
-    const transformedResponse = this.transformBackendResponse(backendResponse);
+    // Handle Vision API response format differently
+    const transformedResponse = (isImageUpload || isMultipleImageUpload)
+      ? this.transformVisionAPIResponse(backendResponse)
+      : this.transformBackendResponse(backendResponse);
     console.log(`[${requestId}] Final transformed response:`, transformedResponse);
 
     if (transformedResponse.success && transformedResponse.analysis) {
@@ -575,6 +635,56 @@ class APIService {
     return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
   }
 
+  private transformVisionAPIResponse(visionResponse: any): AnalysisResponse {
+    try {
+      console.log('🖼️ TRANSFORMING VISION API RESPONSE:', visionResponse);
+      
+      if (!visionResponse.success) {
+        return {
+          success: false,
+          error: visionResponse.error || 'Vision API analysis failed'
+        };
+      }
+
+      // Vision API returns a different structure
+      if (visionResponse.document_analysis) {
+        // This is a full document analysis from Vision API
+        const docAnalysis = visionResponse.document_analysis;
+        
+        // Create a mock analysis result that matches our expected format
+        const analysisResult: AnalysisResult = {
+          analysis_id: visionResponse.analysis_id || 'vision-' + Date.now(),
+          overall_risk: docAnalysis.overall_risk,
+          summary: docAnalysis.summary || 'Document analyzed from image using Vision API',
+          analysis_results: [], // Vision API doesn't provide clause-by-clause analysis yet
+          processing_time: visionResponse.text_extraction?.processing_time || 0,
+          enhanced_insights: {
+            vision_api_extraction: visionResponse.text_extraction,
+            warnings: visionResponse.warnings || []
+          }
+        };
+
+        return {
+          success: true,
+          analysis: analysisResult,
+          warnings: visionResponse.warnings || []
+        };
+      } else {
+        // This is just text extraction
+        return {
+          success: false,
+          error: 'Vision API returned text extraction only. Full document analysis not available.'
+        };
+      }
+    } catch (error) {
+      console.error('❌ Error transforming Vision API response:', error);
+      return {
+        success: false,
+        error: 'Failed to process Vision API response'
+      };
+    }
+  }
+
   private transformBackendResponse(backendResponse: any): AnalysisResponse {
     try {
       if (backendResponse.success !== undefined) {
@@ -710,6 +820,408 @@ class APIService {
     }
   }
 
+  // Vision API methods
+  async extractTextFromImage(file: File, preprocess: boolean = true): Promise<{
+    success: boolean;
+    extracted_text?: string;
+    high_confidence_text?: string;
+    confidence_scores?: any;
+    warnings?: string[];
+    error?: string;
+  }> {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('preprocess', preprocess.toString());
+
+      const authHeaders = await this.getAuthHeaders();
+
+      const response = await fetch('/api/vision/extract-text', {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          ...authHeaders
+        },
+        body: formData,
+      });
+
+      const result = await this.handleResponse(response);
+      
+      // Show dynamic notifications based on result
+      if (result.success) {
+        processingNotificationService.showProcessingNotifications(result, file.name);
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('Vision API text extraction error:', error);
+      
+      // Show rate limit notifications if applicable
+      if (error instanceof Error) {
+        processingNotificationService.showRateLimitNotifications(error.message);
+      }
+      
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Image text extraction failed'
+      };
+    }
+  }
+
+  async analyzeImageDocument(
+    file: File, 
+    documentType: string = 'general_contract',
+    userExpertiseLevel: string = 'beginner'
+  ): Promise<{
+    success: boolean;
+    analysis_id?: string;
+    text_extraction?: any;
+    document_analysis?: any;
+    warnings?: string[];
+    error?: string;
+  }> {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('document_type', documentType);
+      formData.append('user_expertise_level', userExpertiseLevel);
+
+      const authHeaders = await this.getAuthHeaders();
+
+      const response = await fetch('/api/vision/analyze-document', {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          ...authHeaders
+        },
+        body: formData,
+      });
+
+      const result = await this.handleResponse(response);
+      
+      // Show dynamic notifications for image document analysis
+      if (result.success) {
+        processingNotificationService.showProcessingNotifications(result, file.name);
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('Vision API document analysis error:', error);
+      
+      // Show rate limit notifications if applicable
+      if (error instanceof Error) {
+        processingNotificationService.showRateLimitNotifications(error.message);
+      }
+      
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Image document analysis failed'
+      };
+    }
+  }
+
+  async analyzeMultipleImageDocuments(
+    files: File[],
+    documentType: string = 'general_contract',
+    userExpertiseLevel: string = 'beginner'
+  ): Promise<{
+    success: boolean;
+    analysis_id?: string;
+    total_images_processed?: number;
+    images_with_text?: number;
+    text_extraction?: any;
+    document_analysis?: any;
+    warnings?: string[];
+    error?: string;
+  }> {
+    try {
+      const formData = new FormData();
+      
+      // Append all files
+      files.forEach((file) => {
+        formData.append('files', file);
+      });
+      
+      formData.append('document_type', documentType);
+      formData.append('user_expertise_level', userExpertiseLevel);
+
+      const authHeaders = await this.getAuthHeaders();
+
+      const response = await fetch('/api/vision/analyze-multiple-documents', {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          ...authHeaders
+        },
+        body: formData,
+      });
+
+      const result = await this.handleResponse(response);
+      
+      // Show dynamic notifications for multiple image analysis
+      if (result.success) {
+        processingNotificationService.showProcessingNotifications(
+          result, 
+          `${files.length} images`
+        );
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('Multiple image document analysis error:', error);
+      
+      // Show rate limit notifications if applicable
+      if (error instanceof Error) {
+        processingNotificationService.showRateLimitNotifications(error.message);
+      }
+      
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Multiple image document analysis failed'
+      };
+    }
+  }
+
+  async getVisionServiceStatus(): Promise<{
+    success: boolean;
+    dual_vision_service?: any;
+    vision_api?: any;
+    document_ai?: any;
+    error?: string;
+  }> {
+    try {
+      const response = await fetch('/api/vision/status', {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+        },
+      });
+
+      return await this.handleResponse(response);
+    } catch (error) {
+      console.error('Vision service status error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get Vision service status'
+      };
+    }
+  }
+
+  async getVisionSupportedFormats(): Promise<{
+    success: boolean;
+    supported_formats?: any;
+    file_size_limits?: any;
+    processing_methods?: any;
+    error?: string;
+  }> {
+    try {
+      const response = await fetch('/api/vision/supported-formats', {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+        },
+      });
+
+      return await this.handleResponse(response);
+    } catch (error) {
+      console.error('Vision supported formats error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get supported formats'
+      };
+    }
+  }
+
+  // Batch processing methods
+  async processBatchSequential(
+    files: File[], 
+    options: {
+      documentType?: string;
+      userExpertiseLevel?: string;
+      onProgress?: (completed: number, total: number, currentFile: string) => void;
+    } = {}
+  ): Promise<{
+    success: boolean;
+    results: Array<{
+      file: File;
+      result: any;
+      error?: string;
+      processingTime: number;
+    }>;
+    totalTime: number;
+    error?: string;
+  }> {
+    const startTime = Date.now();
+    const results: Array<{
+      file: File;
+      result: any;
+      error?: string;
+      processingTime: number;
+    }> = [];
+
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const fileStartTime = Date.now();
+        
+        // Notify progress
+        options.onProgress?.(i, files.length, file.name);
+
+        try {
+          const isImage = file.type.startsWith('image/');
+          let result;
+
+          if (isImage) {
+            // Process image with Vision API
+            result = await this.extractTextFromImage(file);
+          } else {
+            // Process document with Document AI
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('document_type', options.documentType || 'general_contract');
+            formData.append('user_expertise_level', options.userExpertiseLevel || 'beginner');
+            formData.append('is_file_upload', 'true');
+
+            result = await this.analyzeDocument(formData);
+          }
+
+          results.push({
+            file,
+            result,
+            processingTime: Date.now() - fileStartTime
+          });
+
+        } catch (error) {
+          results.push({
+            file,
+            result: null,
+            error: error instanceof Error ? error.message : 'Processing failed',
+            processingTime: Date.now() - fileStartTime
+          });
+        }
+      }
+
+      // Final progress update
+      options.onProgress?.(files.length, files.length, 'Complete');
+
+      // Show batch notifications
+      const batchResult = {
+        success: true,
+        results,
+        totalTime: Date.now() - startTime
+      };
+      
+      processingNotificationService.showBatchNotifications(batchResult);
+      processingNotificationService.showPerformanceNotifications(batchResult.totalTime, files.length);
+
+      return batchResult;
+
+    } catch (error) {
+      return {
+        success: false,
+        results,
+        totalTime: Date.now() - startTime,
+        error: error instanceof Error ? error.message : 'Batch processing failed'
+      };
+    }
+  }
+
+  async processBatchParallel(
+    files: File[], 
+    options: {
+      documentType?: string;
+      userExpertiseLevel?: string;
+      maxConcurrent?: number;
+    } = {}
+  ): Promise<{
+    success: boolean;
+    results: Array<{
+      file: File;
+      result: any;
+      error?: string;
+      processingTime: number;
+    }>;
+    totalTime: number;
+    error?: string;
+  }> {
+    const startTime = Date.now();
+    const maxConcurrent = options.maxConcurrent || 3; // Limit concurrent requests
+
+    try {
+      // Process files in batches to avoid overwhelming the API
+      const results: Array<{
+        file: File;
+        result: any;
+        error?: string;
+        processingTime: number;
+      }> = [];
+
+      for (let i = 0; i < files.length; i += maxConcurrent) {
+        const batch = files.slice(i, i + maxConcurrent);
+        
+        const batchPromises = batch.map(async (file) => {
+          const fileStartTime = Date.now();
+          
+          try {
+            const isImage = file.type.startsWith('image/');
+            let result;
+
+            if (isImage) {
+              // Process image with Vision API
+              result = await this.extractTextFromImage(file);
+            } else {
+              // Process document with Document AI
+              const formData = new FormData();
+              formData.append('file', file);
+              formData.append('document_type', options.documentType || 'general_contract');
+              formData.append('user_expertise_level', options.userExpertiseLevel || 'beginner');
+              formData.append('is_file_upload', 'true');
+
+              result = await this.analyzeDocument(formData);
+            }
+
+            return {
+              file,
+              result,
+              processingTime: Date.now() - fileStartTime
+            };
+
+          } catch (error) {
+            return {
+              file,
+              result: null,
+              error: error instanceof Error ? error.message : 'Processing failed',
+              processingTime: Date.now() - fileStartTime
+            };
+          }
+        });
+
+        const batchResults = await Promise.all(batchPromises);
+        results.push(...batchResults);
+      }
+
+      // Show batch notifications
+      const batchResult = {
+        success: true,
+        results,
+        totalTime: Date.now() - startTime
+      };
+      
+      processingNotificationService.showBatchNotifications(batchResult);
+      processingNotificationService.showPerformanceNotifications(batchResult.totalTime, files.length);
+
+      return batchResult;
+
+    } catch (error) {
+      return {
+        success: false,
+        results: [],
+        totalTime: Date.now() - startTime,
+        error: error instanceof Error ? error.message : 'Batch processing failed'
+      };
+    }
+  }
+
   async checkHealth(): Promise<HealthResponse> {
     try {
       const response = await fetch('/health', {
@@ -728,7 +1240,8 @@ class APIService {
           'translation': true,
           'risk_analysis': true,
           'export': true,
-          'groq_api': true
+          'groq_api': true,
+          'vision_api': true
         };
       }
 

@@ -1,16 +1,18 @@
 import { motion } from 'framer-motion';
-import { FileText, Shield, Search, ArrowRight } from 'lucide-react';
+import { FileText, Shield, Search, Images, ArrowRight } from 'lucide-react';
 
 interface ProductSectionProps {
   onNavigateToDocumentSummary: () => void;
   onNavigateToRiskAssessment: () => void;
   onNavigateToClauseAnalysis: () => void;
+  onNavigateToMultipleImages: () => void;
 }
 
 export function ProductSection({ 
   onNavigateToDocumentSummary, 
   onNavigateToRiskAssessment, 
-  onNavigateToClauseAnalysis 
+  onNavigateToClauseAnalysis,
+  onNavigateToMultipleImages
 }: ProductSectionProps) {
   const products = [
     {
@@ -36,6 +38,14 @@ export function ProductSection({
       icon: Search,
       color: 'from-purple-500 to-pink-500',
       onClick: onNavigateToClauseAnalysis
+    },
+    {
+      id: 'multiple-images',
+      title: 'Multiple Image Analysis',
+      description: 'Upload multiple images of legal documents to analyze them as a single comprehensive document using OCR.',
+      icon: Images,
+      color: 'from-orange-500 to-red-500',
+      onClick: onNavigateToMultipleImages
     }
   ];
 
@@ -56,7 +66,7 @@ export function ProductSection({
           </p>
         </motion.div>
 
-        <div className="grid md:grid-cols-3 gap-8">
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
           {products.map((product, index) => {
             const IconComponent = product.icon;
             return (

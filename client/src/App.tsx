@@ -16,6 +16,7 @@ import { TermsOfService } from './components/TermsOfService';
 import { AboutUs } from './components/AboutUs';
 import { ContactUs } from './components/ContactUs';
 import { ProductSection } from './components/ProductSection';
+import { MultipleImageAnalysis } from './components/MultipleImageAnalysis';
 import { apiService } from './services/apiService';
 import { notificationService } from './services/notificationService';
 
@@ -70,7 +71,7 @@ export interface Classification {
 }
 
 function App() {
-  const [currentView, setCurrentView] = useState<'home' | 'results' | 'profile' | 'privacy' | 'terms' | 'about' | 'contact' | 'document-summary' | 'risk-assessment' | 'clause-analysis'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'results' | 'profile' | 'privacy' | 'terms' | 'about' | 'contact' | 'document-summary' | 'risk-assessment' | 'clause-analysis' | 'multiple-images'>('home');
   const [isLoading, setIsLoading] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [fileInfo, setFileInfo] = useState<FileInfo | null>(null);
@@ -82,7 +83,8 @@ function App() {
   // Handle scroll behavior when view changes
   useEffect(() => {
     if (currentView === 'privacy' || currentView === 'terms' || currentView === 'about' || currentView === 'contact' || 
-        currentView === 'document-summary' || currentView === 'risk-assessment' || currentView === 'clause-analysis') {
+        currentView === 'document-summary' || currentView === 'risk-assessment' || currentView === 'clause-analysis' || 
+        currentView === 'multiple-images') {
       // Ensure we're at the top when viewing full-page components
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -215,6 +217,11 @@ function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const handleNavigateToMultipleImages = () => {
+    setCurrentView('multiple-images');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   return (
     <ErrorBoundary>
       <AuthProvider>
@@ -235,6 +242,7 @@ function App() {
                     onNavigateToDocumentSummary={handleNavigateToDocumentSummary}
                     onNavigateToRiskAssessment={handleNavigateToRiskAssessment}
                     onNavigateToClauseAnalysis={handleNavigateToClauseAnalysis}
+                    onNavigateToMultipleImages={handleNavigateToMultipleImages}
                   />
                   <ErrorBoundary fallback={
                     <div className="py-20 text-center">
@@ -350,6 +358,38 @@ function App() {
                       >
                         Back to Home
                       </button>
+                    </div>
+                  </div>
+                </div>
+              ) : currentView === 'multiple-images' ? (
+                <div className="py-20">
+                  <div className="container mx-auto px-6">
+                    <div className="max-w-6xl mx-auto">
+                      <ErrorBoundary fallback={
+                        <div className="py-20 text-center">
+                          <p className="text-red-400">Multiple image analysis component failed to load</p>
+                        </div>
+                      }>
+                        <ProtectedRoute
+                          requireAuth={false}
+                          onAuthRequired={() => handleShowAuth('login')}
+                        >
+                          <MultipleImageAnalysis 
+                            onAnalysisComplete={(result) => {
+                              setAnalysisResult(result);
+                              setCurrentView('results');
+                            }}
+                          />
+                        </ProtectedRoute>
+                      </ErrorBoundary>
+                      <div className="text-center mt-8">
+                        <button
+                          onClick={handleBackToHome}
+                          className="inline-flex items-center px-6 py-3 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-colors"
+                        >
+                          Back to Home
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>

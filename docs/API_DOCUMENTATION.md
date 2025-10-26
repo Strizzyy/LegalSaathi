@@ -513,6 +513,193 @@ Clear conversation history.
 }
 ```
 
+### Vision API Endpoints
+
+The Vision API endpoints provide image text extraction and document analysis capabilities using Google Cloud Vision API with intelligent fallback mechanisms.
+
+#### POST /api/vision/extract-text
+Extract text from uploaded image using Vision API.
+
+**Rate Limit:** 10 requests/minute
+
+**Request (multipart/form-data):**
+- `file`: Image file (JPEG, PNG, WEBP, BMP, GIF, max 20MB)
+- `preprocess`: Enable image preprocessing for legal documents (default: true)
+
+**Supported Image Formats:**
+- JPEG/JPG (recommended for photos)
+- PNG (recommended for screenshots)
+- WEBP, BMP, GIF (also supported)
+- Maximum file size: 20MB
+- Maximum resolution: 4096x4096 pixels
+- Minimum resolution: 100x100 pixels
+
+**Response:**
+```json
+{
+  "success": true,
+  "filename": "contract.jpg",
+  "extracted_text": "Full extracted text from image",
+  "high_confidence_text": "Text with confidence > 70%",
+  "confidence_scores": {
+    "average_confidence": 0.85,
+    "high_confidence_ratio": 0.78,
+    "min_confidence_threshold": 0.7,
+    "total_text_blocks": 25,
+    "high_confidence_blocks": 20
+  },
+  "text_blocks_detected": 25,
+  "legal_sections_identified": 3,
+  "processing_metadata": {
+    "api_used": "Google Cloud Vision API",
+    "processing_time": 2.1,
+    "image_preprocessing_applied": true
+  },
+  "warnings": [
+    "Low average confidence (75%). Text extraction may be inaccurate."
+  ]
+}
+```
+
+**Error Response (Vision API not available):**
+```json
+{
+  "success": false,
+  "filename": "contract.jpg",
+  "extracted_text": "",
+  "error": "Vision API not configured - image text extraction not available",
+  "fallback_used": true,
+  "image_info": {
+    "width": 1200,
+    "height": 800,
+    "size_bytes": 245760
+  }
+}
+```
+
+#### POST /api/vision/analyze-document
+Analyze legal document from image using Vision API + document analysis pipeline.
+
+**Rate Limit:** 5 requests/minute
+
+**Request (multipart/form-data):**
+- `file`: Image file (JPEG, PNG, WEBP, BMP, GIF, max 20MB)
+- `document_type`: Document type (default: "general_contract")
+- `user_expertise_level`: User expertise level (default: "beginner")
+
+**Response:**
+```json
+{
+  "success": true,
+  "analysis_id": "uuid-string",
+  "filename": "contract.jpg",
+  "text_extraction": {
+    "method": "Google Cloud Vision API",
+    "extracted_text_length": 2450,
+    "confidence_scores": {
+      "average_confidence": 0.85,
+      "high_confidence_ratio": 0.78,
+      "min_confidence_threshold": 0.7,
+      "total_text_blocks": 25,
+      "high_confidence_blocks": 20
+    },
+    "text_blocks_detected": 25,
+    "legal_sections_identified": 3
+  },
+  "document_analysis": {
+    "overall_risk": {
+      "level": "YELLOW",
+      "score": 0.65,
+      "severity": "moderate",
+      "confidence_percentage": 82
+    },
+    "total_clauses": 8,
+    "processing_time": 3.2,
+    "summary": "Document analysis summary"
+  },
+  "warnings": [
+    "Text extraction confidence is below 80%. Legal analysis may be affected by OCR inaccuracies."
+  ]
+}
+```
+
+#### GET /api/vision/status
+Get status of Vision API services.
+
+**Response:**
+```json
+{
+  "dual_vision_service": {
+    "enabled": true,
+    "fallback_enabled": true
+  },
+  "document_ai": {
+    "enabled": true,
+    "project_id": "your-project-id",
+    "location": "us-central1",
+    "connectivity": "connected"
+  },
+  "vision_api": {
+    "enabled": true,
+    "project_id": "your-project-id", 
+    "location": "us-central1",
+    "connectivity": "connected"
+  },
+  "vision_api_details": {
+    "supported_formats": ["JPEG", "PNG", "WEBP", "BMP", "GIF"],
+    "max_file_size_mb": 20,
+    "max_resolution": [4096, 4096],
+    "min_confidence_threshold": 0.7,
+    "rate_limit_per_day": 100,
+    "cache_ttl_hours": 1
+  }
+}
+```
+
+#### GET /api/vision/supported-formats
+Get list of supported file formats for Vision API.
+
+**Response:**
+```json
+{
+  "success": true,
+  "supported_formats": {
+    "images": [
+      "image/jpeg", "image/jpg", "image/png",
+      "image/webp", "image/bmp", "image/gif"
+    ],
+    "documents": [
+      "application/pdf", "application/x-pdf",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "text/plain"
+    ]
+  },
+  "file_size_limits": {
+    "images": "20MB",
+    "documents": "20MB"
+  },
+  "processing_methods": {
+    "images": "Google Cloud Vision API",
+    "pdfs": "Google Document AI",
+    "fallback": "Basic text extraction"
+  }
+}
+```
+
+**Vision API Rate Limits:**
+- Text extraction: 100 requests per user per day
+- Cost monitoring: $1.50 per user per day
+- Response caching: 1 hour TTL
+- Automatic fallback when limits exceeded
+
+**Vision API Error Codes:**
+- `503`: Vision API service not available
+- `429`: Rate limit exceeded (100 requests/day)
+- `413`: File size exceeds 20MB limit
+- `422`: Unsupported image format or corrupted file
+- `400`: Image too small (minimum 100x100 pixels)
+
 ### Document Comparison Endpoints
 
 #### POST /api/compare

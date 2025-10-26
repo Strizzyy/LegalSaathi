@@ -309,70 +309,7 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
             </div>
           </motion.div>
 
-          {/* Document Info */}
-          {(fileInfo || classification || warnings.length > 0) && (
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.1 }}
-              className="bg-gradient-to-r from-slate-800/60 to-slate-700/60 backdrop-blur-sm border border-slate-600/50 rounded-2xl p-8 mb-10 shadow-xl"
-            >
-              <h2 className="text-2xl font-bold text-white mb-6 flex items-center">
-                <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center mr-3">
-                  <Info className="w-4 h-4 text-white" />
-                </div>
-                Document Information
-              </h2>
 
-              <div className="grid md:grid-cols-3 gap-8">
-                {fileInfo && (
-                  <div className="bg-slate-700/30 rounded-xl p-6 border border-slate-600/50">
-                    <h3 className="font-bold text-white mb-4 text-lg">File Details</h3>
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-400">Filename:</span>
-                        <span className="text-slate-200 font-medium truncate ml-2">{fileInfo.filename}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-400">Size:</span>
-                        <span className="text-slate-200 font-medium">{formatFileSize(fileInfo.size)}</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {classification && (
-                  <div className="bg-slate-700/30 rounded-xl p-6 border border-slate-600/50">
-                    <h3 className="font-bold text-white mb-4 text-lg">Document Classification</h3>
-                    <div className="space-y-3">
-                      <div className="flex items-center space-x-2">
-                        <span className="px-4 py-2 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 text-blue-400 border border-blue-500/50 rounded-xl text-sm font-semibold">
-                          {classification.document_type.value.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-400">Confidence:</span>
-                        <span className="text-slate-200 font-medium">{formatPercentage(classification.confidence)}</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {warnings.length > 0 && (
-                  <div className="bg-slate-700/30 rounded-xl p-6 border border-slate-600/50">
-                    <h3 className="font-bold text-white mb-4 text-lg">Processing Notes</h3>
-                    <div className="space-y-3">
-                      {warnings.map((warning, index) => (
-                        <div key={index} className="bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-500/50 rounded-xl p-4">
-                          <p className="text-yellow-300 text-sm leading-relaxed">{warning}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          )}
 
           {/* AI Analysis Transparency */}
           <motion.div

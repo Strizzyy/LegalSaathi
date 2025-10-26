@@ -8,7 +8,7 @@ import time
 import logging
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import Dict, Any
+from typing import Dict, Any, List
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -89,6 +89,7 @@ from controllers.email_controller import EmailController
 from controllers.support_controller import router as support_router
 from controllers.auth_controller import AuthController
 from controllers.insights_controller import router as insights_router
+from controllers.vision_controller import VisionController
 
 # Import services for cleanup
 from services.cache_service import CacheService
@@ -201,6 +202,13 @@ try:
 except Exception as e:
     logger.warning(f"Authentication controller failed to initialize: {e}")
     auth_controller = None
+
+try:
+    vision_controller = VisionController()
+    logger.info("Vision API controller initialized")
+except Exception as e:
+    logger.warning(f"Vision API controller failed to initialize: {e}")
+    vision_controller = None
 
 # Include routers
 app.include_router(support_router)
@@ -378,10 +386,14 @@ async def analyze_document_file(
     user_expertise_level: str = Form("beginner")
 ):
     """Analyze uploaded document file"""
+    # Get user ID from request (set by auth middleware)
+    user_id = getattr(request.state, 'user_id', 'anonymous')
+    
     return await document_controller.analyze_document_file(
         file=file,
         document_type=document_type,
-        user_expertise_level=user_expertise_level
+        user_expertise_level=user_expertise_level,
+        user_id=user_id
     )
 
 
@@ -443,6 +455,102 @@ async def get_clause_details(analysis_id: str, clause_id: str):
 async def export_analysis(analysis_id: str, format: str = "pdf"):
     """Export analysis results"""
     return await document_controller.export_analysis(analysis_id, format)
+
+
+# Vision API endpoints for image processing
+@app.post("/api/vision/extract-text")
+@limiter.limit("10/minute")
+async def extract_text_from_image(
+    request: Request,
+    file: UploadFile = File(...),
+    preprocess: bool = True
+):
+    """Extract text from uploaded image using Vision API"""
+    if not vision_controller:
+        raise HTTPException(status_code=503, detail="Vision API service not available")
+    
+    # Get user ID from request (set by auth middleware)
+    user_id = getattr(request.state, 'user_id', 'anonymous')
+    
+    return await vision_controller.extract_text_from_image(
+        file=file,
+        user_id=user_id,
+        preprocess=preprocess
+    )
+
+
+@app.post("/api/vision/analyze-document")
+@limiter.limit("5/minute")
+async def analyze_image_document(
+    request: Request,
+    file: UploadFile = File(...),
+    document_type: str = Form("general_contract"),
+    user_expertise_level: str = Form("beginner")
+):
+    """Analyze legal document from image using Vision API + document analysis"""
+    if not vision_controller:
+        raise HTTPException(status_code=503, detail="Vision API service not available")
+    
+    # Get user ID from request (set by auth middleware)
+    user_id = getattr(request.state, 'user_id', 'anonymous')
+    
+    return await vision_controller.analyze_image_document(
+        file=file,
+        document_type=document_type,
+        user_expertise_level=user_expertise_level,
+        user_id=user_id
+    )
+
+
+@app.post("/api/vision/analyze-multiple-documents")
+@limiter.limit("3/minute")
+async def analyze_multiple_image_documents(
+    request: Request,
+    files: List[UploadFile] = File(...),
+    document_type: str = Form("general_contract"),
+    user_expertise_level: str = Form("beginner")
+):
+    """Analyze multiple legal document images using Vision API + document analysis"""
+    if not vision_controller:
+        raise HTTPException(status_code=503, detail="Vision API service not available")
+    
+    # Get user ID from request (set by auth middleware)
+    user_id = getattr(request.state, 'user_id', 'anonymous')
+    
+    return await vision_controller.analyze_multiple_image_documents(
+        files=files,
+        document_type=document_type,
+        user_expertise_level=user_expertise_level,
+        user_id=user_id
+    )
+
+
+@app.get("/api/vision/status")
+async def get_vision_service_status():
+    """Get status of Vision API services"""
+    if not vision_controller:
+        return {
+            "success": False,
+            "error": "Vision API service not available",
+            "dual_vision_service": {"enabled": False},
+            "vision_api": {"enabled": False},
+            "document_ai": {"enabled": False}
+        }
+    
+    return await vision_controller.get_vision_service_status()
+
+
+@app.get("/api/vision/supported-formats")
+async def get_vision_supported_formats():
+    """Get list of supported file formats for Vision API"""
+    if not vision_controller:
+        return {
+            "success": False,
+            "error": "Vision API service not available",
+            "supported_formats": {"images": [], "documents": []}
+        }
+    
+    return await vision_controller.get_supported_formats()
 
 
 # Translation endpoints

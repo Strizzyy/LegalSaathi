@@ -61,7 +61,8 @@ class DocumentController:
         self,
         file: UploadFile = File(...),
         document_type: str = Form(...),
-        user_expertise_level: str = Form("beginner")
+        user_expertise_level: str = Form("beginner"),
+        user_id: str = "anonymous"  # Will be populated by auth middleware
     ) -> DocumentAnalysisResponse:
         """Handle file upload and analysis"""
         try:
@@ -71,7 +72,7 @@ class DocumentController:
             if not file.filename:
                 raise HTTPException(status_code=400, detail="No file provided")
             
-            # Validate file type
+            # Validate file type (expanded for images)
             allowed_types = {
                 'pdf': [
                     'application/pdf',
@@ -85,7 +86,13 @@ class DocumentController:
                     'application/msword',
                     'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
                 ],
-                'txt': ['text/plain']
+                'txt': ['text/plain'],
+                'jpg': ['image/jpeg', 'image/jpg'],
+                'jpeg': ['image/jpeg', 'image/jpg'],
+                'png': ['image/png'],
+                'webp': ['image/webp'],
+                'bmp': ['image/bmp'],
+                'gif': ['image/gif']
             }
             
             content_type = file.content_type or 'application/octet-stream'
@@ -108,17 +115,17 @@ class DocumentController:
                 else:
                     raise HTTPException(
                         status_code=422,
-                        detail=f"Unsupported file type: {content_type}. Supported types: PDF, DOC, DOCX, TXT"
+                        detail=f"Unsupported file type: {content_type}. Supported types: PDF, DOC, DOCX, TXT, JPEG, PNG, WEBP, BMP, GIF"
                     )
             
             try:
-                # Read file content with size limit (10MB)
-                file_content = await file.read(10 * 1024 * 1024)  # 10MB limit
-                if len(file_content) == 10 * 1024 * 1024:
-                    # File might be larger than 10MB
+                # Read file content with size limit (20MB for images)
+                file_content = await file.read(20 * 1024 * 1024)  # 20MB limit
+                if len(file_content) == 20 * 1024 * 1024:
+                    # File might be larger than 20MB
                     raise HTTPException(
                         status_code=422,
-                        detail="File size exceeds maximum limit of 10MB"
+                        detail="File size exceeds maximum limit of 20MB"
                     )
             except Exception as e:
                 logger.error(f"Error reading file: {e}")
@@ -127,11 +134,12 @@ class DocumentController:
                     detail="Error reading file. Please ensure the file is not corrupted."
                 )
             
-            # Process file using file service
-            processing_result = self.file_service.process_file_content(
+            # Process file using enhanced file service with dual vision
+            processing_result = await self.file_service.process_file_content_enhanced(
                 file_content, 
                 file.filename, 
-                content_type
+                content_type,
+                user_id
             )
             
             if not processing_result.success:

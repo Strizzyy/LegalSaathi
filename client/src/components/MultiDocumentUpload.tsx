@@ -11,32 +11,47 @@ import {
   Shield,
   Globe,
   Image,
-  Images,
-  Camera
+  Camera,
+  FolderOpen,
+  Layers
 } from 'lucide-react';
 import { cn, formatFileSize } from '../utils';
 import { notificationService } from '../services/notificationService';
 import { validationService } from '../services/validationService';
 import { experienceLevelService, type ExperienceLevel } from '../services/experienceLevelService';
 import { VoiceInput } from './VoiceInput';
-import UniversalDropZone from './UniversalDropZone';
-import { MultiFileDropZone } from './MultiFileDropZone';
+import MultiFileDropZone from './MultiFileDropZone';
 
-interface DocumentUploadProps {
+interface MultiDocumentUploadProps {
   onSubmit: (formData: FormData) => void;
+  onBatchSubmit?: (files: File[], options: BatchProcessingOptions) => void;
 }
 
-export const DocumentUpload = React.memo(function DocumentUpload({ onSubmit }: DocumentUploadProps) {
+interface BatchProcessingOptions {
+  documentType: string;
+  userExpertiseLevel: ExperienceLevel;
+  userQuestions?: string;
+  processIndividually: boolean;
+  combineResults: boolean;
+}
+
+export const MultiDocumentUpload = React.memo(function MultiDocumentUpload({ 
+  onSubmit, 
+  onBatchSubmit 
+}: MultiDocumentUploadProps) {
   const [documentText, setDocumentText] = useState('');
-  const [selectedFile, setSelectedFile] = useState<globalThis.File | null>(null);
-  const [selectedFiles, setSelectedFiles] = useState<globalThis.File[]>([]);
-  const [isMultipleMode, setIsMultipleMode] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [expertiseLevel, setExpertiseLevel] = useState<ExperienceLevel>(() => 
     experienceLevelService.getCurrentLevel()
   );
   const [userQuestions, setUserQuestions] = useState('');
   const [charCount, setCharCount] = useState(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [processingMode, setProcessingMode] = useState<'single' | 'batch'>('single');
+  const [batchOptions, setBatchOptions] = useState({
+    processIndividually: true,
+    combineResults: false
+  });
   
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -44,11 +59,13 @@ export const DocumentUpload = React.memo(function DocumentUpload({ onSubmit }: D
   useEffect(() => {
     return () => {
       // Clean up any object URLs if we were using them
-      if (selectedFile && typeof selectedFile === 'object') {
-        console.log('Cleaning up file references');
-      }
+      selectedFiles.forEach(file => {
+        if (typeof file === 'object') {
+          console.log('Cleaning up file references');
+        }
+      });
     };
-  }, [selectedFile]);
+  }, [selectedFiles]);
 
   // Demo samples
   const demoSamples = {
@@ -99,43 +116,48 @@ CONFIDENTIALITY TERMS:
 4. DURATION: This agreement remains in effect INDEFINITELY, even after termination of business relationship.`
   };
 
-  // Helper function to check if file is an image
+  // Helper functions
   const isImageFile = useCallback((file: File) => {
     return file.type.startsWith('image/');
   }, []);
 
-  const handleFileSelect = useCallback((file: File) => {
-    setSelectedFile(file);
-    setSelectedFiles([]);
-    setIsMultipleMode(false);
-    setErrors(prev => ({ ...prev, file: '' }));
-  }, []);
+  const getFileStats = useCallback(() => {
+    const imageCount = selectedFiles.filter(isImageFile).length;
+    const docCount = selectedFiles.length - imageCount;
+    return { imageCount, docCount, total: selectedFiles.length };
+  }, [selectedFiles, isImageFile]);
 
-  const handleMultipleFilesSelect = useCallback((files: File[]) => {
-    // The MultiFileDropZone already filters and validates files
-    // We just need to update our state with the complete list
-    console.log('Received files from MultiFileDropZone:', files.length, files.map(f => f.name));
+  // Event handlers
+  const handleFilesSelect = useCallback((files: File[]) => {
     setSelectedFiles(files);
-    setSelectedFile(null);
-    setIsMultipleMode(true);
-    setErrors(prev => ({ ...prev, file: '' }));
+    setErrors(prev => ({ ...prev, files: '' }));
+    
+    // Auto-switch to batch mode if multiple files
+    if (files.length > 1) {
+      setProcessingMode('batch');
+    } else if (files.length === 1) {
+      setProcessingMode('single');
+    }
   }, []);
 
-  const handleRemoveMultipleFile = useCallback((fileId: string) => {
-    // Find the file to remove by matching the fileId with file properties
-    // Since MultiFileDropZone creates IDs like `${file.name}-${Date.now()}-${Math.random()}`
-    // we need to remove the file from our selectedFiles array
-    console.log('Remove file requested:', fileId);
-    
-    // The MultiFileDropZone will handle the removal internally and call onFilesSelect with updated list
-    // We don't need to do anything here as the updated list will come through handleMultipleFilesSelect
+  const handleRemoveFile = useCallback((fileId: string) => {
+    // Since we don't have file IDs in the simple array, we'll need to match by name and size
+    // This is a simplified approach - in production, you'd want proper file IDs
+    setSelectedFiles(prev => {
+      const newFiles = [...prev];
+      // Remove the first matching file (this is a limitation of the simple approach)
+      const index = newFiles.findIndex(f => `${f.name}-${f.size}` === fileId);
+      if (index > -1) {
+        newFiles.splice(index, 1);
+      }
+      return newFiles;
+    });
   }, []);
 
   const handleClearAllFiles = useCallback(() => {
     setSelectedFiles([]);
-    setSelectedFile(null);
-    setIsMultipleMode(false);
-    setErrors(prev => ({ ...prev, file: '' }));
+    setProcessingMode('single');
+    setErrors(prev => ({ ...prev, files: '' }));
   }, []);
 
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -150,20 +172,12 @@ CONFIDENTIALITY TERMS:
     }
   };
 
-  const clearFile = useCallback(() => {
-    setSelectedFile(null);
-    setSelectedFiles([]);
-    setIsMultipleMode(false);
-    // Clear any file-related errors
-    setErrors(prev => ({ ...prev, file: '' }));
-  }, []);
-
   const loadDemoSample = useCallback((sampleType: keyof typeof demoSamples) => {
     try {
       const sampleText = demoSamples[sampleType];
       setDocumentText(sampleText);
       setCharCount(sampleText.length);
-      clearFile();
+      handleClearAllFiles();
       // Clear any text-related errors
       setErrors(prev => ({ ...prev, text: '', documentContent: '' }));
       notificationService.success(`${sampleType.charAt(0).toUpperCase() + sampleType.slice(1)} sample loaded`);
@@ -171,103 +185,102 @@ CONFIDENTIALITY TERMS:
       console.error('Error loading demo sample:', error);
       notificationService.error('Failed to load demo sample');
     }
-  }, [clearFile]);
+  }, [handleClearAllFiles]);
 
+  const handleSingleFileSubmit = useCallback((e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+   
+    try {
+      // Validate that we have content
+      if (selectedFiles.length === 0 && !documentText.trim()) {
+        setErrors({ documentContent: 'Please provide a document or paste text to analyze' });
+        notificationService.error('Please provide a document or paste text to analyze');
+        return;
+      }
 
+      // Clear errors
+      setErrors({});
 
-  
-const handleSubmit = useCallback(async (e: React.FormEvent<HTMLFormElement>) => {
-  e.preventDefault();
- 
-  try {
-    // Add a small delay to ensure state is properly updated
-    await new Promise(resolve => setTimeout(resolve, 100));
-    
-    // Get current state values to avoid stale closures
-    const currentSelectedFiles = selectedFiles;
-    const currentSelectedFile = selectedFile;
-    const currentDocumentText = documentText.trim();
-    
-    console.log('Form submission - Current state:', {
-      selectedFiles: currentSelectedFiles.length,
-      selectedFile: currentSelectedFile?.name,
-      documentText: currentDocumentText.length
-    });
-    
-    // Validate that we have content
-    if (!currentSelectedFile && currentSelectedFiles.length === 0 && !currentDocumentText) {
-      setErrors({ documentContent: 'Please provide a document or paste text to analyze' });
-      notificationService.error('Please provide a document or paste text to analyze');
+      const formData = new FormData();
+
+      if (selectedFiles.length > 0) {
+        const file = selectedFiles[0]; // Use first file for single mode
+        
+        // Check if it's an image file to use Vision API
+        if (isImageFile(file)) {
+          // For image files - use Vision API endpoint
+          formData.append('file', file);
+          formData.append('document_type', 'general_contract');
+          formData.append('user_expertise_level', expertiseLevel);
+          
+          // Mark this as an image upload for Vision API
+          formData.append('is_image_upload', 'true');
+        } else {
+          // For document files - use regular document analysis endpoint
+          formData.append('file', file);
+          formData.append('document_type', 'general_contract');
+          formData.append('user_expertise_level', expertiseLevel);
+          
+          // Mark this as a file upload
+          formData.append('is_file_upload', 'true');
+        }
+      } else if (documentText.trim()) {
+        // For text analysis
+        formData.append('document_text', documentText.trim());
+        formData.append('document_type', 'general_contract');
+        formData.append('user_expertise_level', expertiseLevel);
+        
+        if (userQuestions.trim()) {
+          formData.append('user_questions', userQuestions.trim());
+        }
+        
+        // Mark this as text analysis
+        formData.append('is_file_upload', 'false');
+      }
+
+      onSubmit(formData);
+    } catch (error) {
+      console.error('Error submitting form:', error);
+      notificationService.error('Failed to submit document. Please try again.');
+    }
+  }, [selectedFiles, documentText, expertiseLevel, userQuestions, onSubmit, isImageFile]);
+
+  const handleBatchSubmit = useCallback((e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    if (selectedFiles.length === 0) {
+      setErrors({ files: 'Please select files for batch processing' });
+      notificationService.error('Please select files for batch processing');
       return;
     }
 
-    // Clear errors
-    setErrors({});
-
-    const formData = new FormData();
-
-    if (currentSelectedFiles.length > 0) {
-      console.log('Submitting multiple images:', currentSelectedFiles.length, currentSelectedFiles.map(f => f.name));
-      
-      // Multiple image files - use multiple image analysis endpoint
-      currentSelectedFiles.forEach((file, index) => {
-        console.log(`Appending file ${index + 1}:`, file.name, file.size);
-        formData.append('files', file);
-      });
-      formData.append('document_type', 'general_contract');
-      formData.append('user_expertise_level', expertiseLevel);
-      
-      // Mark this as multiple image upload
-      formData.append('is_multiple_image_upload', 'true');
-      
-      console.log('FormData for multiple images prepared, files count:', formData.getAll('files').length);
-    } else if (currentSelectedFile) {
-      // Single file
-      if (isImageFile(currentSelectedFile)) {
-        // For image files - use Vision API endpoint
-        formData.append('file', currentSelectedFile);
-        formData.append('document_type', 'general_contract');
-        formData.append('user_expertise_level', expertiseLevel);
-        
-        // Mark this as an image upload for Vision API
-        formData.append('is_image_upload', 'true');
-      } else {
-        // For document files - use regular document analysis endpoint
-        formData.append('file', currentSelectedFile); // Backend expects 'file'
-        formData.append('document_type', 'general_contract');
-        formData.append('user_expertise_level', expertiseLevel);
-        
-        // Mark this as a file upload
-        formData.append('is_file_upload', 'true');
-      }
-    } else if (currentDocumentText) {
-      // For text analysis - use the correct field name that your backend expects
-      formData.append('document_text', currentDocumentText); // Backend expects 'document_text'
-      formData.append('document_type', 'general_contract');
-      formData.append('user_expertise_level', expertiseLevel);
-      
-      if (userQuestions.trim()) {
-        formData.append('user_questions', userQuestions.trim());
-      }
-      
-      // Mark this as text analysis
-      formData.append('is_file_upload', 'false');
+    if (!onBatchSubmit) {
+      notificationService.error('Batch processing not supported');
+      return;
     }
 
-    onSubmit(formData);
-  } catch (error) {
-    console.error('Error submitting form:', error);
-    notificationService.error('Failed to submit document. Please try again.');
-  }
-}, [selectedFile, selectedFiles, documentText, expertiseLevel, userQuestions, onSubmit, isImageFile]);
+    const options: BatchProcessingOptions = {
+      documentType: 'general_contract',
+      userExpertiseLevel: expertiseLevel,
+      userQuestions: userQuestions.trim() || undefined,
+      processIndividually: batchOptions.processIndividually,
+      combineResults: batchOptions.combineResults
+    };
+
+    onBatchSubmit(selectedFiles, options);
+  }, [selectedFiles, expertiseLevel, userQuestions, batchOptions, onBatchSubmit]);
+
+  const handleSubmit = processingMode === 'batch' ? handleBatchSubmit : handleSingleFileSubmit;
 
   // Store experience level when it changes
   React.useEffect(() => {
     experienceLevelService.setLevel(expertiseLevel);
   }, [expertiseLevel]);
 
+  const fileStats = getFileStats();
+
   return (
-    <section id="document-upload" className="py-20 relative">
+    <section id="multi-document-upload" className="py-20 relative">
       <div className="container mx-auto px-6">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
@@ -279,109 +292,157 @@ const handleSubmit = useCallback(async (e: React.FormEvent<HTMLFormElement>) => 
           {/* Section Header */}
           <div className="text-center mb-12">
             <h2 className="text-4xl font-bold text-white mb-4">
-              Universal Legal Document Analysis
+              Multi-Document Legal Analysis
             </h2>
-            <p className="text-xl text-slate-300 mb-4">
-              Upload single documents, multiple images, or paste text to get AI-powered analysis with risk assessment and plain-language explanations
+            <p className="text-xl text-slate-300">
+              Upload multiple documents and images for comprehensive AI-powered legal analysis
             </p>
-            <div className="flex items-center justify-center space-x-6 text-sm text-slate-400">
-              <div className="flex items-center">
-                <FileText className="w-4 h-4 mr-2" />
-                Single Documents
-              </div>
-              <div className="flex items-center">
-                <Images className="w-4 h-4 mr-2" />
-                Multiple Images (OCR)
-              </div>
-              <div className="flex items-center">
-                <Camera className="w-4 h-4 mr-2" />
-                Vision AI Analysis
-              </div>
-            </div>
           </div>
 
           {/* Problem Statement */}
           <div className="bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border border-cyan-500/30 rounded-2xl p-6 mb-8">
             <div className="flex items-start space-x-4">
               <div className="w-12 h-12 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-xl flex items-center justify-center flex-shrink-0">
-                <Shield className="w-6 h-6 text-white" />
+                <Layers className="w-6 h-6 text-white" />
               </div>
               <div>
                 <h3 className="text-xl font-bold text-cyan-400 mb-2">
-                  Bridging the Legal Literacy Gap
+                  Comprehensive Document Analysis
                 </h3>
                 <p className="text-slate-300 mb-2">
-                  <strong>The Problem:</strong> 78% of people struggle to understand legal documents, leading to unfavorable agreements and financial losses.
+                  <strong>Enhanced Capability:</strong> Analyze multiple documents simultaneously - contracts, amendments, images, and supporting materials.
                 </p>
                 <p className="text-slate-300">
-                  <strong>Our Solution:</strong> AI-powered analysis that transforms complex legal language into clear, actionable insights - making legal protection accessible to everyone.
+                  <strong>Smart Processing:</strong> Automatically routes documents to Document AI and images to Vision API for optimal text extraction and analysis.
                 </p>
               </div>
             </div>
           </div>
 
+          {/* Processing Mode Toggle */}
+          {selectedFiles.length > 1 && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-8"
+            >
+              <div className="bg-slate-800/50 border border-slate-600 rounded-2xl p-6">
+                <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
+                  <Layers className="w-5 h-5 mr-2" />
+                  Processing Mode ({fileStats.total} files selected)
+                </h3>
+                
+                <div className="grid md:grid-cols-2 gap-4 mb-4">
+                  <label className={cn(
+                    "flex items-start space-x-3 p-4 rounded-xl border cursor-pointer transition-all",
+                    processingMode === 'single'
+                      ? "border-cyan-500 bg-cyan-500/10"
+                      : "border-slate-600 bg-slate-800/30 hover:border-slate-500"
+                  )}>
+                    <input
+                      type="radio"
+                      name="processing_mode"
+                      value="single"
+                      checked={processingMode === 'single'}
+                      onChange={(e) => setProcessingMode(e.target.value as 'single' | 'batch')}
+                      className="mt-1 text-cyan-500 focus:ring-cyan-500"
+                    />
+                    <div>
+                      <div className="font-semibold text-white">Single Document</div>
+                      <div className="text-sm text-slate-400">Analyze first document only</div>
+                    </div>
+                  </label>
+
+                  <label className={cn(
+                    "flex items-start space-x-3 p-4 rounded-xl border cursor-pointer transition-all",
+                    processingMode === 'batch'
+                      ? "border-cyan-500 bg-cyan-500/10"
+                      : "border-slate-600 bg-slate-800/30 hover:border-slate-500"
+                  )}>
+                    <input
+                      type="radio"
+                      name="processing_mode"
+                      value="batch"
+                      checked={processingMode === 'batch'}
+                      onChange={(e) => setProcessingMode(e.target.value as 'single' | 'batch')}
+                      className="mt-1 text-cyan-500 focus:ring-cyan-500"
+                    />
+                    <div>
+                      <div className="font-semibold text-white">Batch Processing</div>
+                      <div className="text-sm text-slate-400">Analyze all {fileStats.total} documents</div>
+                    </div>
+                  </label>
+                </div>
+
+                {/* File Statistics */}
+                <div className="flex items-center justify-center space-x-6 text-sm text-slate-400 mb-4">
+                  {fileStats.docCount > 0 && (
+                    <div className="flex items-center">
+                      <FileText className="w-4 h-4 mr-1" />
+                      {fileStats.docCount} document{fileStats.docCount > 1 ? 's' : ''}
+                    </div>
+                  )}
+                  {fileStats.imageCount > 0 && (
+                    <div className="flex items-center">
+                      <Camera className="w-4 h-4 mr-1" />
+                      {fileStats.imageCount} image{fileStats.imageCount > 1 ? 's' : ''}
+                    </div>
+                  )}
+                </div>
+
+                {/* Batch Options */}
+                {processingMode === 'batch' && (
+                  <div className="space-y-3 pt-4 border-t border-slate-600">
+                    <h4 className="font-medium text-white">Batch Options</h4>
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <label className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          checked={batchOptions.processIndividually}
+                          onChange={(e) => setBatchOptions(prev => ({
+                            ...prev,
+                            processIndividually: e.target.checked
+                          }))}
+                          className="text-cyan-500 focus:ring-cyan-500"
+                        />
+                        <span className="text-sm text-slate-300">Process individually</span>
+                      </label>
+                      <label className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          checked={batchOptions.combineResults}
+                          onChange={(e) => setBatchOptions(prev => ({
+                            ...prev,
+                            combineResults: e.target.checked
+                          }))}
+                          className="text-cyan-500 focus:ring-cyan-500"
+                        />
+                        <span className="text-sm text-slate-300">Combine results</span>
+                      </label>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+
           {/* Main Form */}
           <form 
             onSubmit={handleSubmit} 
             className="space-y-8"
-            aria-label="Legal document analysis form"
+            aria-label="Multi-document legal analysis form"
             noValidate
           >
-            {/* File Upload Mode Toggle */}
-            <div className="flex items-center justify-center space-x-4 mb-6">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsMultipleMode(false);
-                  setSelectedFiles([]);
-                }}
-                className={cn(
-                  "px-4 py-2 rounded-lg font-medium transition-all",
-                  !isMultipleMode
-                    ? "bg-cyan-500 text-white"
-                    : "bg-slate-700 text-slate-300 hover:bg-slate-600"
-                )}
-              >
-                Single File
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsMultipleMode(true);
-                  setSelectedFile(null);
-                }}
-                className={cn(
-                  "px-4 py-2 rounded-lg font-medium transition-all",
-                  isMultipleMode
-                    ? "bg-cyan-500 text-white"
-                    : "bg-slate-700 text-slate-300 hover:bg-slate-600"
-                )}
-              >
-                Multiple Images
-              </button>
-            </div>
-
-            {/* File Upload Area */}
-            {isMultipleMode ? (
-              <MultiFileDropZone
-                key="multiple-mode" // Force re-render when switching modes
-                onFilesSelect={handleMultipleFilesSelect}
-                selectedFiles={selectedFiles}
-                onRemoveFile={handleRemoveMultipleFile}
-                onClearAll={handleClearAllFiles}
-                errors={errors}
-                maxFiles={10}
-                allowMixedTypes={false} // Only images for multiple mode
-              />
-            ) : (
-              <UniversalDropZone
-                key="single-mode" // Force re-render when switching modes
-                onFileSelect={handleFileSelect}
-                selectedFile={selectedFile}
-                onClearFile={clearFile}
-                errors={errors}
-              />
-            )}
+            {/* Multi-File Upload Area */}
+            <MultiFileDropZone
+              onFilesSelect={handleFilesSelect}
+              selectedFiles={selectedFiles}
+              onRemoveFile={handleRemoveFile}
+              onClearAll={handleClearAllFiles}
+              errors={errors}
+              maxFiles={10}
+              allowMixedTypes={true}
+            />
 
             {/* Text Input */}
             <div className="space-y-4">
@@ -518,15 +579,13 @@ const handleSubmit = useCallback(async (e: React.FormEvent<HTMLFormElement>) => 
                 aria-describedby="submit-button-description"
               >
                 <Zap className="w-5 h-5 mr-2" aria-hidden="true" />
-                {selectedFiles.length > 0 
-                  ? `Analyze ${selectedFiles.length} Images`
-                  : selectedFile
-                    ? `Analyze ${isImageFile(selectedFile) ? 'Image' : 'Document'}`
-                    : 'Analyze Document'
+                {processingMode === 'batch' && selectedFiles.length > 1 
+                  ? `Analyze ${selectedFiles.length} Documents` 
+                  : 'Analyze Document'
                 }
               </button>
               <p className="sr-only" id="submit-button-description">
-                Submit your document for AI-powered legal analysis
+                Submit your documents for AI-powered legal analysis
               </p>
             </div>
           </form>
@@ -597,75 +656,11 @@ const handleSubmit = useCallback(async (e: React.FormEvent<HTMLFormElement>) => 
                 </button>
               </div>
               
-              <div className="bg-slate-800/50 rounded-xl p-4">
-                <p className="text-sm text-slate-300 text-center">
-                  <AlertCircle className="w-4 h-4 inline mr-2" />
-                  <strong>Demo Benefits:</strong> See real AI analysis • Understand risk levels • Experience plain-language explanations
+              <div className="text-center">
+                <p className="text-sm text-slate-400 flex items-center justify-center">
+                  <Globe className="w-4 h-4 mr-2" aria-hidden="true" />
+                  These samples demonstrate different risk levels and analysis capabilities
                 </p>
-              </div>
-            </div>
-          </motion.div>
-
-          {/* AI Process Overview */}
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.4 }}
-            viewport={{ once: true }}
-            className="mt-16"
-          >
-            <div className="bg-slate-800/30 border border-slate-700 rounded-2xl p-8">
-              <div className="text-center mb-8">
-                <h3 className="text-2xl font-bold text-white mb-2 flex items-center justify-center">
-                  <Globe className="w-6 h-6 mr-3" />
-                  AI-Powered Analysis Process
-                </h3>
-                <div className="google-cloud-badge mx-auto">
-                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z"/>
-                  </svg>
-                  <span>Advanced machine learning models for accurate legal document analysis</span>
-                </div>
-              </div>
-              
-              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {[
-                  {
-                    step: '1',
-                    title: 'Document Processing',
-                    desc: 'Upload or paste your legal document text',
-                    color: 'from-cyan-500 to-blue-500'
-                  },
-                  {
-                    step: '2',
-                    title: 'AI Analysis',
-                    desc: 'Advanced NLP models analyze structure and identify key clauses',
-                    color: 'from-blue-500 to-purple-500'
-                  },
-                  {
-                    step: '3',
-                    title: 'Risk Assessment',
-                    desc: 'Color-coded risk levels with confidence indicators',
-                    color: 'from-purple-500 to-pink-500'
-                  },
-                  {
-                    step: '4',
-                    title: 'Plain Language',
-                    desc: 'Complex legal terms translated into clear explanations',
-                    color: 'from-pink-500 to-red-500'
-                  }
-                ].map((item, index) => (
-                  <div key={index} className="text-center">
-                    <div className={cn(
-                      "w-12 h-12 bg-gradient-to-r rounded-xl flex items-center justify-center mx-auto mb-4",
-                      item.color
-                    )}>
-                      <span className="text-white font-bold">{item.step}</span>
-                    </div>
-                    <h4 className="font-semibold text-white mb-2">{item.title}</h4>
-                    <p className="text-sm text-slate-400">{item.desc}</p>
-                  </div>
-                ))}
               </div>
             </div>
           </motion.div>
@@ -674,3 +669,5 @@ const handleSubmit = useCallback(async (e: React.FormEvent<HTMLFormElement>) => 
     </section>
   );
 });
+
+export default MultiDocumentUpload;
