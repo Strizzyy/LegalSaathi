@@ -13,7 +13,7 @@ import {
   Languages
 } from 'lucide-react';
 import { summarizationService, type SummaryData } from '../services/summarizationService';
-import { MarkdownRenderer } from '../utils/markdownRenderer';
+import { MarkdownRenderer, TranslatedContentRenderer } from '../utils/markdownRenderer';
 import GlobalTranslationPanel from './GlobalTranslationPanel';
 import type { DocumentSummaryContent } from '../services/documentSummaryTranslationService';
 
@@ -325,9 +325,13 @@ export function DocumentSummary({ analysis, className = '' }: DocumentSummaryPro
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
-                className="mt-3 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg"
+                className="mt-3 p-6 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border border-blue-500/30 rounded-xl"
               >
-                <MarkdownRenderer text={displayContent?.jargonFreeVersion || ''} />
+                {currentLanguage === 'en' ? (
+                  <MarkdownRenderer text={displayContent?.jargonFreeVersion || ''} />
+                ) : (
+                  <TranslatedContentRenderer content={displayContent?.jargonFreeVersion || ''} />
+                )}
               </motion.div>
             )}
           </div>
@@ -354,13 +358,19 @@ export function DocumentSummary({ analysis, className = '' }: DocumentSummaryPro
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
-                className="mt-3 p-4 bg-green-500/10 border border-green-500/30 rounded-lg"
+                className="mt-3 p-6 bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/30 rounded-xl"
               >
-                <ul className="space-y-2">
+                <ul className="space-y-4">
                   {(displayContent?.keyPoints || []).map((point, index) => (
-                    <li key={index} className="flex items-start space-x-2">
-                      <CheckCircle className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
-                      <span className="text-slate-200">{point}</span>
+                    <li key={index} className="flex items-start space-x-3">
+                      <CheckCircle className="w-5 h-5 text-green-400 mt-1 flex-shrink-0" />
+                      <div className="flex-1">
+                        {currentLanguage === 'en' ? (
+                          <span className="text-slate-200 leading-relaxed">{point}</span>
+                        ) : (
+                          <TranslatedContentRenderer content={point} />
+                        )}
+                      </div>
                     </li>
                   ))}
                 </ul>
@@ -387,9 +397,13 @@ export function DocumentSummary({ analysis, className = '' }: DocumentSummaryPro
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
-                className="mt-3 p-4 bg-orange-500/10 border border-orange-500/30 rounded-lg"
+                className="mt-3 p-6 bg-gradient-to-r from-orange-500/10 to-red-500/10 border border-orange-500/30 rounded-xl"
               >
-                <MarkdownRenderer text={displayContent?.riskSummary || ''} />
+                {currentLanguage === 'en' ? (
+                  <MarkdownRenderer text={displayContent?.riskSummary || ''} />
+                ) : (
+                  <TranslatedContentRenderer content={displayContent?.riskSummary || ''} />
+                )}
               </motion.div>
             )}
           </div>
@@ -416,15 +430,21 @@ export function DocumentSummary({ analysis, className = '' }: DocumentSummaryPro
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
-                className="mt-3 p-4 bg-cyan-500/10 border border-cyan-500/30 rounded-lg"
+                className="mt-3 p-6 bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border border-cyan-500/30 rounded-xl"
               >
-                <ul className="space-y-3">
+                <ul className="space-y-4">
                   {(displayContent?.recommendations || []).map((recommendation, index) => (
-                    <li key={index} className="flex items-start space-x-2">
-                      <div className="w-6 h-6 bg-cyan-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <span className="text-cyan-400 text-xs font-bold">{index + 1}</span>
+                    <li key={index} className="flex items-start space-x-3">
+                      <div className="w-7 h-7 bg-gradient-to-r from-cyan-500/20 to-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-1 border border-cyan-500/30">
+                        <span className="text-cyan-400 text-sm font-bold">{index + 1}</span>
                       </div>
-                      <span className="text-slate-200">{recommendation}</span>
+                      <div className="flex-1">
+                        {currentLanguage === 'en' ? (
+                          <span className="text-slate-200 leading-relaxed">{recommendation}</span>
+                        ) : (
+                          <TranslatedContentRenderer content={recommendation} />
+                        )}
+                      </div>
                     </li>
                   ))}
                 </ul>
@@ -451,9 +471,13 @@ export function DocumentSummary({ analysis, className = '' }: DocumentSummaryPro
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
-                className="mt-3 p-4 bg-purple-500/10 border border-purple-500/30 rounded-lg"
+                className="mt-3 p-6 bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/30 rounded-xl"
               >
-                <MarkdownRenderer text={displayContent?.simplifiedExplanation || ''} />
+                {currentLanguage === 'en' ? (
+                  <MarkdownRenderer text={displayContent?.simplifiedExplanation || ''} />
+                ) : (
+                  <TranslatedContentRenderer content={displayContent?.simplifiedExplanation || ''} />
+                )}
               </motion.div>
             )}
           </div>

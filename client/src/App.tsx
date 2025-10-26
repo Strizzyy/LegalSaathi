@@ -15,6 +15,7 @@ import { PrivacyPolicy } from './components/PrivacyPolicy';
 import { TermsOfService } from './components/TermsOfService';
 import { AboutUs } from './components/AboutUs';
 import { ContactUs } from './components/ContactUs';
+import { ProductSection } from './components/ProductSection';
 import { apiService } from './services/apiService';
 import { notificationService } from './services/notificationService';
 
@@ -69,7 +70,7 @@ export interface Classification {
 }
 
 function App() {
-  const [currentView, setCurrentView] = useState<'home' | 'results' | 'profile' | 'privacy' | 'terms' | 'about' | 'contact'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'results' | 'profile' | 'privacy' | 'terms' | 'about' | 'contact' | 'document-summary' | 'risk-assessment' | 'clause-analysis'>('home');
   const [isLoading, setIsLoading] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [fileInfo, setFileInfo] = useState<FileInfo | null>(null);
@@ -80,7 +81,8 @@ function App() {
 
   // Handle scroll behavior when view changes
   useEffect(() => {
-    if (currentView === 'privacy' || currentView === 'terms' || currentView === 'about' || currentView === 'contact') {
+    if (currentView === 'privacy' || currentView === 'terms' || currentView === 'about' || currentView === 'contact' || 
+        currentView === 'document-summary' || currentView === 'risk-assessment' || currentView === 'clause-analysis') {
       // Ensure we're at the top when viewing full-page components
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -198,6 +200,21 @@ function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const handleNavigateToDocumentSummary = () => {
+    setCurrentView('document-summary');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleNavigateToRiskAssessment = () => {
+    setCurrentView('risk-assessment');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleNavigateToClauseAnalysis = () => {
+    setCurrentView('clause-analysis');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   return (
     <ErrorBoundary>
       <AuthProvider>
@@ -214,6 +231,11 @@ function App() {
               {currentView === 'home' ? (
                 <>
                   <HeroSection />
+                  <ProductSection 
+                    onNavigateToDocumentSummary={handleNavigateToDocumentSummary}
+                    onNavigateToRiskAssessment={handleNavigateToRiskAssessment}
+                    onNavigateToClauseAnalysis={handleNavigateToClauseAnalysis}
+                  />
                   <ErrorBoundary fallback={
                     <div className="py-20 text-center">
                       <p className="text-red-400">Document upload component failed to load</p>
@@ -244,6 +266,93 @@ function App() {
                 <AboutUs onClose={handleBackToHome} />
               ) : currentView === 'contact' ? (
                 <ContactUs onClose={handleBackToHome} />
+              ) : currentView === 'document-summary' ? (
+                <div className="py-20">
+                  <div className="container mx-auto px-6">
+                    <div className="max-w-4xl mx-auto text-center">
+                      <h1 className="text-4xl font-bold text-white mb-6">Document Summary</h1>
+                      <p className="text-xl text-slate-300 mb-8">
+                        Upload a document to get a comprehensive AI-powered summary with key insights and recommendations.
+                      </p>
+                      <ErrorBoundary fallback={
+                        <div className="py-20 text-center">
+                          <p className="text-red-400">Document upload component failed to load</p>
+                        </div>
+                      }>
+                        <ProtectedRoute
+                          requireAuth={false}
+                          onAuthRequired={() => handleShowAuth('login')}
+                        >
+                          <DocumentUpload onSubmit={handleAnalysisSubmit} />
+                        </ProtectedRoute>
+                      </ErrorBoundary>
+                      <button
+                        onClick={handleBackToHome}
+                        className="mt-8 inline-flex items-center px-6 py-3 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-colors"
+                      >
+                        Back to Home
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : currentView === 'risk-assessment' ? (
+                <div className="py-20">
+                  <div className="container mx-auto px-6">
+                    <div className="max-w-4xl mx-auto text-center">
+                      <h1 className="text-4xl font-bold text-white mb-6">Risk Assessment</h1>
+                      <p className="text-xl text-slate-300 mb-8">
+                        Analyze potential risks in your documents with our traffic light system and confidence scoring.
+                      </p>
+                      <ErrorBoundary fallback={
+                        <div className="py-20 text-center">
+                          <p className="text-red-400">Document upload component failed to load</p>
+                        </div>
+                      }>
+                        <ProtectedRoute
+                          requireAuth={false}
+                          onAuthRequired={() => handleShowAuth('login')}
+                        >
+                          <DocumentUpload onSubmit={handleAnalysisSubmit} />
+                        </ProtectedRoute>
+                      </ErrorBoundary>
+                      <button
+                        onClick={handleBackToHome}
+                        className="mt-8 inline-flex items-center px-6 py-3 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-colors"
+                      >
+                        Back to Home
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : currentView === 'clause-analysis' ? (
+                <div className="py-20">
+                  <div className="container mx-auto px-6">
+                    <div className="max-w-4xl mx-auto text-center">
+                      <h1 className="text-4xl font-bold text-white mb-6">Clause Analysis</h1>
+                      <p className="text-xl text-slate-300 mb-8">
+                        Deep dive into individual clauses with detailed explanations and legal implications.
+                      </p>
+                      <ErrorBoundary fallback={
+                        <div className="py-20 text-center">
+                          <p className="text-red-400">Document upload component failed to load</p>
+                        </div>
+                      }>
+                        <ProtectedRoute
+                          requireAuth={false}
+                          onAuthRequired={() => handleShowAuth('login')}
+                        >
+                          <DocumentUpload onSubmit={handleAnalysisSubmit} />
+                        </ProtectedRoute>
+                      </ErrorBoundary>
+                      <button
+                        onClick={handleBackToHome}
+                        className="mt-8 inline-flex items-center px-6 py-3 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-colors"
+                      >
+                        Back to Home
+                      </button>
+                    </div>
+                  </div>
+                </div>
               ) : (
                 <ErrorBoundary fallback={
                   <div className="py-20 text-center">

@@ -282,24 +282,29 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
-            className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8"
+            className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-12"
           >
-            <div>
-              <h1 className="text-3xl font-bold text-white mb-2 flex items-center">
-                <FileText className="w-8 h-8 mr-3" />
+            <div className="flex-1">
+              <h1 className="text-4xl md:text-5xl font-bold text-white mb-4 flex items-center">
+                <div className="w-12 h-12 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-xl flex items-center justify-center mr-4">
+                  <FileText className="w-6 h-6 text-white" />
+                </div>
                 Document Analysis Results
               </h1>
-              <p className="text-slate-400">AI-powered legal document analysis with risk assessment</p>
+              <p className="text-xl text-slate-300 leading-relaxed max-w-2xl">
+                Comprehensive AI-powered legal document analysis with risk assessment, 
+                clause-by-clause breakdown, and actionable insights
+              </p>
             </div>
 
-            <div className="flex items-center space-x-4 mt-4 sm:mt-0">
+            <div className="flex items-center space-x-4 mt-6 sm:mt-0">
               <button
                 onClick={onBackToHome}
-                className="inline-flex items-center px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-colors"
+                className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-slate-700 to-slate-600 text-white rounded-xl hover:from-slate-600 hover:to-slate-500 transition-all duration-300 transform hover:scale-105 shadow-lg"
               >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                <span className="hidden sm:inline">Analyze Another Document</span>
-                <span className="sm:hidden">New Analysis</span>
+                <ArrowLeft className="w-5 h-5 mr-2" />
+                <span className="hidden sm:inline font-semibold">Analyze Another Document</span>
+                <span className="sm:hidden font-semibold">New Analysis</span>
               </button>
             </div>
           </motion.div>
@@ -310,42 +315,59 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.1 }}
-              className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6 mb-8"
+              className="bg-gradient-to-r from-slate-800/60 to-slate-700/60 backdrop-blur-sm border border-slate-600/50 rounded-2xl p-8 mb-10 shadow-xl"
             >
-              <h2 className="text-xl font-bold text-white mb-4 flex items-center">
-                <Info className="w-5 h-5 mr-2" />
+              <h2 className="text-2xl font-bold text-white mb-6 flex items-center">
+                <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center mr-3">
+                  <Info className="w-4 h-4 text-white" />
+                </div>
                 Document Information
               </h2>
 
-              <div className="grid md:grid-cols-3 gap-6">
+              <div className="grid md:grid-cols-3 gap-8">
                 {fileInfo && (
-                  <div>
-                    <h3 className="font-semibold text-white mb-2">File Details</h3>
-                    <p className="text-slate-300 mb-1"><strong>Filename:</strong> {fileInfo.filename}</p>
-                    <p className="text-slate-300"><strong>Size:</strong> {formatFileSize(fileInfo.size)}</p>
+                  <div className="bg-slate-700/30 rounded-xl p-6 border border-slate-600/50">
+                    <h3 className="font-bold text-white mb-4 text-lg">File Details</h3>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-400">Filename:</span>
+                        <span className="text-slate-200 font-medium truncate ml-2">{fileInfo.filename}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-400">Size:</span>
+                        <span className="text-slate-200 font-medium">{formatFileSize(fileInfo.size)}</span>
+                      </div>
+                    </div>
                   </div>
                 )}
 
                 {classification && (
-                  <div>
-                    <h3 className="font-semibold text-white mb-2">Document Classification</h3>
-                    <div className="flex items-center space-x-2 mb-1">
-                      <span className="px-3 py-1 bg-blue-500/20 text-blue-400 border border-blue-500/50 rounded-full text-sm">
-                        {classification.document_type.value.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                      </span>
+                  <div className="bg-slate-700/30 rounded-xl p-6 border border-slate-600/50">
+                    <h3 className="font-bold text-white mb-4 text-lg">Document Classification</h3>
+                    <div className="space-y-3">
+                      <div className="flex items-center space-x-2">
+                        <span className="px-4 py-2 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 text-blue-400 border border-blue-500/50 rounded-xl text-sm font-semibold">
+                          {classification.document_type.value.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-400">Confidence:</span>
+                        <span className="text-slate-200 font-medium">{formatPercentage(classification.confidence)}</span>
+                      </div>
                     </div>
-                    <p className="text-slate-400 text-sm">Confidence: {formatPercentage(classification.confidence)}</p>
                   </div>
                 )}
 
                 {warnings.length > 0 && (
-                  <div>
-                    <h3 className="font-semibold text-white mb-2">Processing Notes</h3>
-                    {warnings.map((warning, index) => (
-                      <div key={index} className="bg-yellow-500/20 border border-yellow-500/50 rounded-lg p-2 mb-2">
-                        <p className="text-yellow-400 text-sm">{warning}</p>
-                      </div>
-                    ))}
+                  <div className="bg-slate-700/30 rounded-xl p-6 border border-slate-600/50">
+                    <h3 className="font-bold text-white mb-4 text-lg">Processing Notes</h3>
+                    <div className="space-y-3">
+                      {warnings.map((warning, index) => (
+                        <div key={index} className="bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-500/50 rounded-xl p-4">
+                          <p className="text-yellow-300 text-sm leading-relaxed">{warning}</p>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -357,7 +379,7 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.2 }}
-            className="bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border border-blue-500/30 rounded-2xl p-6 mb-8"
+            className="bg-gradient-to-r from-blue-500/10 via-cyan-500/10 to-purple-500/10 border border-blue-500/30 rounded-2xl p-8 mb-10 shadow-xl backdrop-blur-sm"
           >
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-white flex items-center">
@@ -432,10 +454,10 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.3 }}
             className={cn(
-              "border-2 rounded-2xl p-6 mb-8",
-              analysis.overall_risk.level === 'RED' ? "border-red-500/50 bg-red-500/5" :
-                analysis.overall_risk.level === 'YELLOW' ? "border-yellow-500/50 bg-yellow-500/5" :
-                  "border-green-500/50 bg-green-500/5"
+              "border-2 rounded-2xl p-8 mb-10 shadow-xl backdrop-blur-sm",
+              analysis.overall_risk.level === 'RED' ? "border-red-500/50 bg-gradient-to-r from-red-500/10 to-red-600/5" :
+                analysis.overall_risk.level === 'YELLOW' ? "border-yellow-500/50 bg-gradient-to-r from-yellow-500/10 to-orange-500/5" :
+                  "border-green-500/50 bg-gradient-to-r from-green-500/10 to-emerald-500/5"
             )}
           >
             <div className="flex items-center justify-between mb-6">

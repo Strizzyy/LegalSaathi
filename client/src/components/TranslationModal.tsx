@@ -100,11 +100,20 @@ export function TranslationModal({ isOpen, onClose, originalText, title }: Trans
 
         {/* Original Text */}
         <div>
-          <label className="block text-sm font-medium text-white mb-2">
+          <label className="block text-sm font-medium text-white mb-3 flex items-center">
+            <span className="w-2 h-2 bg-blue-400 rounded-full mr-2"></span>
             Original Text (English)
           </label>
-          <div className="bg-slate-700/50 border border-slate-600 rounded-lg p-4 max-h-32 overflow-y-auto">
-            <p className="text-sm text-slate-300">{originalText}</p>
+          <div className="bg-gradient-to-r from-slate-700/60 to-slate-600/60 border border-slate-500/50 rounded-xl p-6 max-h-40 overflow-y-auto backdrop-blur-sm">
+            <div className="prose prose-invert max-w-none">
+              <div className="text-slate-300 leading-relaxed space-y-3">
+                {originalText.split('\n\n').map((paragraph, index) => (
+                  <p key={index} className="text-sm leading-7 mb-3 last:mb-0">
+                    {paragraph.trim()}
+                  </p>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -134,19 +143,20 @@ export function TranslationModal({ isOpen, onClose, originalText, title }: Trans
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="space-y-2"
+            className="space-y-4"
           >
             <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-white">
+              <label className="text-sm font-medium text-white flex items-center">
+                <Globe className="w-4 h-4 mr-2 text-cyan-400" />
                 Translated Text ({selectedLang?.name})
               </label>
               <button
                 onClick={handleCopy}
-                className="inline-flex items-center px-3 py-1 text-xs bg-slate-700 text-slate-300 rounded-lg hover:bg-slate-600 transition-colors"
+                className="inline-flex items-center px-3 py-2 text-xs bg-gradient-to-r from-slate-700 to-slate-600 text-slate-300 rounded-lg hover:from-slate-600 hover:to-slate-500 transition-all duration-300 border border-slate-600"
               >
                 {copied ? (
                   <>
-                    <CheckCircle className="w-3 h-3 mr-1" />
+                    <CheckCircle className="w-3 h-3 mr-1 text-green-400" />
                     Copied!
                   </>
                 ) : (
@@ -157,8 +167,16 @@ export function TranslationModal({ isOpen, onClose, originalText, title }: Trans
                 )}
               </button>
             </div>
-            <div className="bg-slate-700/50 border border-slate-600 rounded-lg p-4 max-h-40 overflow-y-auto">
-              <p className="text-sm text-slate-100">{translatedText}</p>
+            <div className="bg-gradient-to-r from-slate-700/60 to-slate-600/60 border border-slate-500/50 rounded-xl p-6 max-h-60 overflow-y-auto backdrop-blur-sm">
+              <div className="prose prose-invert max-w-none">
+                <div className="text-slate-100 leading-relaxed space-y-4">
+                  {translatedText.split('\n\n').map((paragraph, index) => (
+                    <p key={index} className="text-sm leading-7 mb-4 last:mb-0">
+                      {paragraph.trim()}
+                    </p>
+                  ))}
+                </div>
+              </div>
             </div>
           </motion.div>
         )}
