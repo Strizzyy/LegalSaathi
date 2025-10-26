@@ -250,12 +250,12 @@ function App() {
                   </ErrorBoundary>
                 </>
               ) : currentView === 'profile' ? (
-                <div className="py-20">
+                <div className="min-h-screen bg-slate-900 flex items-center justify-center pt-24 pb-8 px-4">
                   <ProtectedRoute
                     requireAuth={true}
                     onAuthRequired={() => handleShowAuth('login')}
                   >
-                    <UserProfile />
+                    <UserProfile onBack={handleBackToHome} />
                   </ProtectedRoute>
                 </div>
               ) : currentView === 'privacy' ? (

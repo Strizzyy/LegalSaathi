@@ -4,71 +4,29 @@
 
 import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { Button } from '../ui/button';
-import { Input } from '../ui/input';
-import { Label } from '../ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
-import { Alert, AlertDescription } from '../ui/alert';
-import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
-import { Badge } from '../ui/badge';
-import { Separator } from '../ui/separator';
 import { 
-  User, 
-  Mail, 
-  Calendar, 
-  Shield, 
-  Edit2, 
-  Save, 
-  X, 
-  LogOut,
-  Loader2
+  ArrowLeft,
+  Edit2,
+  LogOut
 } from 'lucide-react';
 
-export const UserProfile: React.FC = () => {
-  const { user, signOut, updateUserProfile } = useAuth();
+interface UserProfileProps {
+  onBack?: () => void;
+}
+
+export const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
+  const { user, signOut } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
-  const [displayName, setDisplayName] = useState(user?.displayName || '');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
 
   if (!user) {
     return null;
   }
 
-  const handleSaveProfile = async () => {
-    if (!displayName.trim()) {
-      setError('Display name cannot be empty');
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-    setSuccess('');
-
-    try {
-      await updateUserProfile(displayName.trim());
-      setSuccess('Profile updated successfully');
-      setIsEditing(false);
-    } catch (error: any) {
-      setError(error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleCancelEdit = () => {
-    setDisplayName(user?.displayName || '');
-    setIsEditing(false);
-    setError('');
-    setSuccess('');
-  };
-
   const handleSignOut = async () => {
     try {
       await signOut();
     } catch (error: any) {
-      setError('Failed to sign out');
+      console.error('Failed to sign out:', error);
     }
   };
 
@@ -90,166 +48,111 @@ export const UserProfile: React.FC = () => {
   };
 
   return (
-    <Card className="w-full max-w-2xl mx-auto">
-      <CardHeader className="text-center">
-        <div className="flex flex-col items-center space-y-4">
-          <Avatar className="h-20 w-20">
-            <AvatarImage src={user.photoURL || undefined} alt={user.displayName || 'User'} />
-            <AvatarFallback className="text-lg">
-              {user.displayName ? getInitials(user.displayName) : <User className="h-8 w-8" />}
-            </AvatarFallback>
-          </Avatar>
-          
-          <div className="space-y-2">
-            <CardTitle className="text-2xl">
-              {user.displayName || 'User Profile'}
-            </CardTitle>
-            <CardDescription>
-              Manage your account settings and preferences
-            </CardDescription>
-          </div>
+    <div className="w-full max-w-sm mx-auto bg-slate-800/90 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-5 shadow-2xl">
+      {/* Back Button */}
+      {onBack && (
+        <button
+          onClick={onBack}
+          className="flex items-center text-slate-400 hover:text-white transition-colors mb-3 p-1 -ml-1 rounded-lg hover:bg-slate-700/50"
+        >
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Back
+        </button>
+      )}
 
-          {/* Authentication Status */}
-          <div className="flex items-center space-x-2">
-            <Badge variant={user.emailVerified ? 'default' : 'secondary'} className="flex items-center space-x-1">
-              <Shield className="h-3 w-3" />
-              <span>{user.emailVerified ? 'Verified' : 'Unverified'}</span>
-            </Badge>
-          </div>
+      {/* Profile Avatar and Name */}
+      <div className="text-center mb-5">
+        <div className="w-14 h-14 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full flex items-center justify-center mx-auto mb-2">
+          {user.photoURL ? (
+            <img 
+              src={user.photoURL} 
+              alt={user.displayName || 'User'} 
+              className="w-full h-full rounded-full object-cover"
+            />
+          ) : (
+            <span className="text-white text-lg font-bold">
+              {user.displayName ? getInitials(user.displayName) : 'U'}
+            </span>
+          )}
         </div>
-      </CardHeader>
-
-      <CardContent className="space-y-6">
-        {/* Success/Error Messages */}
-        {success && (
-          <Alert>
-            <AlertDescription>{success}</AlertDescription>
-          </Alert>
-        )}
         
-        {error && (
-          <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-
-        {/* Profile Information */}
-        <div className="space-y-4">
-          <h3 className="text-lg font-semibold">Profile Information</h3>
-          
-          {/* Display Name */}
-          <div className="space-y-2">
-            <Label htmlFor="displayName" className="flex items-center space-x-2">
-              <User className="h-4 w-4" />
-              <span>Display Name</span>
-            </Label>
-            
-            {isEditing ? (
-              <div className="flex space-x-2">
-                <Input
-                  id="displayName"
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  placeholder="Enter your display name"
-                  disabled={loading}
-                />
-                <Button
-                  size="sm"
-                  onClick={handleSaveProfile}
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Save className="h-4 w-4" />
-                  )}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleCancelEdit}
-                  disabled={loading}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            ) : (
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-md">
-                <span>{user.displayName || 'Not set'}</span>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setIsEditing(true)}
-                >
-                  <Edit2 className="h-4 w-4" />
-                </Button>
-              </div>
-            )}
-          </div>
-
-          {/* Email */}
-          <div className="space-y-2">
-            <Label className="flex items-center space-x-2">
-              <Mail className="h-4 w-4" />
-              <span>Email Address</span>
-            </Label>
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-md">
-              <span>{user.email}</span>
-              <Badge variant={user.emailVerified ? 'default' : 'secondary'}>
-                {user.emailVerified ? 'Verified' : 'Unverified'}
-              </Badge>
-            </div>
-          </div>
-
-          {/* Account Created */}
-          <div className="space-y-2">
-            <Label className="flex items-center space-x-2">
-              <Calendar className="h-4 w-4" />
-              <span>Member Since</span>
-            </Label>
-            <div className="p-3 bg-gray-50 rounded-md">
-              <span>{user.metadata?.creationTime ? formatDate(user.metadata.creationTime) : 'Unknown'}</span>
-            </div>
-          </div>
-
-          {/* Last Sign In */}
-          <div className="space-y-2">
-            <Label className="flex items-center space-x-2">
-              <Calendar className="h-4 w-4" />
-              <span>Last Sign In</span>
-            </Label>
-            <div className="p-3 bg-gray-50 rounded-md">
-              <span>{user.metadata?.lastSignInTime ? formatDate(user.metadata.lastSignInTime) : 'Unknown'}</span>
-            </div>
+        <h1 className="text-xl font-bold text-white mb-1">
+          {user.displayName || 'User'}
+        </h1>
+        <p className="text-slate-400 text-xs">
+          Manage your account settings and preferences
+        </p>
+        
+        {/* Verification Status */}
+        <div className="flex items-center justify-center mt-2">
+          <div className={`px-2 py-1 rounded-full text-xs font-medium ${
+            user.emailVerified 
+              ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
+              : 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
+          }`}>
+            {user.emailVerified ? 'Verified' : 'Unverified'}
           </div>
         </div>
+      </div>
 
-        <Separator />
-
-        {/* Account Actions */}
-        <div className="space-y-4">
-          <h3 className="text-lg font-semibold">Account Actions</h3>
-          
-          <div className="flex flex-col space-y-2">
-            <Button
-              variant="outline"
-              onClick={handleSignOut}
-              className="w-full justify-start"
+      {/* Profile Information */}
+      <div className="space-y-3">
+        {/* Display Name */}
+        <div>
+          <label className="block text-white text-xs font-medium mb-1">
+            Display Name
+          </label>
+          <div className="flex items-center justify-between px-3 py-2 bg-slate-900/50 border border-slate-600/50 rounded-lg">
+            <span className="text-slate-300 text-sm">{user.displayName || 'Not set'}</span>
+            <button
+              onClick={() => setIsEditing(!isEditing)}
+              className="p-1 text-slate-400 hover:text-white transition-colors"
             >
-              <LogOut className="h-4 w-4 mr-2" />
-              Sign Out
-            </Button>
+              <Edit2 className="h-3 w-3" />
+            </button>
           </div>
         </div>
 
-        {/* Privacy Notice */}
-        <div className="p-4 bg-blue-50 rounded-md">
-          <p className="text-sm text-blue-800">
-            <strong>Privacy Notice:</strong> We don't store your document analysis results. 
-            All analyses are processed in real-time and only your authentication information is retained.
-          </p>
+        {/* Email Address */}
+        <div>
+          <label className="block text-white text-xs font-medium mb-1">
+            Email Address
+          </label>
+          <div className="flex items-center justify-between px-3 py-2 bg-slate-900/50 border border-slate-600/50 rounded-lg">
+            <span className="text-slate-300 truncate text-sm">{user.email}</span>
+            <div className={`px-2 py-1 rounded text-xs font-medium ml-2 ${
+              user.emailVerified 
+                ? 'bg-green-500/20 text-green-400' 
+                : 'bg-yellow-500/20 text-yellow-400'
+            }`}>
+              {user.emailVerified ? 'Verified' : 'Unverified'}
+            </div>
+          </div>
         </div>
-      </CardContent>
-    </Card>
+
+        {/* Member Since */}
+        <div>
+          <label className="block text-white text-xs font-medium mb-1">
+            Member Since
+          </label>
+          <div className="px-3 py-2 bg-slate-900/50 border border-slate-600/50 rounded-lg">
+            <span className="text-slate-300 text-sm">
+              {user.metadata?.creationTime ? formatDate(user.metadata.creationTime) : 'Unknown'}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Sign Out Button */}
+      <div className="mt-5">
+        <button
+          onClick={handleSignOut}
+          className="w-full bg-gradient-to-r from-cyan-500 to-blue-500 text-white py-2.5 rounded-lg font-medium hover:from-cyan-400 hover:to-blue-400 transition-all flex items-center justify-center text-sm"
+        >
+          <LogOut className="h-4 w-4 mr-2" />
+          Sign Out
+        </button>
+      </div>
+    </div>
   );
 };
