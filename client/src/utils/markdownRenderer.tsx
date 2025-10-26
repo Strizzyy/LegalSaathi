@@ -18,8 +18,13 @@ export function MarkdownRenderer({ text, className = '' }: MarkdownRendererProps
     const elements: React.ReactNode[] = [];
     let elementKey = 0;
 
-    // Split by paragraphs first
-    const paragraphs = input.split('\n\n').filter(p => p.trim());
+    // Split by paragraphs first - handle both \n\n and single \n for better translation support
+    let paragraphs = input.split('\n\n').filter(p => p.trim());
+    
+    // If no double line breaks found, try single line breaks for translated content
+    if (paragraphs.length === 1 && input.includes('\n')) {
+      paragraphs = input.split('\n').filter(p => p.trim());
+    }
 
     paragraphs.forEach((paragraph) => {
       const trimmedParagraph = paragraph.trim();
@@ -35,13 +40,13 @@ export function MarkdownRenderer({ text, className = '' }: MarkdownRendererProps
           const remainingText = trimmedParagraph.substring(headerMatch[0].length).trim();
           
           elements.push(
-            <div key={`header-${elementKey++}`} className="mb-4">
-              <h3 className="text-lg font-bold text-white mb-2 flex items-center">
+            <div key={`header-${elementKey++}`} className="mb-6">
+              <h3 className="text-lg font-bold text-white mb-3 flex items-center">
                 <span className="w-2 h-2 bg-cyan-400 rounded-full mr-3"></span>
                 {headerText}
               </h3>
               {remainingText && (
-                <div className="ml-5 text-slate-200 leading-relaxed">
+                <div className="ml-5 text-slate-200 leading-relaxed space-y-2">
                   {processInlineFormatting(remainingText)}
                 </div>
               )}
@@ -51,9 +56,9 @@ export function MarkdownRenderer({ text, className = '' }: MarkdownRendererProps
         }
       }
 
-      // Regular paragraph
+      // Regular paragraph with improved spacing and readability
       elements.push(
-        <div key={`paragraph-${elementKey++}`} className="mb-4 text-slate-200 leading-relaxed">
+        <div key={`paragraph-${elementKey++}`} className="mb-5 text-slate-200 leading-7 space-y-2">
           {processInlineFormatting(trimmedParagraph)}
         </div>
       );
@@ -253,4 +258,41 @@ export function hasMarkdownFormatting(text: string): boolean {
   if (!text) return false;
   
   return /\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`|\n[-•]\s|\n\d+\.\s/.test(text);
+}
+
+// Utility to format translated text with proper paragraph breaks
+export function formatTranslatedText(text: string): string {
+  if (!text) return '';
+  
+  return text
+    // Normalize line breaks
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    // Add proper paragraph breaks for sentences that end with periods
+    .replace(/\.\s+([A-Z])/g, '.\n\n$1')
+    // Clean up multiple consecutive line breaks
+    .replace(/\n{3,}/g, '\n\n')
+    // Ensure proper spacing after colons and semicolons
+    .replace(/([;:])\s*([A-Z])/g, '$1 $2')
+    // Clean up extra spaces
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// Component for rendering translated content with proper formatting
+export function TranslatedContentRenderer({ content, className = '' }: { content: string; className?: string }) {
+  if (!content) return null;
+
+  const formattedContent = formatTranslatedText(content);
+  const paragraphs = formattedContent.split('\n\n').filter(p => p.trim());
+
+  return (
+    <div className={`translated-content space-y-4 ${className}`}>
+      {paragraphs.map((paragraph, index) => (
+        <p key={index} className="text-slate-200 leading-7 text-sm">
+          {paragraph.trim()}
+        </p>
+      ))}
+    </div>
+  );
 }
