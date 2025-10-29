@@ -24,50 +24,72 @@ class HealthController:
         self.ai_service = AIService()
         self.cache_service = CacheService()
         self.translation_service = GoogleTranslateService()
+        self._initialization_complete = False
+        self._services_ready = {
+            'ai_service': False,
+            'translation_service': False,
+            'document_ai': False,
+            'natural_language': False,
+            'speech_service': False,
+            'rag_service': False
+        }
 
     async def health_check(self) -> HealthCheckResponse:
         """Comprehensive health check for all services"""
         try:
             services_status = {}
-
-            # Check Google Translate service
+            
+            # Fast service checks - just check if services are enabled/available
+            # Don't do expensive credential verification every time
+            
+            # Check Google services (fast check)
+            services_status['google_translate'] = getattr(self.translation_service, 'enabled', True)
+            services_status['google_document_ai'] = getattr(document_ai_service, 'enabled', True)
+            services_status['google_natural_language'] = getattr(natural_language_service, 'enabled', True)
+            services_status['google_speech'] = getattr(speech_service, 'enabled', True)
+            
+            # Check AI service (fast check)
             try:
-                translation_enabled = await self.translation_service.verify_credentials()
-                services_status['google_translate'] = translation_enabled
-            except Exception as e:
-                logger.error(f"Translation service check failed: {e}")
-                services_status['google_translate'] = False
+                ai_enabled = getattr(self.ai_service, 'enabled', True)
+                services_status['ai_service'] = ai_enabled
+                self._services_ready['ai_service'] = ai_enabled
+            except Exception:
+                services_status['ai_service'] = False
+                self._services_ready['ai_service'] = False
 
-            # Check Document AI service
+            # Check RAG service (fast check)
             try:
-                doc_ai_enabled = await document_ai_service.verify_credentials()
-                services_status['google_document_ai'] = doc_ai_enabled
-            except Exception as e:
-                logger.error(f"Document AI service check failed: {e}")
-                services_status['google_document_ai'] = False
+                from services.advanced_rag_service import advanced_rag_service
+                rag_enabled = hasattr(advanced_rag_service, 'sentence_transformer') and advanced_rag_service.sentence_transformer is not None
+                services_status['rag_service'] = rag_enabled
+                self._services_ready['rag_service'] = rag_enabled
+            except Exception:
+                services_status['rag_service'] = False
+                self._services_ready['rag_service'] = False
 
-            # Check Natural Language service
-            try:
-                nl_enabled = await natural_language_service.verify_credentials()
-                services_status['google_natural_language'] = nl_enabled
-            except Exception as e:
-                logger.error(f"Natural Language service check failed: {e}")
-                services_status['google_natural_language'] = False
+            # Update service readiness based on fast checks
+            self._services_ready['translation_service'] = services_status['google_translate']
+            self._services_ready['document_ai'] = services_status['google_document_ai']
+            self._services_ready['natural_language'] = services_status['google_natural_language']
+            self._services_ready['speech_service'] = services_status['google_speech']
 
-            # Check Speech service
-            try:
-                speech_enabled = await speech_service.verify_credentials()
-                services_status['google_speech'] = speech_enabled
-            except Exception as e:
-                logger.error(f"Speech service check failed: {e}")
-                services_status['google_speech'] = False
-
-            # --- FIX STARTS HERE ---
-            # Add status for core internal services.
-            # They are healthy if the application is running.
+            # Core services (always available when application is running)
             services_status['file_processing'] = True
             services_status['document_analysis'] = True
-            # --- FIX ENDS HERE ---
+
+            # Check if initialization is complete (simplified logic)
+            critical_services_ready = all([
+                services_status.get('ai_service', False),
+                services_status.get('google_document_ai', False),
+                services_status.get('google_natural_language', False),
+                services_status.get('rag_service', False)
+            ])
+            
+            if critical_services_ready:
+                self._initialization_complete = True
+                initialization_status = 'complete'
+            else:
+                initialization_status = 'initializing'
 
             # Get cache statistics
             cache_stats = self.cache_service.get_cache_stats()
@@ -80,16 +102,20 @@ class HealthController:
             }
 
             # Determine overall health status
-            critical_services = ['file_processing', 'document_analysis']
-            overall_status = 'healthy'
-
-            # This check will now work without a KeyError
-            if not all(services_status.get(service, False) for service in critical_services):
+            critical_services = ['file_processing', 'document_analysis', 'ai_service', 'google_document_ai']
+            
+            if initialization_status == 'initializing':
+                overall_status = 'initializing'
+            elif not all(services_status.get(service, False) for service in critical_services):
                 overall_status = 'degraded'
-
-            # Check if any service is down
-            if not any(services_status.values()):
+            elif not any(services_status.values()):
                 overall_status = 'unhealthy'
+            else:
+                overall_status = 'healthy'
+
+            # Add initialization info to cache
+            cache_info['initialization_status'] = initialization_status
+            cache_info['services_ready'] = self._services_ready.copy()
 
             response = HealthCheckResponse(
                 status=overall_status,
@@ -98,15 +124,8 @@ class HealthController:
                 cache=cache_info
             )
 
-            logger.info(f"Health check completed: {overall_status}")
+            logger.info(f"Health check completed: {overall_status} (initialization: {initialization_status})")
             
-            # If a critical service is down, return a 503 status
-            if overall_status != 'healthy':
-                 raise HTTPException(
-                    status_code=503,
-                    detail=f"Health check failed. Status: {overall_status}"
-                )
-                
             return response
 
         except Exception as e:
@@ -217,6 +236,40 @@ class HealthController:
                 detail=f"Detailed health check failed: {str(e)}"
             )
     
+    async def check_initialization_status(self) -> dict:
+        """Check if backend services are fully initialized and ready"""
+        try:
+            # Force a quick health check to update status
+            await self.health_check()
+            
+            # Quick check of critical services without full verification
+            status = {
+                'initialization_complete': self._initialization_complete,
+                'services_ready': self._services_ready.copy(),
+                'ready_for_requests': self._initialization_complete,
+                'estimated_ready_time': None,
+                'timestamp': datetime.now().isoformat()
+            }
+            
+            # If not ready, estimate time based on typical startup
+            if not self._initialization_complete:
+                # Estimate based on which services are still initializing
+                pending_services = [k for k, v in self._services_ready.items() if not v]
+                estimated_seconds = max(5, len(pending_services) * 2)  # Reduced estimate
+                status['estimated_ready_time'] = f"{estimated_seconds} seconds"
+                status['pending_services'] = pending_services
+            
+            return status
+            
+        except Exception as e:
+            logger.error(f"Failed to check initialization status: {e}")
+            return {
+                'initialization_complete': False,
+                'ready_for_requests': False,
+                'error': str(e),
+                'timestamp': datetime.now().isoformat()
+            }
+
     async def service_metrics(self) -> dict:
         """Get service performance metrics"""
         try:

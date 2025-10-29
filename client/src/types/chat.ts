@@ -6,6 +6,10 @@ export interface ChatMessage {
   clauseReference?: string | undefined;
   examples?: string[] | undefined;
   confidence?: number | undefined;
+  // Enhanced experience level fields
+  experienceLevel?: string | undefined;
+  termsExplained?: string[] | undefined;
+  complexityScore?: number | undefined;
 }
 
 export interface ClauseContext {

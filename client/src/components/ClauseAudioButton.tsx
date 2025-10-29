@@ -22,7 +22,7 @@ export const ClauseAudioButton: React.FC<ClauseAudioButtonProps> = ({
   const fullText = `${clauseText}. ${explanation}`;
 
   // Get appropriate voice gender based on language
-  const getVoiceGender = (langCode: string): 'MALE' | 'FEMALE' | 'NEUTRAL' => {
+  const getVoiceGender = (): 'MALE' | 'FEMALE' | 'NEUTRAL' => {
     // Use neutral voices for most languages for consistency
     return 'NEUTRAL';
   };
@@ -70,7 +70,7 @@ export const ClauseAudioButton: React.FC<ClauseAudioButtonProps> = ({
           <AudioPlayer
             text={fullText}
             languageCode={languageCode}
-            voiceGender={getVoiceGender(languageCode)}
+            voiceGender={getVoiceGender()}
             speakingRate={getSpeakingRate(languageCode)}
           />
         </div>
@@ -88,7 +88,7 @@ export const ClauseAudioButton: React.FC<ClauseAudioButtonProps> = ({
       <AudioPlayer
         text={fullText}
         languageCode={languageCode}
-        voiceGender={getVoiceGender(languageCode)}
+        voiceGender={getVoiceGender()}
         speakingRate={getSpeakingRate(languageCode)}
         className="w-full"
       />

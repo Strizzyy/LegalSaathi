@@ -90,7 +90,11 @@ class ChatService {
           timestamp: new Date(),
           clauseReference: session.clauseContext?.clauseId || undefined,
           examples: this.generateContextualExamples(content, session.clauseContext),
-          confidence: this.calculateResponseConfidence(result.response)
+          confidence: this.calculateResponseConfidence(result.response),
+          // Enhanced experience level information
+          experienceLevel: result.experience_level,
+          termsExplained: result.terms_explained,
+          complexityScore: result.complexity_score
         };
 
         session.messages.push(aiMessage);

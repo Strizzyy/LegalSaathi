@@ -1,5 +1,6 @@
 import { apiService } from './apiService';
 import { notificationService } from './notificationService';
+import { backendReadinessService } from './backendReadinessService';
 
 export interface DocumentSummaryContent {
   what_this_document_means?: string;
@@ -7,7 +8,7 @@ export interface DocumentSummaryContent {
   risk_assessment?: string;
   what_you_should_do?: string[];
   simple_explanation?: string;
-  
+
   // Alternative field names for compatibility
   jargonFreeVersion?: string;
   keyPoints?: string[];
@@ -83,8 +84,22 @@ class DocumentSummaryTranslationService {
     // Load default languages immediately
     this.state.supportedLanguages = this.getDefaultLanguages();
     console.log('DocumentSummaryTranslationService initialized with', this.state.supportedLanguages.length, 'default languages');
-    // Then try to load enhanced languages from API
-    this.loadSupportedLanguages();
+
+    // Wait for backend readiness before loading enhanced languages
+    this.waitForBackendAndLoadLanguages();
+  }
+
+  private async waitForBackendAndLoadLanguages(): Promise<void> {
+    // Wait for backend to be ready
+    const isReady = await backendReadinessService.waitForBackend(60000); // 1 minute timeout
+    
+    if (isReady) {
+      console.log('✅ Backend ready, loading enhanced languages...');
+      await this.loadSupportedLanguages();
+    } else {
+      console.log('⚠️ Backend not ready, using default languages');
+      notificationService.warning('Using default languages. Enhanced features may be limited.', { duration: 5000 });
+    }
   }
 
   // State management
@@ -142,22 +157,26 @@ class DocumentSummaryTranslationService {
     }
   }
 
-  // Load supported languages
+  // Load supported languages (now called after backend is ready)
   private async loadSupportedLanguages(): Promise<void> {
     try {
+      console.log('🔄 Loading enhanced languages from API...');
+      
       const response = await apiService.get('/api/translate/languages/enhanced');
       const data = response.data;
+      
       if (data && data.success && data.languages && data.languages.length > 0) {
-        console.log('Loaded enhanced languages from API:', data.languages.length);
+        console.log(`✅ Loaded enhanced languages from API:`, data.languages.length);
         this.state.supportedLanguages = data.languages;
+        notificationService.success('Translation service ready!', { duration: 2000 });
         this.notify();
       } else {
-        console.log('API response invalid, using default languages');
+        console.log(`⚠️ API response invalid, using default languages`);
+        notificationService.warning('Using default languages. Some features may be limited.', { duration: 3000 });
       }
-    } catch (error) {
-      console.error('Failed to load supported languages from API:', error);
-      console.log('Using default languages as fallback');
-      // Default languages are already loaded in constructor
+    } catch (error: any) {
+      console.error(`❌ Failed to load supported languages from API:`, error);
+      notificationService.warning('Could not load enhanced languages. Using defaults.', { duration: 3000 });
     }
   }
 
@@ -213,23 +232,33 @@ class DocumentSummaryTranslationService {
   private getCachedTranslation(cacheKey: string): TranslatedDocumentSummary | null {
     const cached = this.cache.get(cacheKey);
     const expiry = this.cacheExpiry.get(cacheKey);
-    
+
     if (cached && expiry && Date.now() < expiry) {
       return cached;
     }
-    
+
     // Remove expired cache
     if (cached) {
       this.cache.delete(cacheKey);
       this.cacheExpiry.delete(cacheKey);
     }
-    
+
     return null;
   }
 
   private setCachedTranslation(cacheKey: string, translation: TranslatedDocumentSummary): void {
     this.cache.set(cacheKey, translation);
     this.cacheExpiry.set(cacheKey, Date.now() + this.CACHE_TTL);
+  }
+
+  // Backend health check
+  private async checkBackendHealth(): Promise<boolean> {
+    try {
+      const response = await apiService.get('/api/translate/languages/enhanced');
+      return response.data?.success === true;
+    } catch (error) {
+      return false;
+    }
   }
 
   // Translation methods
@@ -287,11 +316,11 @@ class DocumentSummaryTranslationService {
       if (response && response.success && response.translated_summary) {
         // Cache the result
         this.setCachedTranslation(cacheKey, response);
-        
+
         // Store in state
         this.state.translatedSummaries.set(targetLanguage, response);
         this.persistState();
-        
+
         notificationService.success(`Document summary translated to ${response.language_name}`);
         return response;
       } else {
@@ -302,14 +331,18 @@ class DocumentSummaryTranslationService {
       }
     } catch (error: any) {
       console.error('Document summary translation error:', error);
-      
+
       let errorMessage = 'Translation service unavailable';
-      if (error.response?.status === 429) {
+      const isConnectionError = error.code === 'ECONNREFUSED' || error.message?.includes('ECONNREFUSED');
+
+      if (isConnectionError) {
+        errorMessage = 'Backend is still starting up. Please wait a moment and try again.';
+      } else if (error.response?.status === 429) {
         errorMessage = 'Rate limit exceeded. Please wait before translating again.';
       } else if (error.response?.status === 503) {
         errorMessage = 'Daily translation limit exceeded. Please try again tomorrow.';
       }
-      
+
       this.state.lastError = errorMessage;
       notificationService.error(errorMessage);
       return null;
@@ -378,6 +411,11 @@ class DocumentSummaryTranslationService {
 
     // Use the main translation method which handles caching and state
     return await this.translateDocumentSummary(summaryContent, targetLanguage, 'en');
+  }
+
+  // Public health check method
+  async isBackendReady(): Promise<boolean> {
+    return await this.checkBackendHealth();
   }
 
   // Utility methods

@@ -117,7 +117,6 @@ class ProcessingNotificationService {
 
     const avgConfidence = confidence.average_confidence || 0;
     const highConfidenceRatio = confidence.high_confidence_ratio || 0;
-    const threshold = confidence.min_confidence_threshold || 0.7;
 
     // Very low confidence
     if (avgConfidence < 0.3) {

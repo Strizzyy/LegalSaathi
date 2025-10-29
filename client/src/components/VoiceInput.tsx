@@ -236,6 +236,8 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({
       document.addEventListener('mousedown', handleClickOutside);
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
+    
+    return undefined;
   }, [showLanguageDropdown]);
 
   return (

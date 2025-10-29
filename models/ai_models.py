@@ -37,6 +37,10 @@ class ClarificationResponse(BaseModel):
     service_used: Optional[str] = None
     error_type: Optional[str] = None
     timestamp: Optional[datetime] = None
+    # Enhanced experience level fields
+    experience_level: Optional[str] = None
+    terms_explained: Optional[List[str]] = None
+    complexity_score: Optional[float] = None
 
 
 class ConversationSummaryResponse(BaseModel):

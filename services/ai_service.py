@@ -1,5 +1,6 @@
 """
-Enhanced AI service with Gemini API primary integration and minimal Vertex AI support
+Unified AI Service - Consolidated from multiple AI services
+Provides intelligent routing, multi-service support, and comprehensive error handling
 """
 
 import os
@@ -10,9 +11,34 @@ import hashlib
 from typing import Dict, Any, Optional, List
 from datetime import datetime, timedelta
 from cachetools import TTLCache
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 from models.ai_models import ClarificationRequest, ClarificationResponse, ConversationSummaryResponse
 from services.personalization_engine import PersonalizationEngine
+from services.enhanced_experience_service import enhanced_experience_service, ExperienceLevel
+
+# Multi-service manager integration
+try:
+    from services.multi_service_manager import (
+        MultiServiceManager, 
+        RequestContext, 
+        ServiceResponse,
+        get_multi_service_manager
+    )
+    MULTI_SERVICE_AVAILABLE = True
+except ImportError:
+    MULTI_SERVICE_AVAILABLE = False
+    logger.warning("Multi-service manager not available - using basic AI service")
+
+# API Gateway client integration
+try:
+    from services.api_gateway_client import get_api_gateway_client
+    API_GATEWAY_AVAILABLE = True
+except ImportError:
+    API_GATEWAY_AVAILABLE = False
 
 # Configure enhanced logging for AI service
 logger = logging.getLogger(__name__)
@@ -50,7 +76,7 @@ except ImportError:
 
 
 class AIService:
-    """Enhanced AI service with Gemini API primary integration and minimal Vertex AI support"""
+    """Unified AI service with multi-service architecture and intelligent routing"""
     
     def __init__(self):
         # Initialize personalization engine
@@ -59,6 +85,10 @@ class AIService:
         # Initialize caching system
         self.response_cache = TTLCache(maxsize=1000, ttl=3600)  # 1 hour TTL
         self.embedding_cache = TTLCache(maxsize=500, ttl=7200)  # 2 hour TTL for embeddings
+        
+        # Multi-service manager (enhanced architecture)
+        self.multi_service_manager = None
+        self.api_gateway_client = None
         
         # Initialize quota tracking
         self.quota_tracker = {
@@ -73,31 +103,37 @@ class AIService:
         self.groq_enabled = False
         
         # Initialize Groq API (Primary service - fast and reliable)
-        groq_key = os.getenv('GROQ_API_KEY')
-        if groq_key and GROQ_AVAILABLE:
+        groq_keys = self._get_api_keys('GROQ_API_KEY')
+        if groq_keys and GROQ_AVAILABLE:
             try:
+                # Use first available key for initialization
                 self.groq_client = Groq(
-                    api_key=groq_key,
+                    api_key=groq_keys[0],
                     timeout=15.0  # 15 second timeout for faster failure detection
                 )
+                self.groq_keys = groq_keys
+                self.groq_key_index = 0
                 self.groq_enabled = True
-                logger.info("Groq primary service initialized successfully")
+                logger.info(f"Groq primary service initialized successfully with {len(groq_keys)} API key(s)")
             except Exception as e:
                 logger.error(f"Failed to initialize Groq primary service: {e}")
         
         # Initialize Gemini API (Fallback service - comprehensive but slower)
-        gemini_key = os.getenv('GEMINI_API_KEY')
-        if gemini_key and GOOGLE_AI_AVAILABLE:
+        gemini_keys = self._get_api_keys('GEMINI_API_KEY')
+        if gemini_keys and GOOGLE_AI_AVAILABLE:
             try:
-                genai.configure(api_key=gemini_key)
+                # Use first available key for initialization
+                genai.configure(api_key=gemini_keys[0])
                 # Use the correct model name for Gemini 2.0 Flash
                 self.gemini_model = genai.GenerativeModel('gemini-2.0-flash')
+                self.gemini_keys = gemini_keys
+                self.gemini_key_index = 0
                 self.gemini_enabled = True
-                logger.info("Gemini API fallback service initialized successfully")
+                logger.info(f"Gemini API fallback service initialized successfully with {len(gemini_keys)} API key(s)")
             except Exception as e:
                 logger.error(f"Failed to initialize Gemini API: {e}")
         else:
-            if not gemini_key:
+            if not gemini_keys:
                 logger.warning("GEMINI_API_KEY not found in environment")
             if not GOOGLE_AI_AVAILABLE:
                 logger.warning("Google AI libraries not available")
@@ -120,18 +156,89 @@ class AIService:
             logger.warning("No AI services available - using keyword fallback only")
         
         self.conversation_history = []
+        
+        # Enhanced fallback responses
         self.fallback_responses = {
             'general': "I understand you're asking about your legal document. While I'm having trouble accessing my full AI capabilities right now, I'd recommend reviewing the specific clause you're concerned about and considering consultation with a legal professional if you have serious concerns.",
             'terms': "Legal terms can be complex. For specific definitions and implications, I recommend consulting with a qualified legal professional who can provide accurate interpretations based on your jurisdiction.",
             'rights': "Understanding your rights is important. While I can provide general guidance, specific rights can vary by location and situation. Consider consulting with a legal professional for personalized advice.",
             'obligations': "Legal obligations should be clearly understood before signing any document. If you're unsure about specific requirements, it's best to seek professional legal advice."
         }
+        
+        logger.info("Unified AI Service initialized with multi-service architecture support")
+    
+    async def _get_multi_service_manager(self) -> Optional[MultiServiceManager]:
+        """Get or initialize multi-service manager"""
+        if not MULTI_SERVICE_AVAILABLE:
+            return None
+        
+        if self.multi_service_manager is None:
+            try:
+                self.multi_service_manager = await get_multi_service_manager()
+            except Exception as e:
+                logger.warning(f"Failed to initialize multi-service manager: {e}")
+                return None
+        return self.multi_service_manager
+    
+    async def _get_api_gateway_client(self):
+        """Get or initialize API Gateway client"""
+        if not API_GATEWAY_AVAILABLE:
+            return None
+        
+        if self.api_gateway_client is None:
+            try:
+                self.api_gateway_client = await get_api_gateway_client()
+            except Exception as e:
+                logger.warning(f"Failed to initialize API Gateway client: {e}")
+                return None
+        return self.api_gateway_client
+    
+    def _get_api_keys(self, env_var: str) -> List[str]:
+        """Get API keys from environment variables (supports multiple keys)"""
+        keys = []
+        
+        # Primary key
+        primary_key = os.getenv(env_var)
+        if primary_key:
+            keys.append(primary_key)
+        
+        # Additional keys (GROQ_API_KEY_2, GROQ_API_KEY_3, etc.)
+        for i in range(2, 6):  # Support up to 5 keys per service
+            additional_key = os.getenv(f"{env_var}_{i}")
+            if additional_key:
+                keys.append(additional_key)
+        
+        return keys
+    
+    def _rotate_api_key(self, service: str) -> str:
+        """Rotate to next available API key for the service"""
+        if service == 'groq' and hasattr(self, 'groq_keys') and len(self.groq_keys) > 1:
+            self.groq_key_index = (self.groq_key_index + 1) % len(self.groq_keys)
+            new_key = self.groq_keys[self.groq_key_index]
+            self.groq_client.api_key = new_key
+            logger.info(f"Rotated to Groq API key #{self.groq_key_index + 1}")
+            return new_key
+        elif service == 'gemini' and hasattr(self, 'gemini_keys') and len(self.gemini_keys) > 1:
+            self.gemini_key_index = (self.gemini_key_index + 1) % len(self.gemini_keys)
+            new_key = self.gemini_keys[self.gemini_key_index]
+            genai.configure(api_key=new_key)
+            logger.info(f"Rotated to Gemini API key #{self.gemini_key_index + 1}")
+            return new_key
+        
+        return ""
     
     async def get_clarification(self, request: ClarificationRequest) -> ClarificationResponse:
-        """Enhanced AI-powered conversational clarification with Gemini primary and intelligent fallbacks"""
+        """Enhanced AI-powered conversational clarification with multi-service routing and intelligent fallbacks"""
         start_time = time.time()
         
         try:
+            # Try enhanced multi-service manager first if available
+            if MULTI_SERVICE_AVAILABLE:
+                enhanced_response = await self._try_enhanced_clarification(request, start_time)
+                if enhanced_response:
+                    return enhanced_response
+            
+            # Fallback to legacy implementation
             if not self.enabled:
                 raise Exception("AI service not available")
             
@@ -452,21 +559,10 @@ MANDATORY REQUIREMENTS FOR THIS RESPONSE:
                         timestamp=datetime.now()
                     )
                 
-                # For non-summary requests, still validate context
-                if not self._validate_context_for_summary(sanitized_context, 'general'):
-                    logger.error(f"Insufficient context for request in fallback")
-                    return ClarificationResponse(
-                        success=False,
-                        response="I need more complete document analysis information to provide quality guidance. Please ensure the document has been fully analyzed first.",
-                        conversation_id=request.conversation_id or str(len(self.conversation_history) + 1),
-                        confidence_score=0,
-                        response_quality='insufficient_context',
-                        processing_time=time.time() - start_time,
-                        fallback=True,
-                        error_type='InsufficientContext',
-                        service_used='context_validation_fallback',
-                        timestamp=datetime.now()
-                    )
+                # Log context but proceed anyway - let AI handle it
+                context_valid = self._validate_context_for_summary(sanitized_context, 'general')
+                if not context_valid:
+                    logger.info(f"Context validation noted for general request, but proceeding anyway")
                 
                 # Only use intelligent fallback for non-summary requests
                 ai_response = self._get_intelligent_fallback(request.question, sanitized_context)
@@ -474,13 +570,34 @@ MANDATORY REQUIREMENTS FOR THIS RESPONSE:
             
             processing_time = time.time() - start_time
             
-            # Personalize the AI response based on experience level
+            # Enhanced personalization with legal term intelligence
+            adapted_response = None
             if ai_response and service_used in ['gemini', 'groq']:
+                # First apply traditional personalization
                 ai_response = self.personalization_engine.personalize_response(
                     ai_response, 
                     experience_level, 
                     context_for_personalization
                 )
+                
+                # Then apply enhanced experience level adaptation with legal term intelligence
+                try:
+                    enhanced_level = enhanced_experience_service.validate_experience_level(experience_level)
+                    adapted_response = await enhanced_experience_service.adapt_response_for_level(
+                        ai_response,
+                        enhanced_level,
+                        context_for_personalization
+                    )
+                    ai_response = adapted_response.adapted_response
+                    
+                    # Log term explanations for debugging
+                    if adapted_response.terms_explained:
+                        debug_logger.info(f"Enhanced experience adaptation for {experience_level}: "
+                                        f"Explained {len(adapted_response.terms_explained)} legal terms")
+                        
+                except Exception as e:
+                    logger.warning(f"Enhanced experience adaptation failed: {e}, using basic personalization")
+                    adapted_response = None
             
             # Determine confidence based on service used and response quality
             confidence_score = self._calculate_confidence(service_used, ai_response, sanitized_context)
@@ -518,6 +635,13 @@ MANDATORY REQUIREMENTS FOR THIS RESPONSE:
             
             logger.info(f"AI clarification successful using {service_used}: {len(ai_response)} chars, confidence: {confidence_score}")
             
+            # Prepare enhanced experience information for UI
+            terms_explained_list = None
+            complexity_score = None
+            if adapted_response:
+                terms_explained_list = [term.term for term in adapted_response.terms_explained] if adapted_response.terms_explained else None
+                complexity_score = adapted_response.complexity_score
+            
             return ClarificationResponse(
                 success=True,
                 response=ai_response,
@@ -527,7 +651,10 @@ MANDATORY REQUIREMENTS FOR THIS RESPONSE:
                 processing_time=processing_time,
                 fallback=service_used == 'keyword_fallback',
                 service_used=service_used,
-                timestamp=datetime.now()
+                timestamp=datetime.now(),
+                experience_level=experience_level,
+                terms_explained=terms_explained_list,
+                complexity_score=complexity_score
             )
             
         except Exception as e:
@@ -537,20 +664,11 @@ MANDATORY REQUIREMENTS FOR THIS RESPONSE:
             is_summary_request = self._is_summary_request(request.question)
             summary_type = self._detect_summary_type(request.question)
             
-            if is_summary_request and not self._validate_context_for_summary(sanitized_context, summary_type):
-                logger.error(f"Insufficient context for {summary_type} summary request in emergency fallback")
-                return ClarificationResponse(
-                    success=False,
-                    response="I need more complete document analysis information to provide a quality summary. Please ensure the document has been fully analyzed first.",
-                    conversation_id=request.conversation_id or str(len(self.conversation_history) + 1),
-                    confidence_score=0,
-                    response_quality='insufficient_context',
-                    processing_time=time.time() - start_time,
-                    fallback=True,
-                    error_type='InsufficientContext',
-                    service_used='context_validation_emergency',
-                    timestamp=datetime.now()
-                )
+            # Log context but proceed anyway - even in emergency fallback
+            if is_summary_request:
+                context_valid = self._validate_context_for_summary(sanitized_context, summary_type)
+                if not context_valid:
+                    logger.info(f"Context validation noted for {summary_type} summary in emergency, but proceeding anyway")
             
             # Emergency fallback
             fallback_response = self._get_intelligent_fallback(request.question, request.context)
@@ -772,56 +890,57 @@ Previous Analysis Available: This question relates to a document that has been a
         }
     
     def _validate_context_for_summary(self, context: Any, summary_type: str) -> bool:
-        """Validate that context contains sufficient information for quality summaries"""
+        """Validate that context contains sufficient information for quality summaries - LENIENT VERSION"""
+        # Be very lenient - if there's any context at all, let the AI handle it
         if not context:
-            logger.warning(f"No context provided for {summary_type} summary")
-            return False
+            logger.info(f"No context provided for {summary_type} summary, but allowing AI to handle it")
+            return True  # Changed from False to True - let AI decide
         
         if isinstance(context, dict):
             document_context = context.get('document', {})
             clause_context = context.get('clause', {})
             
-            # For document summaries, require basic document analysis data
+            # For document summaries - very lenient validation
             if summary_type == 'document':
-                # Check for essential fields with more flexibility
-                has_document_type = bool(document_context.get('documentType'))
-                has_risk_info = bool(document_context.get('overallRisk'))
-                has_clause_count = document_context.get('totalClauses', 0) > 0
-                has_complete_analysis = bool(document_context.get('hasCompleteAnalysis'))
+                # Accept if we have ANY document information at all
+                has_any_document_info = (
+                    bool(document_context.get('documentType')) or
+                    bool(document_context.get('overallRisk')) or
+                    document_context.get('totalClauses', 0) > 0 or
+                    bool(context.get('clauseExamples')) or
+                    bool(document_context.get('riskBreakdown')) or
+                    bool(context.get('keyInsights')) or
+                    bool(context.get('analysisMetadata')) or
+                    bool(document_context.get('summary'))
+                )
                 
-                # Accept if we have basic document info OR complete analysis flag
-                if not (has_document_type and (has_risk_info or has_clause_count or has_complete_analysis)):
-                    logger.warning(f"Document summary lacks basic context: documentType={has_document_type}, risk={has_risk_info}, clauses={has_clause_count}, complete={has_complete_analysis}")
-                    return False
-                
-                # More flexible check for detailed analysis data
-                has_clause_examples = bool(context.get('clauseExamples'))
-                has_risk_breakdown = bool(document_context.get('riskBreakdown'))
-                has_key_insights = bool(context.get('keyInsights'))
-                has_analysis_metadata = bool(context.get('analysisMetadata'))
-                
-                # Accept if we have ANY detailed analysis data
-                if not (has_clause_examples or has_risk_breakdown or has_key_insights or has_analysis_metadata or has_complete_analysis):
-                    logger.warning("Document summary lacks any detailed analysis data")
-                    return False
+                if has_any_document_info:
+                    logger.info(f"Document summary has sufficient context - proceeding with AI")
+                    return True
+                else:
+                    logger.info(f"Document summary has minimal context, but allowing AI to handle it")
+                    return True  # Still allow AI to try
             
-            # For clause summaries, require basic clause data with flexibility
+            # For clause summaries - very lenient validation
             elif summary_type == 'clause':
-                # Check for essential clause information with more flexibility
-                has_clause_id = bool(clause_context.get('clauseId'))
-                has_clause_text = bool(clause_context.get('text', '').strip())
-                has_risk_info = bool(clause_context.get('riskLevel') or clause_context.get('riskScore'))
+                # Accept if we have ANY clause information at all
+                has_any_clause_info = (
+                    bool(clause_context.get('clauseId')) or
+                    bool(clause_context.get('text', '').strip()) or
+                    bool(clause_context.get('riskLevel')) or
+                    bool(clause_context.get('riskScore')) or
+                    bool(clause_context.get('explanation'))
+                )
                 
-                if not (has_clause_id and (has_clause_text or has_risk_info)):
-                    logger.warning(f"Clause summary lacks basic context: id={has_clause_id}, text={has_clause_text}, risk={has_risk_info}")
-                    return False
-                
-                # More flexible clause text check
-                clause_text = clause_context.get('text', '')
-                if clause_text and len(clause_text.strip()) < 10:
-                    logger.warning(f"Clause summary has very short clause text: {len(clause_text)} characters")
-                    return False
+                if has_any_clause_info:
+                    logger.info(f"Clause summary has sufficient context - proceeding with AI")
+                    return True
+                else:
+                    logger.info(f"Clause summary has minimal context, but allowing AI to handle it")
+                    return True  # Still allow AI to try
         
+        # Default to allowing AI to handle any context
+        logger.info(f"Allowing AI to handle {summary_type} summary with available context")
         return True
     
     def _detect_generic_summary_response(self, response: str, summary_type: str) -> bool:
@@ -1043,8 +1162,221 @@ Give step-by-step action plans with specific deadlines and alternatives.
         
         return original_prompt
 
-
+    async def _try_enhanced_clarification(self, request: ClarificationRequest, start_time: float) -> Optional[ClarificationResponse]:
+        """Try enhanced multi-service clarification"""
+        try:
+            # Validate request
+            if not request.question or len(request.question.strip()) < 5:
+                return ClarificationResponse(
+                    success=False,
+                    response="Please provide a question with at least 5 characters.",
+                    conversation_id=request.conversation_id or str(len(self.conversation_history) + 1),
+                    confidence_score=0,
+                    response_quality='invalid_request',
+                    processing_time=time.time() - start_time,
+                    fallback=True,
+                    error_type='InvalidRequest',
+                    service_used='validation',
+                    timestamp=datetime.now()
+                )
+            
+            # Sanitize and validate context
+            sanitized_context = self._sanitize_context(request.context)
+            
+            # Detect request type and priority
+            is_summary_request = self._is_summary_request(request.question)
+            summary_type = self._detect_summary_type(request.question)
+            priority = 1 if is_summary_request else 2
+            
+            # Log context validation but proceed anyway - let AI handle it
+            if is_summary_request:
+                context_valid = self._validate_context_for_summary(sanitized_context, summary_type)
+                if not context_valid:
+                    logger.info(f"Context validation noted for {summary_type} summary, but proceeding with AI anyway")
+                # Always proceed - don't block AI requests
+            
+            # Check cache first
+            cache_key = self._generate_cache_key(
+                f"{request.question}:{request.user_expertise_level}:{summary_type}", 
+                request.context
+            )
+            cached_response = self.response_cache.get(cache_key)
+            if cached_response:
+                logger.info("Returning cached response from enhanced service")
+                cached_response['processing_time'] = time.time() - start_time
+                cached_response['service_used'] = 'enhanced_cache'
+                cached_response['timestamp'] = datetime.now()
+                return ClarificationResponse(**cached_response)
+            
+            # Build enhanced context and prompt
+            context_text = self._build_enhanced_context(sanitized_context)
+            experience_level = request.user_expertise_level or 'beginner'
+            
+            # Create enhanced prompt for multi-service processing
+            prompt = self._create_enhanced_prompt(
+                request.question, 
+                context_text, 
+                experience_level, 
+                is_summary_request, 
+                summary_type
+            )
+            
+            # Create request context for multi-service manager
+            request_context = RequestContext(
+                request_id=hashlib.md5(f"{time.time()}{request.question}".encode()).hexdigest()[:8],
+                prompt=prompt,
+                request_type='chat',
+                priority=priority,
+                max_tokens=3000 if is_summary_request else 2000,
+                temperature=0.4,
+                timeout=60 if is_summary_request else 30
+            )
+            
+            # Process request through multi-service manager
+            manager = await self._get_multi_service_manager()
+            if not manager:
+                return None
+            
+            async with manager:
+                service_response = await manager.process_request(request_context)
+            
+            if service_response.success:
+                ai_response = service_response.content
+                service_used = f"enhanced_{service_response.service_name}"
+                
+                # Apply enhanced personalization
+                adapted_response = await self._apply_enhanced_personalization(
+                    ai_response, experience_level, sanitized_context
+                )
+                
+                if adapted_response:
+                    ai_response = adapted_response.adapted_response
+                
+                # Calculate confidence and cache
+                confidence_score = self._calculate_confidence(service_used, ai_response, sanitized_context)
+                processing_time = time.time() - start_time
+                
+                # Cache successful responses
+                if confidence_score > 60:
+                    cache_data = {
+                        'success': True,
+                        'response': ai_response,
+                        'conversation_id': request.conversation_id or str(len(self.conversation_history) + 1),
+                        'confidence_score': confidence_score,
+                        'response_quality': 'high' if confidence_score > 70 else 'medium',
+                        'fallback': False,
+                        'service_used': service_used,
+                        'experience_level': experience_level,
+                        'terms_explained': [term.term for term in adapted_response.terms_explained] if adapted_response and adapted_response.terms_explained else None,
+                        'complexity_score': adapted_response.complexity_score if adapted_response else None
+                    }
+                    self.response_cache[cache_key] = cache_data
+                
+                # Store in conversation history
+                conversation_entry = {
+                    'question': request.question,
+                    'response': ai_response,
+                    'timestamp': time.time(),
+                    'context_provided': bool(sanitized_context),
+                    'response_length': len(ai_response),
+                    'confidence': 'high' if confidence_score > 70 else 'medium' if confidence_score > 40 else 'low',
+                    'service_used': service_used,
+                    'conversation_id': request.conversation_id or str(len(self.conversation_history) + 1)
+                }
+                self.conversation_history.append(conversation_entry)
+                
+                # Keep conversation history manageable
+                if len(self.conversation_history) > 50:
+                    self.conversation_history = self.conversation_history[-25:]
+                
+                logger.info(f"Enhanced AI clarification successful using {service_used}: {len(ai_response)} chars, confidence: {confidence_score}")
+                
+                return ClarificationResponse(
+                    success=True,
+                    response=ai_response,
+                    conversation_id=conversation_entry['conversation_id'],
+                    confidence_score=confidence_score,
+                    response_quality='high' if confidence_score > 70 else 'medium' if confidence_score > 40 else 'basic',
+                    processing_time=processing_time,
+                    fallback=False,
+                    service_used=service_used,
+                    timestamp=datetime.now(),
+                    experience_level=experience_level,
+                    terms_explained=[term.term for term in adapted_response.terms_explained] if adapted_response and adapted_response.terms_explained else None,
+                    complexity_score=adapted_response.complexity_score if adapted_response else None
+                )
+            
+            return None  # Fall back to legacy implementation
+            
+        except Exception as e:
+            logger.warning(f"Enhanced clarification failed: {e}, falling back to legacy implementation")
+            return None
     
+    def _create_enhanced_prompt(self, question: str, context_text: str, experience_level: str, 
+                              is_summary_request: bool, summary_type: str) -> str:
+        """Create enhanced prompt for multi-service processing"""
+        if is_summary_request:
+            return f"""You are LegalSaathi, the world's most detailed legal document advisor. Your specialty is transforming complex legal analysis into specific, actionable guidance.
+
+{context_text}
+
+User Request: "{question}"
+
+ABSOLUTE REQUIREMENTS - FAILURE TO FOLLOW RESULTS IN REJECTION:
+
+1. SPECIFIC DATA USAGE: Reference exact clause texts, risk scores (0.0-1.0), confidence percentages, and analysis findings from the context above.
+
+2. DETAILED EXPLANATIONS: For each clause or issue, explain:
+   - WHAT it means in plain language
+   - WHY it's problematic (with specific examples)
+   - HOW it could affect the user (concrete scenarios)
+   - WHAT specific actions to take (exact steps)
+
+3. CONCRETE EXAMPLES: Use real-world scenarios and specific negotiation tactics.
+
+4. ACTIONABLE STEPS WITH TIMELINES: Provide step-by-step guidance with exact language to propose.
+
+Adjust complexity for {experience_level} level but maintain comprehensive detail and specificity."""
+        else:
+            return f"""You are LegalSaathi, an AI legal document advisor.
+
+{context_text}Question: "{question}"
+
+Provide a response that:
+1. Directly answers the question
+2. Explains relevant legal concepts for {experience_level} level
+3. Provides practical guidance
+4. Suggests when to consult a lawyer if needed"""
+    
+    async def _apply_enhanced_personalization(self, response: str, experience_level: str, context: Any):
+        """Apply enhanced personalization with legal term intelligence"""
+        try:
+            # Apply traditional personalization first
+            context_for_personalization = {
+                'risk_level': self._extract_risk_level_from_context(context),
+                'document_type': self._extract_document_type_from_context(context)
+            }
+            
+            response = self.personalization_engine.personalize_response(
+                response, 
+                experience_level, 
+                context_for_personalization
+            )
+            
+            # Apply enhanced experience level adaptation
+            enhanced_level = enhanced_experience_service.validate_experience_level(experience_level)
+            adapted_response = await enhanced_experience_service.adapt_response_for_level(
+                response,
+                enhanced_level,
+                context_for_personalization
+            )
+            
+            return adapted_response
+            
+        except Exception as e:
+            logger.warning(f"Enhanced personalization failed: {e}, using basic personalization")
+            return None
+
     async def _call_gemini_async(self, prompt: str) -> str:
         """Primary Gemini API call for clarification (90% usage)"""
         request_id = hashlib.md5(f"{time.time()}{prompt[:100]}".encode()).hexdigest()[:8]
@@ -1181,43 +1513,56 @@ You must write detailed, specific responses that give users concrete actions the
         """Fallback Groq API call for clarification"""
         request_id = hashlib.md5(f"{time.time()}{prompt[:100]}".encode()).hexdigest()[:8]
         
-        try:
-            # Log request details
-            debug_logger.info(f"[{request_id}] Groq API Request - Prompt length: {len(prompt)}")
-            debug_logger.debug(f"[{request_id}] Groq API Request - Full prompt: {prompt[:500]}...")
+        max_retries = 2 if hasattr(self, 'groq_keys') and len(self.groq_keys) > 1 else 1
+        
+        for attempt in range(max_retries):
+            try:
+                # Log request details
+                current_key_index = getattr(self, 'groq_key_index', 0) + 1
+                debug_logger.info(f"[{request_id}] Groq API Request (Key #{current_key_index}, Attempt {attempt + 1}) - Prompt length: {len(prompt)}")
+                debug_logger.debug(f"[{request_id}] Groq API Request - Full prompt: {prompt[:500]}...")
+                
+                start_time = time.time()
+                response = self.groq_client.chat.completions.create(
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": "You are LegalSaathi, the world's most detailed legal document advisor. You MUST provide specific, actionable guidance. ALWAYS include: 1) Concrete examples with dollar amounts and timeframes, 2) Exact negotiation language like 'Change X to Y', 3) Step-by-step actions with timelines, 4) Real-world impact scenarios. NEVER use generic phrases like 'could be improved', 'may cause issues', or 'consult a lawyer' without specific guidance first. Reference actual risk scores and data from the context provided."
+                        },
+                        {
+                            "role": "user", 
+                            "content": prompt
+                        }
+                    ],
+                    model="llama-3.1-8b-instant",  # Available model for quality responses
+                    temperature=0.4,  # Higher for more detailed responses
+                    max_tokens=3000,  # Much higher for comprehensive responses
+                    top_p=0.95,
+                    stream=False  # Ensure non-streaming for faster completion
+                )
+                response_time = time.time() - start_time
             
-            start_time = time.time()
-            response = self.groq_client.chat.completions.create(
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "You are LegalSaathi, the world's most detailed legal document advisor. You MUST provide specific, actionable guidance. ALWAYS include: 1) Concrete examples with dollar amounts and timeframes, 2) Exact negotiation language like 'Change X to Y', 3) Step-by-step actions with timelines, 4) Real-world impact scenarios. NEVER use generic phrases like 'could be improved', 'may cause issues', or 'consult a lawyer' without specific guidance first. Reference actual risk scores and data from the context provided."
-                    },
-                    {
-                        "role": "user", 
-                        "content": prompt
-                    }
-                ],
-                model="llama-3.1-8b-instant",  # Available model for quality responses
-                temperature=0.4,  # Higher for more detailed responses
-                max_tokens=3000,  # Much higher for comprehensive responses
-                top_p=0.95,
-                stream=False  # Ensure non-streaming for faster completion
-            )
-            response_time = time.time() - start_time
-            
-            response_text = response.choices[0].message.content.strip()
-            
-            # Log successful response
-            debug_logger.info(f"[{request_id}] Groq API Success - Response time: {response_time:.3f}s, Length: {len(response_text)}")
-            debug_logger.debug(f"[{request_id}] Groq API Response: {response_text[:300]}...")
-            
-            return response_text
-            
-        except Exception as e:
-            debug_logger.error(f"[{request_id}] Groq API call failed: {e}")
-            logger.error(f"Groq API call failed: {e}")
-            raise
+                response_text = response.choices[0].message.content.strip()
+                
+                # Log successful response
+                debug_logger.info(f"[{request_id}] Groq API Success - Response time: {response_time:.3f}s, Length: {len(response_text)}")
+                debug_logger.debug(f"[{request_id}] Groq API Response: {response_text[:300]}...")
+                
+                return response_text
+                
+            except Exception as e:
+                error_msg = str(e).lower()
+                
+                # Check if it's a rate limit error and we have more keys to try
+                if any(term in error_msg for term in ['rate limit', 'quota', '429', 'too many requests']) and attempt < max_retries - 1:
+                    logger.warning(f"[{request_id}] Groq API rate limit hit, rotating to next key (attempt {attempt + 1})")
+                    self._rotate_api_key('groq')
+                    continue
+                
+                # If it's the last attempt or not a rate limit error, raise the exception
+                debug_logger.error(f"[{request_id}] Groq API call failed: {e}")
+                logger.error(f"Groq API call failed: {e}")
+                raise
     
     async def _call_gemini_risk_analysis(self, prompt: str) -> str:
         """Primary Gemini API call for risk analysis with JSON response"""

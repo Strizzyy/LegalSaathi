@@ -11,6 +11,7 @@ import time
 import webbrowser
 import signal
 import threading
+import requests
 from pathlib import Path
 
 def check_dependencies():
@@ -60,6 +61,39 @@ def check_dependencies():
     
     return True
 
+def wait_for_backend_ready():
+    """Wait for backend to be fully initialized and ready"""
+    print("⏳ Waiting for backend services to initialize...")
+    max_attempts = 20  # 20 attempts = ~40 seconds (reduced from 1 minute)
+    
+    for attempt in range(1, max_attempts + 1):
+        try:
+            response = requests.get("http://localhost:8000/api/health/ready", timeout=3)  # Reduced timeout
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('ready_for_requests', False):
+                    print("✅ Backend is ready for requests!")
+                    return True
+                else:
+                    pending = data.get('pending_services', [])
+                    if pending:
+                        print(f"⏳ Initializing: {', '.join(pending[:2])}{'...' if len(pending) > 2 else ''} - {attempt}/{max_attempts}")
+                    else:
+                        print(f"⏳ Backend initializing... (attempt {attempt}/{max_attempts})")
+            else:
+                print(f"⏳ Backend not ready (HTTP {response.status_code}) - attempt {attempt}/{max_attempts}")
+        except requests.exceptions.RequestException:
+            if attempt <= 3:
+                print(f"⏳ Backend starting up... (attempt {attempt}/{max_attempts})")
+            elif attempt % 3 == 0:  # Every 3rd attempt after the first 3
+                print(f"⏳ Still waiting for backend... (attempt {attempt}/{max_attempts})")
+        
+        time.sleep(2)  # Wait 2 seconds between attempts
+    
+    print("❌ Backend failed to become ready within timeout")
+    print("💡 Backend may still be initializing. Check the logs above.")
+    return False
+
 def start_fastapi_server():
     """Start the FastAPI server with Uvicorn as subprocess"""
     print("🚀 Starting FastAPI server...")
@@ -68,15 +102,14 @@ def start_fastapi_server():
     os.environ['ENVIRONMENT'] = 'development'
     
     try:
-        print("✅ FastAPI server loaded successfully")
-        print("🔧 API server available at: http://localhost:8000")
+        print("🔧 API server starting at: http://localhost:8000")
         print("📡 API endpoints:")
         print("   • POST /api/analyze - Document analysis")
         print("   • POST /api/translate - Translation service")
         print("   • POST /api/ai/clarify - AI clarification")
         print("   • GET /health - Health check")
+        print("   • GET /api/health/ready - Readiness check")
         print("   • GET /docs - Interactive API documentation")
-        print("\n🛑 Press Ctrl+C to stop the API server")
         
         # Start the FastAPI app with Uvicorn as subprocess
         fastapi_process = subprocess.Popen([
@@ -109,9 +142,9 @@ def start_react_dev():
         return False
 
 def start_both_servers():
-    """Start both FastAPI and React dev servers"""
-    print("🎯 Starting LegalSaathi Development Environment")
-    print("=" * 50)
+    """Start both FastAPI and React dev servers with synchronized startup"""
+    print("🎯 Starting LegalSaathi Development Environment with Synchronized Startup")
+    print("=" * 65)
     
     # Store process references for cleanup
     processes = []
@@ -145,63 +178,86 @@ def start_both_servers():
     
     if fastapi_process:
         processes.append(fastapi_process)
-        print("✅ FastAPI server started")
+        print("✅ FastAPI server started (PID: {})".format(fastapi_process.pid))
+    else:
+        print("❌ Failed to start FastAPI server")
+        return
     
-    # Wait a moment for FastAPI to start
-    time.sleep(3)
-    
-    # Start React dev server as subprocess
-    print("🚀 Starting React development server...")
-    react_process = subprocess.Popen([
-        'npm', 'run', 'dev'
-    ], cwd='client', shell=True)
-    
-    if react_process:
-        processes.append(react_process)
-        print("✅ React dev server started")
-    
-    print("\n" + "=" * 50)
-    print("🌐 React dev server: http://localhost:3000")
-    print("🔧 FastAPI server: http://localhost:8000")
-    print("📖 API documentation: http://localhost:8000/docs")
-    print("\n💡 Development features:")
-    print("   • Hot module replacement for React")
-    print("   • API proxy to FastAPI backend")
-    print("   • Real-time code changes")
-    print("   • TypeScript error checking")
-    print("\n🛑 Press Ctrl+C to stop both servers")
-    
-    # Open browser after a short delay
-    def open_browser():
-        time.sleep(5)
+    # Wait for FastAPI to be ready
+    print("\n🔄 Waiting for backend services to initialize...")
+    if wait_for_backend_ready():
+        print("🎉 Backend is fully ready!")
+        
+        # Now start React dev server
+        print("\n🚀 Starting React development server...")
+        react_process = subprocess.Popen([
+            'npm', 'run', 'dev'
+        ], cwd='client', shell=True)
+        
+        if react_process:
+            processes.append(react_process)
+            print("✅ React dev server started (PID: {})".format(react_process.pid))
+        
+        print("\n" + "=" * 65)
+        print("🌟 Both services are ready!")
+        print("🌐 React dev server: http://localhost:3000")
+        print("🔧 FastAPI server: http://localhost:8000")
+        print("📖 API documentation: http://localhost:8000/docs")
+        print("🔍 Health check: http://localhost:8000/api/health/ready")
+        print("\n💡 Development features:")
+        print("   • Synchronized startup (no more startup errors!)")
+        print("   • Hot module replacement for React")
+        print("   • API proxy to FastAPI backend")
+        print("   • Real-time code changes")
+        print("   • TypeScript error checking")
+        print("   • Backend readiness monitoring")
+        print("\n🛑 Press Ctrl+C to stop both servers")
+        
+        # Open browser after a short delay
+        def open_browser():
+            time.sleep(3)  # Shorter delay since backend is already ready
+            try:
+                webbrowser.open('http://localhost:3000')
+                print("🌐 Opened browser to http://localhost:3000")
+            except:
+                print("💡 Please open http://localhost:3000 in your browser")
+        
+        browser_thread = threading.Thread(target=open_browser)
+        browser_thread.daemon = True
+        browser_thread.start()
+        
+        # Monitor both processes
         try:
-            webbrowser.open('http://localhost:3000')
-            print("🌐 Opened browser to http://localhost:3000")
-        except:
-            print("💡 Please open http://localhost:3000 in your browser")
-    
-    browser_thread = threading.Thread(target=open_browser)
-    browser_thread.daemon = True
-    browser_thread.start()
-    
-    # Monitor both processes
-    try:
-        while True:
-            # Check if processes are still running
-            if fastapi_process.poll() is not None:
-                print("❌ FastAPI process stopped unexpectedly")
-                break
-            if react_process.poll() is not None:
-                print("❌ React process stopped unexpectedly")
-                break
-            
-            time.sleep(1)  # Check every second
+            while True:
+                # Check if processes are still running
+                if fastapi_process.poll() is not None:
+                    print("❌ FastAPI process stopped unexpectedly")
+                    break
+                if react_process and react_process.poll() is not None:
+                    print("❌ React process stopped unexpectedly")
+                    break
                 
-    except KeyboardInterrupt:
-        signal_handler(signal.SIGINT, None)
-    except Exception as e:
-        print(f"❌ Error monitoring processes: {e}")
-        signal_handler(signal.SIGINT, None)
+                time.sleep(1)  # Check every second
+                    
+        except KeyboardInterrupt:
+            signal_handler(signal.SIGINT, None)
+        except Exception as e:
+            print(f"❌ Error monitoring processes: {e}")
+            signal_handler(signal.SIGINT, None)
+    else:
+        print("❌ Backend failed to initialize properly")
+        print("💡 You can still start the frontend manually with: cd client && npm run dev")
+        print("   The frontend will show initialization status and wait for backend to be ready")
+        
+        # Keep FastAPI running even if initialization check failed
+        try:
+            while True:
+                if fastapi_process.poll() is not None:
+                    print("❌ FastAPI process stopped")
+                    break
+                time.sleep(1)
+        except KeyboardInterrupt:
+            signal_handler(signal.SIGINT, None)
 
 def check_node_availability():
     """Check if Node.js/npm is available"""
@@ -229,8 +285,8 @@ def check_node_availability():
             return False
 
 def main():
-    """Main function - Automatically starts both React and FastAPI"""
-    print("🚀 LegalSaathi - Starting Full Development Environment")
+    """Main function - Automatically starts both React and FastAPI with synchronization"""
+    print("🚀 LegalSaathi - Synchronized Development Environment")
     print("=" * 55)
     
     # Check if Node.js is available
@@ -252,11 +308,14 @@ def main():
         sys.exit(1)
     
     print("\n✅ All dependencies ready!")
-    print("🚀 Starting both React frontend and FastAPI...")
+    print("🎯 Starting synchronized React frontend and FastAPI backend...")
+    print("   • Backend will start first and initialize all AI services")
+    print("   • Frontend will start once backend is fully ready")
+    print("   • No more startup errors or 500 responses!")
     print("=" * 55)
     
     try:
-        # Automatically start both servers
+        # Start both servers with synchronization
         start_both_servers()
     except KeyboardInterrupt:
         print("\n\n👋 Development servers stopped.")

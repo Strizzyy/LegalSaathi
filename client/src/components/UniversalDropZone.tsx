@@ -4,7 +4,6 @@ import {
   Upload, 
   FileText, 
   X, 
-  CheckCircle, 
   AlertCircle,
   Image,
   Camera,
@@ -32,6 +31,7 @@ export const UniversalDropZone = React.memo(function UniversalDropZone({
   className
 }: UniversalDropZoneProps) {
   const [isDragOver, setIsDragOver] = useState(false);
+  // @ts-ignore - dragCounter is used in drag event handlers
   const [dragCounter, setDragCounter] = useState(0);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);

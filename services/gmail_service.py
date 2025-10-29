@@ -74,7 +74,7 @@ class GmailService:
                         self.credentials.refresh(Request())
                     
                     # Build Gmail service
-                    self.gmail_client = build('gmail', 'v1', credentials=self.credentials)
+                    self.gmail_client = build('gmail', 'v1', credentials=self.credentials, cache_discovery=False)
                     logger.info("Gmail service initialized successfully with OAuth2 credentials from environment JSON")
                     return
                 except json.JSONDecodeError as e:
@@ -93,7 +93,7 @@ class GmailService:
                         self.credentials.refresh(Request())
                     
                     # Build Gmail service
-                    self.gmail_client = build('gmail', 'v1', credentials=self.credentials)
+                    self.gmail_client = build('gmail', 'v1', credentials=self.credentials, cache_discovery=False)
                     logger.info(f"Gmail service initialized successfully with OAuth2 credentials from {oauth_credentials_path}")
                     return
                     

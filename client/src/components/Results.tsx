@@ -18,7 +18,7 @@ import {
   Loader2,
   Mail
 } from 'lucide-react';
-import { cn, formatFileSize, formatPercentage, getRiskColor, getRiskBadgeColor, getConfidenceColor } from '../utils';
+import { cn, formatPercentage, getRiskColor, getRiskBadgeColor, getConfidenceColor } from '../utils';
 import { exportService } from '../services/exportService';
 import { notificationService } from '../services/notificationService';
 import { featureAvailabilityService } from '../services/featureAvailabilityService';
@@ -47,7 +47,7 @@ interface ResultsProps {
 
 import React from 'react';
 
-export const Results = React.memo(function Results({ analysis, fileInfo, classification, warnings, onBackToHome }: ResultsProps) {
+export const Results = React.memo(function Results({ analysis, fileInfo, classification, onBackToHome }: ResultsProps) {
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   
   // Overall Risk Assessment translation state

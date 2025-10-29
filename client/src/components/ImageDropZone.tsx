@@ -1,9 +1,6 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { motion } from 'framer-motion';
 import { 
-  Upload, 
   X, 
-  CheckCircle, 
   AlertCircle,
   Image,
   Camera,

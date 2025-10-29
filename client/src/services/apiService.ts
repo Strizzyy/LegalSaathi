@@ -1,6 +1,7 @@
 import type { AnalysisResult } from '../App';
 import { experienceLevelService } from './experienceLevelService';
 import { processingNotificationService } from './processingNotificationService';
+import { backendReadinessService } from './backendReadinessService';
 
 export interface APIError extends Error {
   status?: number;
@@ -27,6 +28,10 @@ export interface ClarificationResponse {
   service_used?: string;
   fallback?: boolean;
   confidence_score?: number;
+  // Enhanced experience level fields
+  experience_level?: string;
+  terms_explained?: string[];
+  complexity_score?: number;
 }
 
 export interface HealthResponse {
@@ -68,7 +73,9 @@ class APIService {
       if (response.status === 429) {
         errorMessage = 'API rate limit exceeded. Please wait a moment and try again.';
       } else if (response.status === 503) {
-        errorMessage = 'AI service is temporarily unavailable. Please try again later.';
+        errorMessage = 'Backend services are still initializing. Please wait a moment and try again.';
+      } else if (response.status === 500) {
+        errorMessage = 'Backend service error. The system may still be starting up.';
       }
 
       try {
@@ -98,9 +105,22 @@ class APIService {
     }
   }
 
+  private async waitForBackendIfNeeded(): Promise<void> {
+    if (!backendReadinessService.isBackendReady()) {
+      console.log('⏳ Waiting for backend to be ready...');
+      const isReady = await backendReadinessService.waitForBackend(30000); // 30 second timeout
+      if (!isReady) {
+        throw new Error('Backend is not ready. Please try again in a moment.');
+      }
+    }
+  }
+
 
   async analyzeDocument(formData: FormData): Promise<AnalysisResponse> {
   try {
+    // Wait for backend to be ready before making requests
+    await this.waitForBackendIfNeeded();
+
     // Clear any potential browser storage interference
     if (typeof window !== 'undefined') {
       try {
@@ -403,6 +423,9 @@ class APIService {
 
   async askClarification(question: string, context: any, experienceLevel?: string): Promise<ClarificationResponse> {
     try {
+      // Wait for backend to be ready before making requests
+      await this.waitForBackendIfNeeded();
+
       // Validate question length
       if (!question || question.trim().length < 5) {
         console.warn('Question too short for AI clarification:', question);
@@ -659,8 +682,8 @@ class APIService {
           analysis_results: [], // Vision API doesn't provide clause-by-clause analysis yet
           processing_time: visionResponse.text_extraction?.processing_time || 0,
           enhanced_insights: {
-            vision_api_extraction: visionResponse.text_extraction,
-            warnings: visionResponse.warnings || []
+            document_ai: visionResponse.text_extraction,
+            natural_language: visionResponse.text_extraction
           }
         };
 
@@ -845,7 +868,7 @@ class APIService {
         body: formData,
       });
 
-      const result = await this.handleResponse(response);
+      const result = await this.handleResponse<any>(response);
       
       // Show dynamic notifications based on result
       if (result.success) {
@@ -897,7 +920,7 @@ class APIService {
         body: formData,
       });
 
-      const result = await this.handleResponse(response);
+      const result = await this.handleResponse<any>(response);
       
       // Show dynamic notifications for image document analysis
       if (result.success) {
@@ -956,7 +979,7 @@ class APIService {
         body: formData,
       });
 
-      const result = await this.handleResponse(response);
+      const result = await this.handleResponse<any>(response);
       
       // Show dynamic notifications for multiple image analysis
       if (result.success) {

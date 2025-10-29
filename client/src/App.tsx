@@ -19,6 +19,7 @@ import { ProductSection } from './components/ProductSection';
 import { MultipleImageAnalysis } from './components/MultipleImageAnalysis';
 import { apiService } from './services/apiService';
 import { notificationService } from './services/notificationService';
+import BackendStatusIndicator from './components/BackendStatusIndicator';
 
 export interface AnalysisResult {
   analysis_id: string;
@@ -233,6 +234,11 @@ function App() {
               onShowAbout={handleShowAbout}
               onShowContact={handleShowContact}
             />
+            
+            {/* Backend Status Indicator */}
+            <div className="fixed top-16 right-4 z-50">
+              <BackendStatusIndicator showDetails={true} />
+            </div>
             
             <main>
               {currentView === 'home' ? (

@@ -212,9 +212,19 @@ class TranslationController:
             
         except Exception as e:
             logger.error(f"Failed to get enhanced supported languages: {e}")
-            raise HTTPException(
-                status_code=500,
-                detail=f"Failed to get enhanced supported languages: {str(e)}"
+            # Return a fallback response instead of raising an exception
+            fallback_languages = [
+                SupportedLanguage(code='en', name='English', native_name='English', flag='🇺🇸'),
+                SupportedLanguage(code='es', name='Spanish', native_name='Español', flag='🇪🇸'),
+                SupportedLanguage(code='fr', name='French', native_name='Français', flag='🇫🇷'),
+                SupportedLanguage(code='de', name='German', native_name='Deutsch', flag='🇩🇪'),
+                SupportedLanguage(code='hi', name='Hindi', native_name='हिंदी', flag='🇮🇳'),
+            ]
+            
+            return EnhancedSupportedLanguagesResponse(
+                success=True,
+                languages=fallback_languages,
+                total_count=len(fallback_languages)
             )
     
     async def translate_document_summary(

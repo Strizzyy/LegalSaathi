@@ -76,6 +76,8 @@ export const TranslationAwareAudioButton: React.FC<TranslationAwareAudioButtonPr
       document.addEventListener('mousedown', handleClickOutside);
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
+    
+    return undefined;
   }, [showLanguageSelector]);
 
   // Get the text to speak based on selected language
@@ -101,7 +103,7 @@ export const TranslationAwareAudioButton: React.FC<TranslationAwareAudioButtonPr
   };
 
   // Get appropriate voice gender based on language
-  const getVoiceGender = (langCode: string): 'MALE' | 'FEMALE' | 'NEUTRAL' => {
+  const getVoiceGender = (): 'MALE' | 'FEMALE' | 'NEUTRAL' => {
     return 'NEUTRAL';
   };
 
@@ -126,7 +128,7 @@ export const TranslationAwareAudioButton: React.FC<TranslationAwareAudioButtonPr
 
   // Get language display info
   const getLanguageInfo = (langCode: string) => {
-    const languageInfo = {
+    const languageInfo: { [key: string]: { name: string; flag: string } } = {
       'en': { name: 'English', flag: '🇺🇸' },
       'es': { name: 'Spanish', flag: '🇪🇸' },
       'fr': { name: 'French', flag: '🇫🇷' },
@@ -208,7 +210,7 @@ export const TranslationAwareAudioButton: React.FC<TranslationAwareAudioButtonPr
             <AudioPlayer
               text={getTextToSpeak()}
               languageCode={speechLanguageCode}
-              voiceGender={getVoiceGender(speechLanguageCode)}
+              voiceGender={getVoiceGender()}
               speakingRate={getSpeakingRate(speechLanguageCode)}
             />
           </div>
@@ -270,7 +272,7 @@ export const TranslationAwareAudioButton: React.FC<TranslationAwareAudioButtonPr
       <AudioPlayer
         text={getTextToSpeak()}
         languageCode={speechLanguageCode}
-        voiceGender={getVoiceGender(speechLanguageCode)}
+        voiceGender={getVoiceGender()}
         speakingRate={getSpeakingRate(speechLanguageCode)}
         className="w-full"
       />

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Camera, FileText, Zap, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Camera, Zap, CheckCircle, AlertTriangle } from 'lucide-react';
 import UniversalDropZone from './UniversalDropZone';
 import { apiService } from '../services/apiService';
 

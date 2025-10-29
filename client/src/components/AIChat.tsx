@@ -197,6 +197,36 @@ export function AIChat({ isOpen, onClose, documentContext, clauseContext }: AICh
               </div>
             )}
             
+            {/* Experience level adaptation info for AI messages */}
+            {!isUser && !isSystem && (message.experienceLevel || message.termsExplained || message.complexityScore !== undefined) && (
+              <div className="mt-2 pt-2 border-t border-slate-600/50">
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  {message.experienceLevel && (
+                    <div className="flex items-center space-x-1 text-slate-400">
+                      <Users className="w-3 h-3" />
+                      <span>Adapted for: <span className="text-cyan-400 capitalize">{message.experienceLevel}</span></span>
+                    </div>
+                  )}
+                  {message.termsExplained && message.termsExplained.length > 0 && (
+                    <div className="flex items-center space-x-1 text-slate-400">
+                      <Lightbulb className="w-3 h-3" />
+                      <span>Explained {message.termsExplained.length} legal term{message.termsExplained.length > 1 ? 's' : ''}</span>
+                    </div>
+                  )}
+                  {message.complexityScore !== undefined && (
+                    <div className="flex items-center space-x-1 text-slate-400">
+                      <span>Complexity: {message.complexityScore.toFixed(1)}/5</span>
+                    </div>
+                  )}
+                </div>
+                {message.termsExplained && message.termsExplained.length > 0 && (
+                  <div className="mt-1 text-xs text-slate-500">
+                    Terms: {message.termsExplained.join(', ')}
+                  </div>
+                )}
+              </div>
+            )}
+            
             {/* Clause reference */}
             {message.clauseReference && (
               <div className="text-xs text-slate-400 mt-1">

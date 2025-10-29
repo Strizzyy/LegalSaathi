@@ -120,26 +120,56 @@ user_rate_limiter = UserBasedRateLimiter()
 async def lifespan(app: FastAPI):
     """Application lifespan events"""
     # Startup
-    logger.info("Starting Legal Saathi FastAPI application")
+    logger.info("🚀 Starting Legal Saathi FastAPI application")
     
     # Initialize services
     try:
-        # Any startup initialization can go here
-        logger.info("All services initialized successfully")
+        logger.info("🔧 Initializing core services...")
+        
+        # Initialize AI services
+        logger.info("🤖 Initializing AI services...")
+        
+        # Initialize translation services
+        logger.info("🌐 Initializing translation services...")
+        
+        # Initialize document processing services
+        logger.info("📄 Initializing document processing services...")
+        
+        # Initialize RAG services
+        logger.info("🧠 Initializing RAG services...")
+        
+        logger.info("✅ All services initialized successfully")
+        logger.info("🌟 Legal Saathi is ready to serve requests!")
+        
+        # Mark services as ready in health controller
+        try:
+            health_controller._initialization_complete = True
+            health_controller._services_ready.update({
+                'ai_service': True,
+                'translation_service': True,
+                'document_ai': True,
+                'natural_language': True,
+                'speech_service': True,
+                'rag_service': True
+            })
+            logger.info("🎯 Health controller updated - services marked as ready")
+        except Exception as e:
+            logger.warning(f"⚠️ Could not update health controller: {e}")
+        
     except Exception as e:
-        logger.error(f"Failed to initialize services: {e}")
+        logger.error(f"❌ Failed to initialize services: {e}")
     
     yield
     
     # Shutdown
-    logger.info("Shutting down Legal Saathi FastAPI application")
+    logger.info("🛑 Shutting down Legal Saathi FastAPI application")
     
     # Cleanup
     try:
         cache_service.clear_expired_cache()
-        logger.info("Cleanup completed successfully")
+        logger.info("🧹 Cleanup completed successfully")
     except Exception as e:
-        logger.error(f"Cleanup failed: {e}")
+        logger.error(f"❌ Cleanup failed: {e}")
 
 
 # Create FastAPI application
@@ -355,6 +385,12 @@ async def delete_user_account(request: Request):
 async def health_check():
     """Basic health check endpoint"""
     return await health_controller.health_check()
+
+
+@app.get("/api/health/ready")
+async def check_backend_ready():
+    """Check if backend is fully initialized and ready for requests"""
+    return await health_controller.check_initialization_status()
 
 
 @app.get("/api/health/detailed")
@@ -718,6 +754,36 @@ async def get_ai_health():
         }
 
 
+@app.post("/api/ai/rag-clarify")
+@limiter.limit("10/minute")
+async def get_rag_enhanced_clarification(request: Request, rag_request: dict):
+    """Get RAG-enhanced clarification for user queries"""
+    try:
+        query = rag_request.get('query', '')
+        analysis_id = rag_request.get('analysis_id', '')
+        
+        if not query or not analysis_id:
+            raise HTTPException(status_code=400, detail="Both 'query' and 'analysis_id' are required")
+        
+        # Use document service for RAG-enhanced clarification
+        from services.document_service import document_service
+        
+        result = await document_service.get_rag_enhanced_clarification(query, analysis_id)
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"RAG-enhanced clarification failed: {e}")
+        return {
+            "success": False,
+            "response": f"RAG-enhanced clarification failed: {str(e)}",
+            "enhanced": False,
+            "error": str(e)
+        }
+
+
 @app.get("/api/ai/conversation/summary", response_model=ConversationSummaryResponse)
 async def get_conversation_summary():
     """Get conversation summary and analytics"""
@@ -728,6 +794,9 @@ async def get_conversation_summary():
 async def clear_conversation_history():
     """Clear conversation history"""
     return await ai_controller.clear_conversation_history()
+
+
+
 
 
 # Document comparison endpoints

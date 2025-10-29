@@ -1,26 +1,22 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { 
-  Upload, 
-  FileText, 
-  X, 
-  CheckCircle, 
+import {
+  FileText,
   AlertCircle,
   Play,
   Zap,
   Shield,
   Globe,
-  Image,
   Images,
   Camera
 } from 'lucide-react';
-import { cn, formatFileSize } from '../utils';
+import { cn } from '../utils';
 import { notificationService } from '../services/notificationService';
-import { validationService } from '../services/validationService';
 import { experienceLevelService, type ExperienceLevel } from '../services/experienceLevelService';
 import { VoiceInput } from './VoiceInput';
 import UniversalDropZone from './UniversalDropZone';
 import { MultiFileDropZone } from './MultiFileDropZone';
+import { useBackendReadiness } from '../hooks/useBackendReadiness';
 
 interface DocumentUploadProps {
   onSubmit: (formData: FormData) => void;
@@ -31,13 +27,16 @@ export const DocumentUpload = React.memo(function DocumentUpload({ onSubmit }: D
   const [selectedFile, setSelectedFile] = useState<globalThis.File | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<globalThis.File[]>([]);
   const [isMultipleMode, setIsMultipleMode] = useState(false);
-  const [expertiseLevel, setExpertiseLevel] = useState<ExperienceLevel>(() => 
+  const [expertiseLevel, setExpertiseLevel] = useState<ExperienceLevel>(() =>
     experienceLevelService.getCurrentLevel()
   );
   const [userQuestions, setUserQuestions] = useState('');
   const [charCount, setCharCount] = useState(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  
+
+  // Backend readiness state
+  const { isReady: isBackendReady, isChecking: isBackendChecking, waitForBackend } = useBackendReadiness();
+
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Cleanup effect
@@ -126,7 +125,7 @@ CONFIDENTIALITY TERMS:
     // Since MultiFileDropZone creates IDs like `${file.name}-${Date.now()}-${Math.random()}`
     // we need to remove the file from our selectedFiles array
     console.log('Remove file requested:', fileId);
-    
+
     // The MultiFileDropZone will handle the removal internally and call onFilesSelect with updated list
     // We don't need to do anything here as the updated list will come through handleMultipleFilesSelect
   }, []);
@@ -142,7 +141,7 @@ CONFIDENTIALITY TERMS:
     const text = e.target.value;
     setDocumentText(text);
     setCharCount(text.length);
-    
+
     if (text.length < 100 && text.length > 0) {
       setErrors({ ...errors, text: 'Document text must be at least 100 characters' });
     } else {
@@ -175,91 +174,102 @@ CONFIDENTIALITY TERMS:
 
 
 
-  
-const handleSubmit = useCallback(async (e: React.FormEvent<HTMLFormElement>) => {
-  e.preventDefault();
- 
-  try {
-    // Add a small delay to ensure state is properly updated
-    await new Promise(resolve => setTimeout(resolve, 100));
-    
-    // Get current state values to avoid stale closures
-    const currentSelectedFiles = selectedFiles;
-    const currentSelectedFile = selectedFile;
-    const currentDocumentText = documentText.trim();
-    
-    console.log('Form submission - Current state:', {
-      selectedFiles: currentSelectedFiles.length,
-      selectedFile: currentSelectedFile?.name,
-      documentText: currentDocumentText.length
-    });
-    
-    // Validate that we have content
-    if (!currentSelectedFile && currentSelectedFiles.length === 0 && !currentDocumentText) {
-      setErrors({ documentContent: 'Please provide a document or paste text to analyze' });
-      notificationService.error('Please provide a document or paste text to analyze');
-      return;
-    }
 
-    // Clear errors
-    setErrors({});
+  const handleSubmit = useCallback(async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
 
-    const formData = new FormData();
+    try {
+      // Check if backend is ready
+      if (!isBackendReady) {
+        notificationService.info('Waiting for backend services to initialize...', { duration: 3000 });
+        const backendReady = await waitForBackend(30000); // 30 second timeout
 
-    if (currentSelectedFiles.length > 0) {
-      console.log('Submitting multiple images:', currentSelectedFiles.length, currentSelectedFiles.map(f => f.name));
-      
-      // Multiple image files - use multiple image analysis endpoint
-      currentSelectedFiles.forEach((file, index) => {
-        console.log(`Appending file ${index + 1}:`, file.name, file.size);
-        formData.append('files', file);
+        if (!backendReady) {
+          notificationService.error('Backend services are not ready. Please try again in a moment.');
+          return;
+        }
+      }
+
+      // Add a small delay to ensure state is properly updated
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Get current state values to avoid stale closures
+      const currentSelectedFiles = selectedFiles;
+      const currentSelectedFile = selectedFile;
+      const currentDocumentText = documentText.trim();
+
+      console.log('Form submission - Current state:', {
+        selectedFiles: currentSelectedFiles.length,
+        selectedFile: currentSelectedFile?.name,
+        documentText: currentDocumentText.length
       });
-      formData.append('document_type', 'general_contract');
-      formData.append('user_expertise_level', expertiseLevel);
-      
-      // Mark this as multiple image upload
-      formData.append('is_multiple_image_upload', 'true');
-      
-      console.log('FormData for multiple images prepared, files count:', formData.getAll('files').length);
-    } else if (currentSelectedFile) {
-      // Single file
-      if (isImageFile(currentSelectedFile)) {
-        // For image files - use Vision API endpoint
-        formData.append('file', currentSelectedFile);
-        formData.append('document_type', 'general_contract');
-        formData.append('user_expertise_level', expertiseLevel);
-        
-        // Mark this as an image upload for Vision API
-        formData.append('is_image_upload', 'true');
-      } else {
-        // For document files - use regular document analysis endpoint
-        formData.append('file', currentSelectedFile); // Backend expects 'file'
-        formData.append('document_type', 'general_contract');
-        formData.append('user_expertise_level', expertiseLevel);
-        
-        // Mark this as a file upload
-        formData.append('is_file_upload', 'true');
-      }
-    } else if (currentDocumentText) {
-      // For text analysis - use the correct field name that your backend expects
-      formData.append('document_text', currentDocumentText); // Backend expects 'document_text'
-      formData.append('document_type', 'general_contract');
-      formData.append('user_expertise_level', expertiseLevel);
-      
-      if (userQuestions.trim()) {
-        formData.append('user_questions', userQuestions.trim());
-      }
-      
-      // Mark this as text analysis
-      formData.append('is_file_upload', 'false');
-    }
 
-    onSubmit(formData);
-  } catch (error) {
-    console.error('Error submitting form:', error);
-    notificationService.error('Failed to submit document. Please try again.');
-  }
-}, [selectedFile, selectedFiles, documentText, expertiseLevel, userQuestions, onSubmit, isImageFile]);
+      // Validate that we have content
+      if (!currentSelectedFile && currentSelectedFiles.length === 0 && !currentDocumentText) {
+        setErrors({ documentContent: 'Please provide a document or paste text to analyze' });
+        notificationService.error('Please provide a document or paste text to analyze');
+        return;
+      }
+
+      // Clear errors
+      setErrors({});
+
+      const formData = new FormData();
+
+      if (currentSelectedFiles.length > 0) {
+        console.log('Submitting multiple images:', currentSelectedFiles.length, currentSelectedFiles.map(f => f.name));
+
+        // Multiple image files - use multiple image analysis endpoint
+        currentSelectedFiles.forEach((file, index) => {
+          console.log(`Appending file ${index + 1}:`, file.name, file.size);
+          formData.append('files', file);
+        });
+        formData.append('document_type', 'general_contract');
+        formData.append('user_expertise_level', expertiseLevel);
+
+        // Mark this as multiple image upload
+        formData.append('is_multiple_image_upload', 'true');
+
+        console.log('FormData for multiple images prepared, files count:', formData.getAll('files').length);
+      } else if (currentSelectedFile) {
+        // Single file
+        if (isImageFile(currentSelectedFile)) {
+          // For image files - use Vision API endpoint
+          formData.append('file', currentSelectedFile);
+          formData.append('document_type', 'general_contract');
+          formData.append('user_expertise_level', expertiseLevel);
+
+          // Mark this as an image upload for Vision API
+          formData.append('is_image_upload', 'true');
+        } else {
+          // For document files - use regular document analysis endpoint
+          formData.append('file', currentSelectedFile); // Backend expects 'file'
+          formData.append('document_type', 'general_contract');
+          formData.append('user_expertise_level', expertiseLevel);
+
+          // Mark this as a file upload
+          formData.append('is_file_upload', 'true');
+        }
+      } else if (currentDocumentText) {
+        // For text analysis - use the correct field name that your backend expects
+        formData.append('document_text', currentDocumentText); // Backend expects 'document_text'
+        formData.append('document_type', 'general_contract');
+        formData.append('user_expertise_level', expertiseLevel);
+
+        if (userQuestions.trim()) {
+          formData.append('user_questions', userQuestions.trim());
+        }
+
+        // Mark this as text analysis
+        formData.append('is_file_upload', 'false');
+      }
+
+      onSubmit(formData);
+    } catch (error) {
+      console.error('Error submitting form:', error);
+      notificationService.error('Failed to submit document. Please try again.');
+    }
+  }, [selectedFile, selectedFiles, documentText, expertiseLevel, userQuestions, onSubmit, isImageFile]);
 
   // Store experience level when it changes
   React.useEffect(() => {
@@ -321,8 +331,8 @@ const handleSubmit = useCallback(async (e: React.FormEvent<HTMLFormElement>) => 
           </div>
 
           {/* Main Form */}
-          <form 
-            onSubmit={handleSubmit} 
+          <form
+            onSubmit={handleSubmit}
             className="space-y-8"
             aria-label="Legal document analysis form"
             noValidate
@@ -407,7 +417,7 @@ const handleSubmit = useCallback(async (e: React.FormEvent<HTMLFormElement>) => 
                   <span className="text-sm text-slate-400">Alternative to file upload</span>
                 </div>
               </div>
-              
+
               <div className="relative">
                 <textarea
                   ref={textareaRef}
@@ -422,12 +432,12 @@ const handleSubmit = useCallback(async (e: React.FormEvent<HTMLFormElement>) => 
                   aria-invalid={errors.text ? 'true' : 'false'}
                 />
               </div>
-              
+
               <div className="flex justify-between items-center text-sm">
                 <span className="text-slate-400" id="text-input-description">
                   Please ensure you provide the complete legal document for accurate analysis.
                 </span>
-                <span 
+                <span
                   className={cn(
                     "font-mono",
                     charCount > 45000 ? "text-red-400" : "text-slate-400"
@@ -438,14 +448,14 @@ const handleSubmit = useCallback(async (e: React.FormEvent<HTMLFormElement>) => 
                   {charCount.toLocaleString()} / 50,000 characters
                 </span>
               </div>
-              
+
               {errors.text && (
                 <div className="flex items-center text-red-400 text-sm" role="alert" aria-live="assertive">
                   <AlertCircle className="w-4 h-4 mr-2" aria-hidden="true" />
                   <span id="text-error-message">{errors.text}</span>
                 </div>
               )}
-              
+
               {errors.voice && (
                 <div className="flex items-center text-red-400 text-sm" role="alert" aria-live="assertive">
                   <AlertCircle className="w-4 h-4 mr-2" aria-hidden="true" />
@@ -488,7 +498,7 @@ const handleSubmit = useCallback(async (e: React.FormEvent<HTMLFormElement>) => 
               </div>
               <p className="text-sm text-slate-400 flex items-center" id="expertise-level-description">
                 <AlertCircle className="w-4 h-4 mr-2" aria-hidden="true" />
-                This helps us adapt our explanations to your knowledge level
+                AI responses will be intelligently adapted with legal term explanations based on your experience level
               </p>
             </fieldset>
 
@@ -514,15 +524,23 @@ const handleSubmit = useCallback(async (e: React.FormEvent<HTMLFormElement>) => 
             <div className="text-center">
               <button
                 type="submit"
-                className="inline-flex items-center px-8 py-4 text-lg font-semibold text-white bg-gradient-to-r from-cyan-500 to-blue-500 rounded-xl hover:from-cyan-400 hover:to-blue-400 transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-cyan-500/25 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-slate-900"
+                disabled={!isBackendReady && isBackendChecking}
+                className={cn(
+                  "inline-flex items-center px-8 py-4 text-lg font-semibold text-white rounded-xl transition-all duration-300 transform focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900",
+                  (!isBackendReady && isBackendChecking)
+                    ? "bg-gray-500 cursor-not-allowed opacity-75"
+                    : "bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 hover:scale-105 hover:shadow-lg hover:shadow-cyan-500/25 focus:ring-cyan-500"
+                )}
                 aria-describedby="submit-button-description"
               >
                 <Zap className="w-5 h-5 mr-2" aria-hidden="true" />
-                {selectedFiles.length > 0 
-                  ? `Analyze ${selectedFiles.length} Images`
-                  : selectedFile
-                    ? `Analyze ${isImageFile(selectedFile) ? 'Image' : 'Document'}`
-                    : 'Analyze Document'
+                {(!isBackendReady && isBackendChecking)
+                  ? 'Initializing Services...'
+                  : selectedFiles.length > 0
+                    ? `Analyze ${selectedFiles.length} Images`
+                    : selectedFile
+                      ? `Analyze ${isImageFile(selectedFile) ? 'Image' : 'Document'}`
+                      : 'Analyze Document'
                 }
               </button>
               <p className="sr-only" id="submit-button-description">
@@ -549,7 +567,7 @@ const handleSubmit = useCallback(async (e: React.FormEvent<HTMLFormElement>) => 
                   Experience our AI analysis with sample documents
                 </p>
               </div>
-              
+
               <div className="grid md:grid-cols-3 gap-4 mb-6" role="group" aria-labelledby="demo-section-title" aria-describedby="demo-section-description">
                 <button
                   type="button"
@@ -565,7 +583,7 @@ const handleSubmit = useCallback(async (e: React.FormEvent<HTMLFormElement>) => 
                     <p className="text-sm text-red-400">Unfavorable lease terms</p>
                   </div>
                 </button>
-                
+
                 <button
                   type="button"
                   onClick={() => loadDemoSample('employment')}
@@ -580,7 +598,7 @@ const handleSubmit = useCallback(async (e: React.FormEvent<HTMLFormElement>) => 
                     <p className="text-sm text-green-400">Standard terms</p>
                   </div>
                 </button>
-                
+
                 <button
                   type="button"
                   onClick={() => loadDemoSample('nda')}
@@ -596,7 +614,7 @@ const handleSubmit = useCallback(async (e: React.FormEvent<HTMLFormElement>) => 
                   </div>
                 </button>
               </div>
-              
+
               <div className="bg-slate-800/50 rounded-xl p-4">
                 <p className="text-sm text-slate-300 text-center">
                   <AlertCircle className="w-4 h-4 inline mr-2" />
@@ -622,12 +640,12 @@ const handleSubmit = useCallback(async (e: React.FormEvent<HTMLFormElement>) => 
                 </h3>
                 <div className="google-cloud-badge mx-auto">
                   <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z"/>
+                    <path d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z" />
                   </svg>
                   <span>Advanced machine learning models for accurate legal document analysis</span>
                 </div>
               </div>
-              
+
               <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {[
                   {

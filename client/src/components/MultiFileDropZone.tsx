@@ -55,6 +55,7 @@ export const MultiFileDropZone = React.memo(function MultiFileDropZone({
   allowMixedTypes = true
 }: MultiFileDropZoneProps) {
   const [isDragOver, setIsDragOver] = useState(false);
+  // @ts-ignore - dragCounter is used in drag event handlers
   const [dragCounter, setDragCounter] = useState(0);
   const [filesWithPreview, setFilesWithPreview] = useState<FileWithPreview[]>([]);
   const [showPreview, setShowPreview] = useState<string | null>(null);
@@ -193,6 +194,8 @@ export const MultiFileDropZone = React.memo(function MultiFileDropZone({
       document.addEventListener('keydown', handleKeyDown);
       return () => document.removeEventListener('keydown', handleKeyDown);
     }
+    
+    return undefined;
   }, [showPreview, handlePreviewNavigation]);
 
   const getFileIcon = useCallback((file: File, size: string = "w-8 h-8") => {
@@ -372,9 +375,7 @@ export const MultiFileDropZone = React.memo(function MultiFileDropZone({
     notificationService.success('All files cleared');
   }, [onClearAll, onFilesSelect]);
 
-  const getPreviewForFile = useCallback((fileId: string) => {
-    return filesWithPreview.find(f => f.id === fileId)?.preview;
-  }, [filesWithPreview]);
+
 
 
 

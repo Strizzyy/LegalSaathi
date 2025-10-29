@@ -1,23 +1,16 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
-  Upload, 
   FileText, 
-  X, 
-  CheckCircle, 
   AlertCircle,
   Play,
   Zap,
-  Shield,
   Globe,
-  Image,
   Camera,
-  FolderOpen,
   Layers
 } from 'lucide-react';
-import { cn, formatFileSize } from '../utils';
+import { cn } from '../utils';
 import { notificationService } from '../services/notificationService';
-import { validationService } from '../services/validationService';
 import { experienceLevelService, type ExperienceLevel } from '../services/experienceLevelService';
 import { VoiceInput } from './VoiceInput';
 import MultiFileDropZone from './MultiFileDropZone';
@@ -262,7 +255,7 @@ CONFIDENTIALITY TERMS:
     const options: BatchProcessingOptions = {
       documentType: 'general_contract',
       userExpertiseLevel: expertiseLevel,
-      userQuestions: userQuestions.trim() || undefined,
+      userQuestions: userQuestions.trim() || '',
       processIndividually: batchOptions.processIndividually,
       combineResults: batchOptions.combineResults
     };

@@ -9,13 +9,12 @@ import {
   Camera,
   Eye,
   BarChart3,
-  Clock,
   Shield
 } from 'lucide-react';
 import { MultiFileDropZone } from './MultiFileDropZone';
 import { apiService } from '../services/apiService';
 import { notificationService } from '../services/notificationService';
-import { cn, formatFileSize } from '../utils';
+import { cn } from '../utils';
 
 interface MultipleImageAnalysisProps {
   onAnalysisComplete?: (result: any) => void;
@@ -90,11 +89,7 @@ export const MultipleImageAnalysis: React.FC<MultipleImageAnalysisProps> = ({
     setAnalysisResult(null);
   }, []);
 
-  const handleRemoveFile = useCallback((fileId: string) => {
-    // Remove file from selectedFiles by finding the file that matches
-    // Since we don't have the fileId mapping, we'll need to work with the MultiFileDropZone
-    // to properly sync the files. For now, this will be handled by the parent component.
-  }, []);
+
 
   const handleClearAll = useCallback(() => {
     setSelectedFiles([]);
@@ -178,12 +173,8 @@ export const MultipleImageAnalysis: React.FC<MultipleImageAnalysisProps> = ({
       <MultiFileDropZone
         onFilesSelect={handleFilesSelect}
         selectedFiles={selectedFiles}
-        onRemoveFile={(fileId: string) => {
-          // Find and remove the file by matching properties since we don't have direct ID mapping
-          const updatedFiles = selectedFiles.filter((_, index) => {
-            // This is a workaround - in a real implementation, we'd need better file ID management
-            return true; // Let the MultiFileDropZone handle the removal internally
-          });
+        onRemoveFile={() => {
+          // Let the MultiFileDropZone handle the removal internally
         }}
         onClearAll={handleClearAll}
         errors={errors}
