@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from './ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
+import AdminAccessButton from './admin/AdminAccessButton';
 
 interface NavigationProps {
   onShowAuth?: (mode: 'login' | 'register') => void;
@@ -113,6 +114,9 @@ export function Navigation({ onShowAuth, onShowProfile, onShowAbout, onShowConta
               <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
               <span className="text-emerald-400 text-sm hidden sm:inline">AI Ready</span>
             </div>
+
+            {/* Admin Access Button (only visible to admins) */}
+            <AdminAccessButton />
 
             {/* Authentication Section */}
             {loading ? (

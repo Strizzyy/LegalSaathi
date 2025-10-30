@@ -20,6 +20,7 @@ import { MultipleImageAnalysis } from './components/MultipleImageAnalysis';
 import { apiService } from './services/apiService';
 import { notificationService } from './services/notificationService';
 import BackendStatusIndicator from './components/BackendStatusIndicator';
+import AdminPage from './pages/AdminPage';
 
 export interface AnalysisResult {
   analysis_id: string;
@@ -72,7 +73,7 @@ export interface Classification {
 }
 
 function App() {
-  const [currentView, setCurrentView] = useState<'home' | 'results' | 'profile' | 'privacy' | 'terms' | 'about' | 'contact' | 'document-summary' | 'risk-assessment' | 'clause-analysis' | 'multiple-images'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'results' | 'profile' | 'privacy' | 'terms' | 'about' | 'contact' | 'document-summary' | 'risk-assessment' | 'clause-analysis' | 'multiple-images' | 'admin'>('home');
   const [isLoading, setIsLoading] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [fileInfo, setFileInfo] = useState<FileInfo | null>(null);
@@ -81,11 +82,34 @@ function App() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<'login' | 'register'>('login');
 
+  // Handle URL routing
+  useEffect(() => {
+    const path = window.location.pathname;
+    if (path === '/admin') {
+      setCurrentView('admin');
+    } else {
+      setCurrentView('home');
+    }
+
+    // Listen for URL changes
+    const handlePopState = () => {
+      const path = window.location.pathname;
+      if (path === '/admin') {
+        setCurrentView('admin');
+      } else {
+        setCurrentView('home');
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
   // Handle scroll behavior when view changes
   useEffect(() => {
-    if (currentView === 'privacy' || currentView === 'terms' || currentView === 'about' || currentView === 'contact' || 
-        currentView === 'document-summary' || currentView === 'risk-assessment' || currentView === 'clause-analysis' || 
-        currentView === 'multiple-images') {
+    if (currentView === 'privacy' || currentView === 'terms' || currentView === 'about' || currentView === 'contact' ||
+      currentView === 'document-summary' || currentView === 'risk-assessment' || currentView === 'clause-analysis' ||
+      currentView === 'multiple-images' || currentView === 'admin') {
       // Ensure we're at the top when viewing full-page components
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -95,23 +119,23 @@ function App() {
 
   const handleAnalysisSubmit = async (formData: FormData) => {
     setIsLoading(true);
-    
+
     // Clear previous results to prevent stale data
     setAnalysisResult(null);
     setFileInfo(null);
     setClassification(null);
     setWarnings([]);
-    
+
     try {
       const result = await apiService.analyzeDocument(formData);
-      
+
       if (result.success && result.analysis) {
         console.log('Setting new analysis result:', result.analysis);
         setAnalysisResult(result.analysis);
         setFileInfo(null); // File info no longer used
         setClassification(null); // Classification no longer used
         setWarnings(result.warnings || []);
-        
+
         setCurrentView('results');
         notificationService.success('Document analysis completed successfully');
       } else {
@@ -120,7 +144,7 @@ function App() {
     } catch (error) {
       console.error('Analysis error:', error);
       let errorMessage = 'An unexpected error occurred';
-      
+
       if (error instanceof Error) {
         try {
           // Check if error.message is a stringified JSON object
@@ -148,7 +172,7 @@ function App() {
           '3. Contains readable text\n' +
           '4. Not corrupted';
       }
-      
+
       notificationService.error(`Analysis failed: ${errorMessage}`);
     } finally {
       setIsLoading(false);
@@ -162,10 +186,10 @@ function App() {
     setClassification(null);
     setWarnings([]);
     // Clear React state
-    
+
     // Update URL without page reload
     window.history.pushState({}, '', '/');
-    
+
     // Scroll to top of the page smoothly
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -228,23 +252,23 @@ function App() {
       <AuthProvider>
         <NotificationProvider>
           <div className="min-h-screen bg-slate-900 relative overflow-hidden">
-            <Navigation 
+            <Navigation
               onShowAuth={handleShowAuth}
               onShowProfile={handleShowProfile}
               onShowAbout={handleShowAbout}
               onShowContact={handleShowContact}
             />
-            
+
             {/* Backend Status Indicator */}
             <div className="fixed top-16 right-4 z-50">
               <BackendStatusIndicator showDetails={true} />
             </div>
-            
+
             <main>
               {currentView === 'home' ? (
                 <>
                   <HeroSection />
-                  <ProductSection 
+                  <ProductSection
                     onNavigateToDocumentSummary={handleNavigateToDocumentSummary}
                     onNavigateToRiskAssessment={handleNavigateToRiskAssessment}
                     onNavigateToClauseAnalysis={handleNavigateToClauseAnalysis}
@@ -380,7 +404,7 @@ function App() {
                           requireAuth={false}
                           onAuthRequired={() => handleShowAuth('login')}
                         >
-                          <MultipleImageAnalysis 
+                          <MultipleImageAnalysis
                             onAnalysisComplete={(result) => {
                               setAnalysisResult(result);
                               setCurrentView('results');
@@ -399,11 +423,13 @@ function App() {
                     </div>
                   </div>
                 </div>
+              ) : currentView === 'admin' ? (
+                <AdminPage />
               ) : (
                 <ErrorBoundary fallback={
                   <div className="py-20 text-center">
                     <p className="text-red-400">Results component failed to load</p>
-                    <button 
+                    <button
                       onClick={handleBackToHome}
                       className="mt-4 px-4 py-2 bg-cyan-500 text-white rounded-lg"
                     >
@@ -422,14 +448,14 @@ function App() {
                 </ErrorBoundary>
               )}
             </main>
-            
-            <Footer 
+
+            <Footer
               onShowPrivacy={handleShowPrivacy}
               onShowTerms={handleShowTerms}
             />
-            
+
             {isLoading && <LoadingOverlay />}
-            
+
             <AuthModal
               isOpen={showAuthModal}
               onClose={() => setShowAuthModal(false)}

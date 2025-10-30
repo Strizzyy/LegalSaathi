@@ -6,8 +6,9 @@ import asyncio
 import time
 import uuid
 import logging
+import os
 from typing import Dict, Any, Optional, List
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from models.document_models import (
     DocumentAnalysisRequest, DocumentAnalysisResponse, 
@@ -20,6 +21,9 @@ from services.google_natural_language_service import natural_language_service
 from services.legal_insights_engine import legal_insights_engine
 from services.data_masking_service import data_masking_service
 from services.advanced_rag_service import advanced_rag_service
+# INTERNAL COST MONITORING - Never expose to users
+from services.cost_monitoring_service import cost_monitor
+from services.quota_manager import quota_manager, ServicePriority
 
 logger = logging.getLogger(__name__)
 
@@ -80,10 +84,104 @@ class DocumentService:
             )
             
             # Perform risk classification using AI service with MASKED text
-            risk_analysis = await self.ai_service.analyze_document_risk(
-                masked_doc.masked_text, 
-                request.document_type
-            )
+            # Check quota and track cost for AI service call
+            ai_request_id = f"risk_analysis_{analysis_id}"
+            
+            # DEVELOPMENT MODE: Skip quota checking to get real AI analysis
+            development_mode = os.getenv('DEVELOPMENT_MODE', 'true').lower() == 'true'
+            
+            if development_mode:
+                logger.info("Development mode: Skipping quota checks for real AI analysis")
+                from services.quota_manager import RateLimitResult, ThrottleAction
+                rate_limit_result = RateLimitResult(
+                    action=ThrottleAction.ALLOW,
+                    allowed=True,
+                    retry_after=None,
+                    current_usage=0,
+                    limit=999999,
+                    reset_time=datetime.utcnow() + timedelta(minutes=1),
+                    message="Development mode - quota bypassed"
+                )
+            else:
+                # Check rate limit for Vertex AI (primary service) with error handling
+                try:
+                    usage_amount = len(masked_doc.masked_text.split())  # Use word count as token estimate
+                    logger.info(f"Checking quota for Vertex AI - estimated tokens: {usage_amount}")
+                    
+                    rate_limit_result = await quota_manager.check_rate_limit(
+                        service="vertex_ai",
+                        operation="text_generation",
+                        usage_amount=usage_amount,
+                        priority=ServicePriority.HIGH
+                    )
+                    
+                    logger.info(f"Quota check result: {rate_limit_result.action.value} - {rate_limit_result.message}")
+                except Exception as e:
+                    logger.warning(f"Quota check failed (non-critical): {e}")
+                    # Default to allowing the request if quota check fails
+                    from services.quota_manager import RateLimitResult, ThrottleAction
+                    rate_limit_result = RateLimitResult(
+                        action=ThrottleAction.ALLOW,
+                        allowed=True,
+                        retry_after=None,
+                        current_usage=0,
+                        limit=999999,
+                        reset_time=datetime.utcnow() + timedelta(minutes=1),
+                        message="Quota check bypassed due to error"
+                    )
+            
+            if rate_limit_result.allowed:
+                risk_analysis = await self.ai_service.analyze_document_risk(
+                    masked_doc.masked_text, 
+                    request.document_type
+                )
+                
+                # Track API usage and cost (with error handling)
+                try:
+                    token_count = len(masked_doc.masked_text.split())  # Rough token estimate
+                    
+                    await cost_monitor.track_api_usage(
+                        service="vertex_ai",
+                        operation="text_generation",
+                        tokens=token_count,
+                        request_id=ai_request_id,
+                        model_name="gemini-pro",
+                        metadata={
+                            "document_type": request.document_type.value,
+                            "analysis_id": analysis_id,
+                            "masked_entities": len(masked_doc.masked_entities)
+                        }
+                    )
+                    
+                    # Also record quota usage even in development mode for dashboard display
+                    if not development_mode:
+                        await quota_manager.record_success("vertex_ai")
+                    else:
+                        # In development mode, manually record usage for dashboard display
+                        try:
+                            await quota_manager._record_usage("vertex_ai", token_count)
+                            await quota_manager.record_success("vertex_ai")
+                        except Exception as quota_error:
+                            logger.warning(f"Quota recording failed (non-critical): {quota_error}")
+                            
+                except Exception as e:
+                    logger.warning(f"Cost monitoring failed (non-critical): {e}")
+                    # Continue with analysis even if cost tracking fails
+            else:
+                logger.warning(f"AI service request throttled: {rate_limit_result.message}")
+                # Fallback to basic analysis with proper structure
+                risk_analysis = {
+                    'overall_risk': {
+                        'level': 'YELLOW',
+                        'score': 0.5,
+                        'reasons': ['Analysis throttled due to rate limits'],
+                        'severity': 'medium',
+                        'confidence_percentage': 50,
+                        'risk_categories': {},
+                        'low_confidence_warning': True
+                    },
+                    'clause_assessments': []
+                }
             
             # OPTIMIZATION: Parallel processing of clause conversions
             overall_risk = self._convert_risk_assessment(risk_analysis['overall_risk'])
@@ -315,15 +413,71 @@ class DocumentService:
         try:
             # Google Cloud Natural Language AI analysis
             if natural_language_service.enabled:
-                nl_result = natural_language_service.analyze_legal_document(document_text)
-                if nl_result['success']:
-                    insights['natural_language'] = {
-                        'sentiment': nl_result['sentiment'],
-                        'entities': nl_result['entities'][:10],  # Limit for response size
-                        'legal_insights': nl_result['legal_insights']
-                    }
+                try:
+                    # Check quota before making API call
+                    rate_limit_result = await quota_manager.check_rate_limit(
+                        service="natural_language_ai",
+                        operation="analyze_entities",
+                        usage_amount=len(document_text),
+                        priority=ServicePriority.HIGH
+                    )
+                    
+                    if rate_limit_result.allowed:
+                        # Track API usage and cost
+                        request_id = f"nl_analysis_{int(time.time())}"
+                        
+                        nl_result = natural_language_service.analyze_legal_document(document_text)
+                        
+                        # Record usage metrics (with error handling)
+                        try:
+                            await cost_monitor.track_api_usage(
+                                service="natural_language_ai",
+                                operation="analyze_entities",
+                                characters=len(document_text),
+                                request_id=request_id,
+                                metadata={
+                                    "document_type": document_type,
+                                    "success": nl_result['success']
+                                }
+                            )
+                        except Exception as cost_error:
+                            logger.warning(f"Cost tracking failed (non-critical): {cost_error}")
+                        
+                        # Record success/failure for circuit breaker and quota usage
+                        try:
+                            if nl_result['success']:
+                                await quota_manager.record_success("natural_language_ai")
+                                
+                                # Record quota usage for dashboard display
+                                try:
+                                    await quota_manager._record_usage("natural_language_ai", len(document_text))
+                                except Exception as quota_usage_error:
+                                    logger.warning(f"Quota usage recording failed (non-critical): {quota_usage_error}")
+                                
+                                insights['natural_language'] = {
+                                    'sentiment': nl_result['sentiment'],
+                                    'entities': nl_result['entities'][:10],  # Limit for response size
+                                    'legal_insights': nl_result['legal_insights']
+                                }
+                            else:
+                                await quota_manager.record_failure("natural_language_ai")
+                                logger.warning("Natural Language AI analysis failed")
+                        except Exception as quota_error:
+                            logger.warning(f"Quota tracking failed (non-critical): {quota_error}")
+                    else:
+                        logger.warning(f"Natural Language AI request throttled: {rate_limit_result.message}")
+                        if rate_limit_result.retry_after:
+                            logger.info(f"Retry after {rate_limit_result.retry_after} seconds")
+                except Exception as nl_error:
+                    logger.warning(f"Natural Language AI integration failed (non-critical): {nl_error}")
+                    # Continue with analysis even if NL AI fails
+                        
         except Exception as e:
             logger.warning(f"Enhanced insights failed: {e}")
+            try:
+                await quota_manager.record_failure("natural_language_ai")
+            except Exception as quota_error:
+                logger.warning(f"Quota failure recording failed (non-critical): {quota_error}")
         
         return insights
     

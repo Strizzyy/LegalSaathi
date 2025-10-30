@@ -17,7 +17,7 @@ load_dotenv()
 import json
 import tempfile
 
-from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form, BackgroundTasks
+from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form, BackgroundTasks, Header
 
 # Setup Google Cloud credentials from environment variable in production
 if os.getenv('GOOGLE_APPLICATION_CREDENTIALS_JSON'):
@@ -90,6 +90,7 @@ from controllers.support_controller import router as support_router
 from controllers.auth_controller import AuthController
 from controllers.insights_controller import router as insights_router
 from controllers.vision_controller import VisionController
+from controllers.cost_controller import get_cost_router
 
 # Import services for cleanup
 from services.cache_service import CacheService
@@ -243,6 +244,7 @@ except Exception as e:
 # Include routers
 app.include_router(support_router)
 app.include_router(insights_router)
+app.include_router(get_cost_router())
 
 
 # Middleware for request logging and performance monitoring
@@ -677,6 +679,166 @@ async def get_speech_usage_stats(request: Request):
     """Get speech service usage statistics for current user"""
     return await speech_controller.get_usage_stats(request)
 
+
+# Admin verification function for cost monitoring endpoints
+async def _verify_admin_access(token: str) -> bool:
+    """Verify admin access for cost monitoring endpoints - INTERNAL USE ONLY"""
+    try:
+        if not auth_controller:
+            logger.error("Auth controller not initialized")
+            return False
+        
+        # Use Firebase authentication with admin role checking
+        is_admin = await auth_controller.verify_admin_access(token)
+        return is_admin
+        
+    except Exception as e:
+        logger.error(f"Error verifying admin access: {e}")
+        return False
+
+
+# ADMIN-ONLY Cost monitoring and analytics endpoints (INTERNAL USE ONLY)
+@app.get("/api/admin/costs/analytics")
+@limiter.limit("30/minute")
+async def get_cost_analytics(request: Request, days: int = 30, authorization: str = Header(None)):
+    """Get comprehensive cost analytics and usage patterns - ADMIN ONLY"""
+    # SECURITY: Verify admin access with Firebase token
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Authorization token required")
+    
+    token = authorization.replace("Bearer ", "")
+    if not await _verify_admin_access(token):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    try:
+        from services.cost_monitoring_service import cost_monitor
+        analytics = await cost_monitor.get_cost_analytics(days=days)
+        
+        return {
+            "success": True,
+            "analytics": {
+                "daily_cost": analytics.daily_cost,
+                "monthly_cost": analytics.monthly_cost,
+                "service_breakdown": analytics.service_breakdown,
+                "usage_trends": analytics.usage_trends,
+                "optimization_suggestions": analytics.optimization_suggestions
+            },
+            "period_days": days,
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Error getting cost analytics: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get cost analytics: {str(e)}")
+
+@app.get("/api/admin/costs/quotas")
+@limiter.limit("60/minute")
+async def get_quota_status(request: Request, authorization: str = Header(None)):
+    """Get API usage statistics for all services - ADMIN ONLY"""
+    # SECURITY: Verify admin access with Firebase token
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Authorization token required")
+    
+    token = authorization.replace("Bearer ", "")
+    if not await _verify_admin_access(token):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    try:
+        from services.quota_manager import quota_manager
+        
+        # Get API usage statistics instead of quota status
+        usage_data = await quota_manager.get_api_usage_stats()
+        
+        return {
+            "success": True,
+            "quotas": usage_data.get("usage_stats", {}),
+            "summary": usage_data.get("summary", {}),
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Error getting API usage stats: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get API usage stats: {str(e)}")
+
+@app.get("/api/admin/costs/usage")
+@limiter.limit("60/minute")
+async def get_api_usage_stats(request: Request, days: int = 7, authorization: str = Header(None)):
+    """Get API usage statistics - ADMIN ONLY"""
+    # SECURITY: Verify admin access with Firebase token
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Authorization token required")
+    
+    token = authorization.replace("Bearer ", "")
+    if not await _verify_admin_access(token):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    try:
+        from services.cost_monitoring_service import cost_monitor
+        usage_stats = await cost_monitor.get_api_usage_stats(days=days)
+        
+        return {
+            "success": True,
+            "usage_stats": usage_stats,
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Error getting API usage stats: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get API usage stats: {str(e)}")
+
+@app.get("/api/admin/costs/health")
+async def get_cost_monitoring_health(authorization: str = Header(None)):
+    """Get health status of cost monitoring components - ADMIN ONLY"""
+    logger.info(f"Admin health check request - Authorization header: {authorization is not None}")
+    
+    # SECURITY: Verify admin access with Firebase token
+    if not authorization or not authorization.startswith("Bearer "):
+        logger.warning("Admin health check failed: No authorization header")
+        raise HTTPException(status_code=401, detail="Authorization token required")
+    
+    token = authorization.replace("Bearer ", "")
+    logger.info(f"Admin health check - Token length: {len(token)}")
+    
+    admin_access = await _verify_admin_access(token)
+    logger.info(f"Admin access result: {admin_access}")
+    
+    if not admin_access:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    try:
+        from services.cost_monitoring_service import cost_monitor
+        health_status = await cost_monitor.get_health_status()
+        
+        return {
+            "success": True,
+            "health": health_status,
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Error getting cost monitoring health: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get health status: {str(e)}")
+
+@app.post("/api/admin/costs/optimize")
+@limiter.limit("20/minute")
+async def optimize_request(request: Request, request_data: dict, authorization: str = Header(None)):
+    """Optimize request for cost efficiency - ADMIN ONLY"""
+    # SECURITY: Verify admin access with Firebase token
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Authorization token required")
+    
+    token = authorization.replace("Bearer ", "")
+    if not await _verify_admin_access(token):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    try:
+        from services.cost_monitoring_service import cost_monitor
+        optimization_result = await cost_monitor.optimize_request(request_data)
+        
+        return {
+            "success": True,
+            "optimization": optimization_result,
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Error optimizing request: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to optimize request: {str(e)}")
 
 # AI clarification endpoints
 @app.post("/api/ai/clarify", response_model=ClarificationResponse)

@@ -8,6 +8,7 @@ import time
 import logging
 import json
 import hashlib
+import asyncio
 from typing import Dict, Any, Optional, List
 from datetime import datetime, timedelta
 from cachetools import TTLCache
@@ -19,6 +20,15 @@ load_dotenv()
 from models.ai_models import ClarificationRequest, ClarificationResponse, ConversationSummaryResponse
 from services.personalization_engine import PersonalizationEngine
 from services.enhanced_experience_service import enhanced_experience_service, ExperienceLevel
+
+# Cost monitoring integration
+try:
+    from services.cost_monitoring_service import cost_monitor, ServiceType
+    from services.quota_manager import quota_manager, ServicePriority
+    COST_MONITORING_AVAILABLE = True
+except ImportError:
+    COST_MONITORING_AVAILABLE = False
+    logging.getLogger(__name__).warning("Cost monitoring service not available")
 
 # Multi-service manager integration
 try:
@@ -85,6 +95,17 @@ class AIService:
         # Initialize caching system
         self.response_cache = TTLCache(maxsize=1000, ttl=3600)  # 1 hour TTL
         self.embedding_cache = TTLCache(maxsize=500, ttl=7200)  # 2 hour TTL for embeddings
+        
+        # Initialize cost monitoring
+        self.cost_monitoring_service = None
+        self.quota_manager = None
+        if COST_MONITORING_AVAILABLE:
+            try:
+                self.cost_monitoring_service = cost_monitor
+                self.quota_manager_service = quota_manager
+                logger.info("Cost monitoring and quota management initialized")
+            except Exception as e:
+                logger.error(f"Failed to initialize cost monitoring: {e}")
         
         # Multi-service manager (enhanced architecture)
         self.multi_service_manager = None
@@ -1381,6 +1402,19 @@ Provide a response that:
         """Primary Gemini API call for clarification (90% usage)"""
         request_id = hashlib.md5(f"{time.time()}{prompt[:100]}".encode()).hexdigest()[:8]
         
+        # Check rate limits and quotas before making request
+        if self.cost_monitoring_service and self.quota_manager:
+            try:
+                rate_check = await self.quota_manager.check_rate_limit(ServiceType.GEMINI_API.value)
+                if rate_check.action == ThrottleAction.THROTTLE:
+                    logger.warning(f"Rate limit throttling for Gemini API: {rate_check.reason}")
+                    await asyncio.sleep(rate_check.wait_time)
+                elif rate_check.action == ThrottleAction.BLOCK:
+                    logger.error(f"Rate limit exceeded for Gemini API: {rate_check.reason}")
+                    raise Exception(f"Rate limit exceeded: {rate_check.reason}")
+            except Exception as e:
+                logger.warning(f"Cost monitoring check failed: {e}")
+        
         try:
             # Log request details
             debug_logger.info(f"[{request_id}] Gemini API Request - Prompt length: {len(prompt)}")
@@ -1485,6 +1519,29 @@ You must write detailed, specific responses that give users concrete actions the
                     debug_logger.info(f"[{request_id}] Gemini API Success - Response time: {response_time:.3f}s, Length: {len(response_text)}")
                     debug_logger.debug(f"[{request_id}] Gemini API Response: {response_text[:300]}...")
                     
+                    # Track API usage for cost monitoring
+                    if self.cost_monitoring_service:
+                        try:
+                            # Estimate tokens (rough approximation: 1 token ≈ 4 characters)
+                            input_tokens = len(prompt) // 4
+                            output_tokens = len(response_text) // 4
+                            total_tokens = input_tokens + output_tokens
+                            
+                            await self.cost_monitoring_service.track_api_usage(
+                                service=ServiceType.GEMINI_API.value,
+                                operation="text_generation",
+                                tokens_used=total_tokens,
+                                request_id=request_id
+                            )
+                            
+                            # Record request in quota manager
+                            await self.quota_manager.record_request(
+                                ServiceType.GEMINI_API.value, 
+                                total_tokens
+                            )
+                        except Exception as e:
+                            logger.warning(f"Failed to track API usage: {e}")
+                    
                     return response_text
             
             # Fallback to response.text if available
@@ -1547,6 +1604,29 @@ You must write detailed, specific responses that give users concrete actions the
                 # Log successful response
                 debug_logger.info(f"[{request_id}] Groq API Success - Response time: {response_time:.3f}s, Length: {len(response_text)}")
                 debug_logger.debug(f"[{request_id}] Groq API Response: {response_text[:300]}...")
+                
+                # Track API usage for cost monitoring (Groq is fallback service)
+                if self.cost_monitoring_service:
+                    try:
+                        # Estimate tokens (rough approximation: 1 token ≈ 4 characters)
+                        input_tokens = len(prompt) // 4
+                        output_tokens = len(response_text) // 4
+                        total_tokens = input_tokens + output_tokens
+                        
+                        await self.cost_monitoring_service.track_api_usage(
+                            service=ServiceType.GEMINI_API.value,  # Note: Using Gemini API as fallback service
+                            operation="text_generation_fallback",
+                            tokens_used=total_tokens,
+                            request_id=request_id
+                        )
+                        
+                        # Record request in quota manager
+                        await self.quota_manager.record_request(
+                            ServiceType.GEMINI_API.value, 
+                            total_tokens
+                        )
+                    except Exception as e:
+                        logger.warning(f"Failed to track Groq API usage: {e}")
                 
                 return response_text
                 

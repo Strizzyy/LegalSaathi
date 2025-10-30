@@ -118,13 +118,59 @@ class AuthController:
                 success=False,
                 error="Token refresh should be handled client-side with Firebase SDK"
             )
-            
         except Exception as e:
-            logger.error(f"Token refresh failed: {e}")
+            logger.error(f"Failed to refresh token: {e}")
             return RefreshTokenResponse(
                 success=False,
                 error="Token refresh failed"
             )
+    
+    async def verify_admin_access(self, token: str) -> bool:
+        """
+        Verify if user has admin access for cost monitoring
+        
+        Args:
+            token: Firebase ID token
+            
+        Returns:
+            True if user is admin, False otherwise
+        """
+        try:
+            # Verify token first
+            result = await self.firebase_service.verify_token(token)
+            
+            if not result['success']:
+                logger.warning("Invalid token provided for admin verification")
+                return False
+            
+            user = result['user']
+            
+            # Check if user is in admin list (from environment)
+            admin_emails = self._get_admin_emails()
+            
+            # Handle both dict and object formats
+            user_email = user.email if hasattr(user, 'email') else user.get('email')
+            
+            logger.info(f"Admin check: user_email='{user_email}', admin_emails={admin_emails}")
+            
+            if user_email in admin_emails:
+                logger.info(f"Admin access granted for {user_email}")
+                return True
+            else:
+                logger.warning(f"Admin access denied for {user_email}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Error verifying admin access: {e}")
+            return False
+    
+    def _get_admin_emails(self) -> list:
+        """Get list of admin emails from environment"""
+        import os
+        admin_emails_str = os.getenv('ADMIN_EMAILS', '')
+        if admin_emails_str:
+            return [email.strip() for email in admin_emails_str.split(',')]
+        return []
     
     async def register_user(self, registration_request: UserRegistrationRequest) -> UserRegistrationResponse:
         """

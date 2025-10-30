@@ -6,10 +6,19 @@ Uses Google Cloud Translate API for document translation
 import os
 import requests
 import json
+import time
 from typing import Dict, Any, Optional
 from dataclasses import dataclass
 from google.cloud import translate_v2 as translate
 import logging
+
+# Cost monitoring integration
+try:
+    from services.cost_monitoring_service import cost_monitor, ServiceType
+    from services.quota_manager import quota_manager, ServicePriority
+    COST_MONITORING_AVAILABLE = True
+except ImportError:
+    COST_MONITORING_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -125,7 +134,7 @@ class GoogleTranslateService:
         # Google Cloud Translate API endpoint
         self.base_url = "https://translation.googleapis.com/language/translate/v2"
         
-    def translate_text(self, text: str, target_language: str = 'hi', source_language: str = 'auto') -> Dict[str, Any]:
+    async def translate_text(self, text: str, target_language: str = 'hi', source_language: str = 'auto') -> Dict[str, Any]:
         """
         Translate text using Google Cloud Translate API
         
@@ -153,22 +162,54 @@ class GoogleTranslateService:
                     'error': f'Unsupported target language: {target_language}'
                 }
             
+            # Check quota and track cost before translation
+            text_to_translate = text[:5000]  # Limit text length
+            request_id = f"translate_{int(time.time())}"
+            
+            # Check rate limit if cost monitoring is available
+            if COST_MONITORING_AVAILABLE:
+                rate_limit_result = await quota_manager.check_rate_limit(
+                    service="translation_api",
+                    operation="translate_text",
+                    usage_amount=len(text_to_translate),
+                    priority=ServicePriority.MEDIUM
+                )
+                
+                if not rate_limit_result.allowed:
+                    logger.warning(f"Translation request throttled: {rate_limit_result.message}")
+                    return self._fallback_translation(text, target_language, source_language)
+            
             # Use Google Cloud Translate API
             if source_language == 'auto':
                 # Auto-detect source language
                 result = self.client.translate(
-                    text[:5000],  # Limit text length
+                    text_to_translate,
                     target_language=target_language
                 )
                 detected_language = result.get('detectedSourceLanguage', 'unknown')
             else:
                 # Specify source language
                 result = self.client.translate(
-                    text[:5000],
+                    text_to_translate,
                     target_language=target_language,
                     source_language=source_language
                 )
                 detected_language = source_language
+            
+            # Track API usage and cost if monitoring is available
+            if COST_MONITORING_AVAILABLE:
+                await cost_monitor.track_api_usage(
+                    service="translation_api",
+                    operation="translate_text",
+                    characters=len(text_to_translate),
+                    request_id=request_id,
+                    metadata={
+                        "source_language": detected_language,
+                        "target_language": target_language,
+                        "success": True
+                    }
+                )
+                await quota_manager.record_success("translation_api")
             
             return {
                 'success': True,
@@ -180,6 +221,11 @@ class GoogleTranslateService:
             
         except Exception as e:
             logger.error(f"Google Cloud Translate error: {e}")
+            
+            # Record failure for circuit breaker if monitoring is available
+            if COST_MONITORING_AVAILABLE:
+                await quota_manager.record_failure("translation_api")
+            
             return self._fallback_translation(text, target_language, source_language)
     
     def _fallback_translation(self, text: str, target_language: str, source_language: str) -> Dict[str, Any]:

@@ -14,6 +14,14 @@ from services.google_document_ai_service import document_ai_service
 from services.google_natural_language_service import natural_language_service
 from services.google_speech_service import speech_service
 
+# Cost monitoring integration
+try:
+    from services.cost_monitoring_service import cost_monitor
+    from services.quota_manager import quota_manager
+    COST_MONITORING_AVAILABLE = True
+except ImportError:
+    COST_MONITORING_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 
@@ -76,6 +84,21 @@ class HealthController:
             # Core services (always available when application is running)
             services_status['file_processing'] = True
             services_status['document_analysis'] = True
+            
+            # Check cost monitoring services
+            if COST_MONITORING_AVAILABLE:
+                try:
+                    cost_health = await cost_monitor.get_health_status()
+                    quota_health = await quota_manager.get_health_status()
+                    services_status['cost_monitoring'] = cost_health['status'] == 'healthy'
+                    services_status['quota_management'] = quota_health['status'] == 'healthy'
+                except Exception as e:
+                    logger.warning(f"Cost monitoring health check failed: {e}")
+                    services_status['cost_monitoring'] = False
+                    services_status['quota_management'] = False
+            else:
+                services_status['cost_monitoring'] = False
+                services_status['quota_management'] = False
 
             # Check if initialization is complete (simplified logic)
             critical_services_ready = all([

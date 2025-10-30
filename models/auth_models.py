@@ -17,6 +17,8 @@ class User(BaseModel):
     created_at: datetime
     last_login: datetime
     usage_stats: Dict[str, int] = {}
+    role: str = "user"  # user, admin
+    permissions: list = []  # Additional permissions
 
 
 class FirebaseTokenRequest(BaseModel):
