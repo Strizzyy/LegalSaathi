@@ -2,22 +2,35 @@
 
 ## Overview
 
-The LegalSaathi API provides comprehensive legal document analysis, translation, and speech processing capabilities through a RESTful interface built with FastAPI.
+The LegalSaathi API provides comprehensive legal document analysis, translation, and speech processing capabilities through a RESTful interface built with FastAPI. The platform empowers everyone to understand legal documents through AI-powered analysis, multi-language support, and accessibility features.
 
 **Base URL**: `https://legalsaathi-document-advisor.onrender.com`
 **API Version**: 2.0.0
+**Live Demo**: [https://legalsaathi-document-advisor.onrender.com](https://legalsaathi-document-advisor.onrender.com)
 
 ## Authentication
 
-Currently, the API uses API key authentication for Google Cloud services. No user authentication is required for public endpoints.
+The API supports both anonymous and authenticated access:
+- **Anonymous Users**: Limited rate limits, basic features
+- **Firebase Authentication**: Enhanced rate limits, personalized features, expert review access
+- **Google Cloud Services**: Internal API key authentication for AI services
 
 ## Rate Limiting
 
-- Document Analysis: 10 requests/minute
-- File Upload: 5 requests/minute
-- Translation: 20 requests/minute
-- Speech Services: 10 requests/minute
-- AI Clarification: 15 requests/minute
+### Anonymous Users
+- Document Analysis: 5 requests/minute
+- File Upload: 3 requests/minute
+- Translation: 10 requests/minute
+- Speech Services: 5 requests/minute
+- AI Clarification: 10 requests/minute
+
+### Authenticated Users (Firebase)
+- Document Analysis: 15 requests/minute
+- File Upload: 10 requests/minute
+- Translation: 30 requests/minute
+- Speech Services: 20 requests/minute
+- AI Clarification: 25 requests/minute
+- Expert Review: 5 requests/day (when confidence < 60%)
 
 ## API Endpoints
 
@@ -93,9 +106,9 @@ Get service performance metrics.
 ### Document Analysis Endpoints
 
 #### POST /api/analyze
-Analyze legal document text.
+Analyze legal document text with privacy-first processing.
 
-**Rate Limit:** 10 requests/minute
+**Rate Limit:** 5/15 requests/minute (anonymous/authenticated)
 **Response Model:** `DocumentAnalysisResponse`
 
 **Request Body:**
@@ -103,15 +116,14 @@ Analyze legal document text.
 {
   "document_text": "string",
   "document_type": "rental_agreement|employment_contract|nda|loan_agreement|partnership_agreement|general_contract",
-  "user_expertise_level": "beginner|intermediate|expert",
-  "analysis_options": {
-    "include_ai_insights": true,
-    "include_translation_options": true,
-    "detailed_explanations": true,
-    "confidence_threshold": 0.7
-  }
+  "user_expertise_level": "beginner|intermediate|expert"
 }
 ```
+
+**Privacy Features:**
+- Automatic PII masking before cloud processing
+- Data unmasking for user display
+- No sensitive data stored in cloud services
 
 **Response:**
 ```json
@@ -129,6 +141,14 @@ Analyze legal document text.
       "operational": 0.6
     },
     "low_confidence_warning": false
+  },
+  "overall_confidence": 0.82,
+  "should_route_to_expert": false,
+  "confidence_breakdown": {
+    "overall_confidence": 0.82,
+    "clause_confidences": {"clause_1": 0.85, "clause_2": 0.79},
+    "factors_affecting_confidence": ["Complex legal terminology"],
+    "improvement_suggestions": ["Consider expert review for high-stakes decisions"]
   },
   "clause_assessments": [
     {
@@ -510,6 +530,75 @@ Clear conversation history.
 {
   "success": true,
   "message": "Conversation history cleared successfully"
+}
+```
+
+### Authentication Endpoints
+
+#### POST /api/auth/verify-token
+Verify Firebase ID token for authenticated access.
+
+**Request Body:**
+```json
+{
+  "token": "firebase_id_token_string"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "user": {
+    "uid": "user_id",
+    "email": "user@example.com",
+    "display_name": "User Name"
+  }
+}
+```
+
+#### POST /api/auth/register
+Register a new user account.
+
+**Request Body:**
+```json
+{
+  "email": "user@example.com",
+  "password": "secure_password",
+  "display_name": "User Name"
+}
+```
+
+### Expert Review Endpoints (Human-in-the-Loop)
+
+#### POST /api/expert-queue/submit
+Submit document for expert review when AI confidence is low.
+
+**Authentication Required:** Yes
+**Rate Limit:** 5 requests/day
+
+**Request Body:**
+```json
+{
+  "document_content": "base64_encoded_document",
+  "ai_analysis": "DocumentAnalysisResponse_object",
+  "user_email": "user@example.com",
+  "confidence_score": 0.45,
+  "confidence_breakdown": "ConfidenceBreakdown_object"
+}
+```
+
+#### GET /api/expert-queue/status/{review_id}
+Check status of expert review request.
+
+**Response:**
+```json
+{
+  "review_id": "string",
+  "status": "PENDING|IN_REVIEW|COMPLETED|CANCELLED",
+  "estimated_completion": "2024-01-01T12:00:00Z",
+  "expert_assigned": true,
+  "progress": 75
 }
 ```
 
@@ -986,13 +1075,74 @@ class LegalSaathiAPI:
         return response.json()
 ```
 
+## Google AI Tools Integration
+
+### Primary AI Services Used
+
+#### 1. Google Gemini API
+- **Purpose**: Advanced document analysis and risk assessment
+- **Usage**: Primary AI engine for legal document understanding
+- **Features**: Context-aware analysis, experience-level adaptation
+- **Fallback**: Groq API for high availability
+
+#### 2. Google Cloud Vision API
+- **Purpose**: Text extraction from images and scanned documents
+- **Usage**: OCR for legal document images (contracts, agreements)
+- **Features**: High-confidence text extraction, legal document optimization
+- **Fallback**: Basic image processing when API unavailable
+
+#### 3. Google Cloud Translation API
+- **Purpose**: Multi-language document translation
+- **Usage**: Translate analysis results to 50+ languages
+- **Features**: Legal context preservation, cultural adaptation
+- **Rate Limit**: 1000 characters per request
+
+#### 4. Google Cloud Speech-to-Text
+- **Purpose**: Voice input for document content
+- **Usage**: Accessibility feature for document input
+- **Features**: Legal terminology recognition, punctuation
+- **Supported**: 13+ languages with neural models
+
+#### 5. Google Cloud Text-to-Speech
+- **Purpose**: Audio output for analysis results
+- **Usage**: Accessibility feature for visually impaired users
+- **Features**: Neural voices, adjustable speech parameters
+- **Output**: MP3, WAV, OGG formats
+
+#### 6. Google Cloud Natural Language AI
+- **Purpose**: Advanced text analysis and entity extraction
+- **Usage**: Legal entity recognition, sentiment analysis
+- **Features**: Legal-specific entity types, confidence scoring
+
+### AI Integration Architecture
+
+```mermaid
+graph TB
+    A[User Input] --> B[Privacy Masking]
+    B --> C{Input Type}
+    C -->|Text| D[Gemini Analysis]
+    C -->|Image| E[Vision API]
+    C -->|Audio| F[Speech-to-Text]
+    E --> D
+    F --> D
+    D --> G[Natural Language AI]
+    G --> H[Risk Assessment]
+    H --> I{Confidence Check}
+    I -->|High| J[Return Results]
+    I -->|Low| K[Expert Review Queue]
+    J --> L[Translation API]
+    L --> M[Text-to-Speech]
+    M --> N[Final Response]
+```
+
 ## Performance Considerations
 
-- **Caching**: API responses are cached for 5 minutes
-- **Compression**: All responses use GZip compression
-- **Async Processing**: Long-running operations support async processing
-- **Rate Limiting**: Prevents abuse and ensures fair usage
-- **Timeout**: Requests timeout after 120 seconds
+- **Multi-level Caching**: Analysis (1hr), Translation (24hr), Speech (6hr)
+- **Parallel Processing**: Concurrent AI service calls
+- **Privacy-First**: PII masking before cloud processing
+- **Intelligent Fallbacks**: Multiple AI service redundancy
+- **Rate Limiting**: User-based limits with Firebase authentication
+- **Async Processing**: Background expert review processing
 
 ## Monitoring and Analytics
 

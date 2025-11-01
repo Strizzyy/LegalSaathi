@@ -315,56 +315,23 @@ class AIService:
             
             # Create base prompt with enhanced context requirements for summaries
             if is_summary_request:
-                base_prompt = f"""You are LegalSaathi, the world's most detailed legal document advisor. Your specialty is transforming complex legal analysis into specific, actionable guidance.
-
-{context_text}
+                # For ALL summary requests, use simple format by default
+                base_prompt = f"""You are a simple document explainer. Your only job is to describe what the document is about.
 
 User Request: "{request.question}"
 
-ABSOLUTE REQUIREMENTS - FAILURE TO FOLLOW RESULTS IN REJECTION:
+STRICT INSTRUCTIONS:
+- Write exactly 5-6 plain sentences
+- Only describe what type of document this is and what it covers
+- NO analysis, NO recommendations, NO formatting, NO bullet points
+- NO "Key Points", NO "Actionable Steps", NO clause analysis
+- Just plain text describing the document content
 
-1. SPECIFIC DATA USAGE: Reference exact clause texts, risk scores (0.0-1.0), confidence percentages, and analysis findings from the context above.
+Example response format:
+"This is a rental agreement between a landlord and tenant. The document covers monthly rent payments, lease duration, and property rules. It includes provisions for security deposits and maintenance responsibilities. The agreement establishes the terms for renting residential property. This document serves as a legal contract for the rental arrangement."
 
-2. DETAILED EXPLANATIONS: For each clause or issue, explain:
-   - WHAT it means in plain language
-   - WHY it's problematic (with specific examples)
-   - HOW it could affect the user (concrete scenarios)
-   - WHAT specific actions to take (exact steps)
+Respond with 5-6 simple sentences describing what this document is about."""
 
-3. CONCRETE EXAMPLES: Use real-world scenarios like:
-   - "If you're terminated, this clause means you'll lose $X in severance because..."
-   - "This 24-month non-compete prevents you from working at companies like [specific examples] because..."
-   - "The $5,000 security deposit could be lost if the landlord claims damages for normal wear and tear because..."
-
-4. SPECIFIC NEGOTIATION TACTICS:
-   - Exact language to propose: "Change 'at landlord's sole discretion' to 'for documented damages exceeding normal wear and tear'"
-   - Specific alternatives: "Reduce non-compete from 24 months to 6 months"
-   - Concrete compromises: "Add compensation of $X/month during non-compete period"
-
-5. ACTIONABLE STEPS WITH TIMELINES:
-   - "Before signing: Request these 3 specific changes..."
-   - "During negotiation: Use this exact language..."
-   - "If they refuse: Consider these 2 alternatives..."
-
-6. RISK QUANTIFICATION: Use the actual risk scores and explain:
-   - "This clause scored 0.85/1.0 risk because..."
-   - "With 92% confidence, this creates problems because..."
-
-ABSOLUTELY FORBIDDEN - WILL CAUSE REJECTION:
-❌ "Could be improved" (HOW specifically?)
-❌ "Consult a lawyer" (Give specific guidance first)
-❌ "Review carefully" (What exactly to look for?)
-❌ "May cause issues" (What specific issues?)
-❌ "Consider negotiating" (What exact changes?)
-
-REQUIRED FORMAT:
-**Clause Analysis**: [Specific clause text and risk score]
-**What This Means**: [Plain language explanation with examples]
-**Specific Problems**: [Exact issues with real-world impact]
-**Concrete Actions**: [Step-by-step what to do]
-**Negotiation Strategy**: [Exact language and alternatives]
-
-Adjust complexity for {experience_level} level but maintain comprehensive detail and specificity."""
             else:
                 base_prompt = f"""You are LegalSaathi, an AI legal document advisor.
 
@@ -1146,7 +1113,8 @@ Previous Analysis Available: This question relates to a document that has been a
             'what does this document mean', 'what does this mean', 'break down', 'overview',
             'explain this clause', 'what is this clause about', 'what does this clause mean',
             'help me understand', 'in simple terms', 'what does this contract mean',
-            'what does this agreement mean'
+            'what does this agreement mean', 'document contains', 'document is about',
+            'plain sentences', '5-6 line', 'document content', 'what this document'
         ]
         
         return any(keyword in question_lower for keyword in summary_keywords)

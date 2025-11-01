@@ -372,7 +372,7 @@ class SummarizationService {
       // Get user experience level for personalized summary
       const experienceLevel = experienceLevelService.getLevelForAPI();
 
-      const question = `Create a detailed legal document summary for ${experienceLevel} users. Document type: ${analysis.document_type || 'Legal'}, Overall risk: ${analysis.overall_risk.level} (score: ${analysis.overall_risk.score}/1.0), Analysis confidence: ${analysis.overall_risk.confidence_percentage}%, Total clauses: ${analysis.analysis_results.length}, High-risk clauses: ${highRiskClauses.length}. Provide specific actionable advice and negotiation strategies.`;
+      const question = `Write exactly 5-6 plain sentences about what this ${analysis.document_type || 'legal document'} document contains. Only describe the document content and purpose. Do not include risk analysis, recommendations, or formatting. Just explain what the document is about in simple terms.`;
 
       try {
         const result = await apiService.askClarification(question, context, experienceLevel);
@@ -422,156 +422,34 @@ class SummarizationService {
 
   private createDetailedFallbackExplanation(analysis: AnalysisResult): string {
     if (!analysis || !analysis.analysis_results) {
-      return `## Document Analysis Summary
-
-**Status:** Analysis in progress
-
-I'd be happy to explain your legal document in simple terms. However, it looks like the document analysis is still in progress or hasn't been completed yet.
-
-**What I'll provide once analysis is complete:**
-• Document type and purpose
-• Risk assessment and key concerns  
-• Important clauses to review
-• Actionable recommendations
-• Professional guidance suggestions
-
-Please wait for the analysis to complete, or try refreshing the page if you think there might be an issue.`;
+      return `This document is currently being analyzed. Please wait for the analysis to complete to see a summary of what this document contains and its overall purpose.`;
     }
 
-    // If we have analysis data, create a comprehensive fallback explanation
-    console.log('📝 Creating comprehensive fallback explanation with available analysis data');
-
+    // Create a simple 5-6 line document overview
+    const documentType = analysis.document_type?.replace('_', ' ') || 'legal document';
     const riskLevel = analysis.overall_risk?.level || 'UNKNOWN';
     const totalClauses = analysis.analysis_results?.length || 0;
     const confidence = analysis.overall_risk?.confidence_percentage || 0;
-    const documentType = analysis.document_type || 'Legal Document';
 
-    // Calculate risk distribution
-    const riskCounts = {
-      red: analysis.analysis_results.filter(r => r.risk_level?.level === 'RED').length,
-      yellow: analysis.analysis_results.filter(r => r.risk_level?.level === 'YELLOW').length,
-      green: analysis.analysis_results.filter(r => r.risk_level?.level === 'GREEN').length,
-    };
-
-    // Get high-risk clauses for specific examples
-    const highRiskClauses = analysis.analysis_results
-      .filter(r => r.risk_level?.level === 'RED')
-      .slice(0, 3); // Limit to top 3
-
-    // Get key recommendations
-    const allRecommendations = new Set<string>();
-    analysis.analysis_results.forEach(result => {
-      result.recommendations?.forEach(rec => allRecommendations.add(rec));
-    });
-    const topRecommendations = Array.from(allRecommendations).slice(0, 4);
-
-    let explanation = `## Document Analysis Summary
-
-**Document Type:** ${documentType}
-**Overall Risk Level:** ${riskLevel} ${confidence > 0 ? `(${confidence}% confidence)` : ''}
-**Total Clauses Analyzed:** ${totalClauses}
-
----
-
-### 📊 Risk Assessment
-
-**Risk Distribution:**
-`;
-
-    if (riskCounts.red > 0) {
-      explanation += `• **${riskCounts.red} High-Risk Clause${riskCounts.red > 1 ? 's' : ''}** - Require immediate attention\n`;
-    }
-    if (riskCounts.yellow > 0) {
-      explanation += `• **${riskCounts.yellow} Medium-Risk Clause${riskCounts.yellow > 1 ? 's' : ''}** - Should be reviewed carefully\n`;
-    }
-    if (riskCounts.green > 0) {
-      explanation += `• **${riskCounts.green} Low-Risk Clause${riskCounts.green > 1 ? 's' : ''}** - Appear to be standard\n`;
-    }
-
-    explanation += `\n---\n\n### 🎯 What This Means for You
-
-`;
+    let explanation = `This is a ${documentType} containing ${totalClauses} clauses that have been analyzed for legal risks. `;
 
     if (riskLevel === 'RED') {
-      explanation += `**⚠️ High Risk Document**
-
-This document contains significant concerns that could lead to legal or financial problems. The high-risk clauses identified need careful review and likely negotiation before signing.
-
-**Key Concerns:**
-• Multiple clauses favor the other party heavily
-• Potential for unexpected financial obligations
-• Limited protections for your interests
-• Terms that could be difficult to fulfill`;
+      explanation += `The document has been assessed as high risk, meaning there are significant concerns that need attention before signing. `;
     } else if (riskLevel === 'YELLOW') {
-      explanation += `**⚡ Moderate Risk Document**
-
-This document has some concerns that should be reviewed carefully. While not immediately dangerous, there are areas that could benefit from clarification or negotiation.
-
-**Key Concerns:**
-• Some terms could be more balanced
-• Certain clauses may create minor disadvantages
-• Areas that would benefit from clarification
-• Opportunities for improvement through negotiation`;
+      explanation += `The document has been assessed as medium risk, meaning there are some concerns that should be reviewed carefully. `;
     } else {
-      explanation += `**✅ Lower Risk Document**
-
-This document appears to have minimal risk concerns. The terms seem relatively balanced, though you should still review everything carefully.
-
-**Key Points:**
-• Most clauses appear to be standard
-• Terms seem reasonably balanced
-• Few immediate red flags identified
-• Still requires careful review before signing`;
+      explanation += `The document has been assessed as low risk, meaning it appears to have standard terms with minimal concerns. `;
     }
 
-    // Add specific high-risk clause examples if available
-    if (highRiskClauses.length > 0) {
-      explanation += `\n\n**Specific Issues Identified:**\n`;
-      highRiskClauses.forEach((clause, index) => {
-        const clauseText = clause.clause_text?.substring(0, 100) || 'Clause text not available';
-        const explanation_text = clause.plain_explanation?.substring(0, 150) || 'No explanation available';
-        explanation += `\n${index + 1}. **Clause ${clause.clause_id}:** "${clauseText}${clause.clause_text && clause.clause_text.length > 100 ? '...' : ''}"\n   *Issue:* ${explanation_text}${clause.plain_explanation && clause.plain_explanation.length > 150 ? '...' : ''}\n`;
-      });
-    }
+    explanation += `The analysis covers the key terms, obligations, and potential issues within the document. `;
 
-    explanation += `\n\n---\n\n### 🚀 Recommended Actions
-
-`;
-
-    if (riskLevel === 'RED') {
-      explanation += `**Immediate Steps:**
-1. **Seek Legal Review** - Have a qualified attorney review this document before signing
-2. **Identify Negotiation Points** - Focus on the high-risk clauses identified above
-3. **Prepare Alternatives** - Consider what terms you'd prefer and be ready to negotiate
-4. **Don't Rush** - Take time to fully understand the implications before proceeding`;
-    } else if (riskLevel === 'YELLOW') {
-      explanation += `**Recommended Steps:**
-1. **Careful Review** - Pay special attention to the medium-risk clauses
-2. **Consider Legal Consultation** - Get professional advice if you're unsure about any terms
-3. **Ask Questions** - Clarify anything that seems unclear or ambiguous
-4. **Negotiate if Needed** - Don't hesitate to request changes to problematic terms`;
+    if (confidence < 80) {
+      explanation += `The AI analysis has ${confidence}% confidence, so consider professional legal review for important decisions. `;
     } else {
-      explanation += `**Standard Steps:**
-1. **Complete Review** - Read through all clauses carefully
-2. **Understand Obligations** - Make sure you're clear on what you're agreeing to
-3. **Keep Records** - Maintain a copy for your files
-4. **Ask for Clarification** - Request explanation of any unclear terms`;
+      explanation += `The AI analysis provides good confidence (${confidence}%) in this assessment. `;
     }
 
-    // Add top recommendations if available
-    if (topRecommendations.length > 0) {
-      explanation += `\n\n**Key Recommendations:**\n`;
-      topRecommendations.forEach((rec, index) => {
-        explanation += `${index + 1}. ${rec}\n`;
-      });
-    }
-
-    // Add confidence warning if applicable
-    if (analysis.overall_risk?.low_confidence_warning) {
-      explanation += `\n\n---\n\n**⚠️ Important Note:** The AI analysis has lower confidence in this assessment. I especially recommend getting professional legal review to ensure accuracy.`;
-    }
-
-    explanation += `\n\n---\n\n**Disclaimer:** This analysis is provided by AI to help you understand the document better. For important legal decisions, always consult with a qualified attorney who can provide personalized advice for your specific situation.`;
+    explanation += `This summary gives you a quick overview of what the document contains and its overall risk profile.`;
 
     return explanation;
   }

@@ -80,47 +80,19 @@ export function DocumentSummary({ analysis, className = '' }: DocumentSummaryPro
   const generateFallbackSummary = (): SummaryData => {
     const { overall_risk, analysis_results } = analysis;
     
-    // Extract key points from clause assessments
-    const keyPoints = [
-      `Document contains ${analysis_results.length} clauses analyzed`,
-      `Overall risk level: ${overall_risk.level} (${(overall_risk.score * 100).toFixed(0)}% risk score)`,
-      `Analysis confidence: ${overall_risk.confidence_percentage}%`
-    ];
-
-    // Add specific risk insights from reasons
-    if (overall_risk.reasons && overall_risk.reasons.length > 0) {
-      keyPoints.push(...overall_risk.reasons.slice(0, 2)); // Top 2 risk reasons
-    }
-
-    // Generate risk summary from actual data
-    const riskSummary = `This document has been assessed as ${overall_risk.level.toLowerCase()} risk with a score of ${overall_risk.score.toFixed(2)}/1.0. ${overall_risk.reasons ? overall_risk.reasons[0] : 'Standard risk assessment completed.'}`;
-
-    // Extract recommendations from clause assessments
-    const recommendations: string[] = [];
-    const highRiskClauses = analysis_results.filter(clause => clause.risk_level.level === 'RED');
-    const mediumRiskClauses = analysis_results.filter(clause => clause.risk_level.level === 'YELLOW');
+    // Generate simple 5-6 line summary about what the document contains
+    const documentType = analysis.document_type?.replace('_', ' ') || 'legal document';
+    const clauseCount = analysis_results.length;
+    const riskLevel = overall_risk.level.toLowerCase();
     
-    if (highRiskClauses.length > 0) {
-      recommendations.push(`Review ${highRiskClauses.length} high-risk clauses carefully`);
-      recommendations.push(...highRiskClauses.slice(0, 2).flatMap(clause => clause.recommendations.slice(0, 1)));
-    }
-    
-    if (mediumRiskClauses.length > 0) {
-      recommendations.push(`Consider negotiating ${mediumRiskClauses.length} medium-risk clauses`);
-    }
-
-    // Generate simplified explanation
-    const simplifiedExplanation = `This ${analysis.document_type?.replace('_', ' ') || 'document'} contains ${analysis_results.length} clauses. ${highRiskClauses.length} clauses need careful attention due to high risk, while ${mediumRiskClauses.length} clauses have moderate risk that should be reviewed.`;
-
-    // Generate jargon-free version
-    const jargonFreeVersion = `In simple terms: This document ${overall_risk.level === 'RED' ? 'has significant risks that need attention' : overall_risk.level === 'YELLOW' ? 'has some risks but is generally acceptable' : 'appears to have standard, low-risk terms'}. ${highRiskClauses.length > 0 ? `Pay special attention to ${highRiskClauses.length} clauses that could cause problems.` : 'Most clauses appear fair and standard.'}`;
+    const simpleSummary = `This is a ${documentType} containing ${clauseCount} clauses that have been analyzed for legal risks. The document has been assessed as ${riskLevel} risk overall. ${clauseCount > 0 ? `The analysis covers key terms, obligations, and potential issues within the document.` : ''} ${overall_risk.confidence_percentage < 80 ? 'Consider professional legal review for important decisions.' : 'The AI analysis provides good confidence in the assessment.'} This summary gives you a quick overview of the document's content and risk profile.`;
 
     return {
-      keyPoints,
-      riskSummary,
-      recommendations: recommendations.slice(0, 5), // Limit to top 5
-      simplifiedExplanation,
-      jargonFreeVersion,
+      keyPoints: [simpleSummary],
+      riskSummary: simpleSummary,
+      recommendations: [simpleSummary],
+      simplifiedExplanation: simpleSummary,
+      jargonFreeVersion: simpleSummary,
       timestamp: new Date()
     };
   };
@@ -248,7 +220,7 @@ export function DocumentSummary({ analysis, className = '' }: DocumentSummaryPro
               <h2 className="text-xl font-bold text-white">Document Summary</h2>
               <p className="text-slate-400 text-sm">
                 {currentLanguage === 'en' 
-                  ? 'Jargon-free explanation of your document' 
+                  ? 'Simple overview of what this document contains' 
                   : `Translated to ${currentLanguage.toUpperCase()}`
                 }
               </p>
@@ -266,12 +238,6 @@ export function DocumentSummary({ analysis, className = '' }: DocumentSummaryPro
             >
               <Languages className="w-4 h-4 mr-2" />
               Translate
-            </button>
-            <button
-              onClick={toggleAllSections}
-              className="inline-flex items-center px-3 py-2 bg-slate-700 text-slate-300 rounded-lg hover:bg-slate-600 transition-colors text-sm"
-            >
-              {allExpanded ? 'Collapse All' : 'Expand All'}
             </button>
             <button
               onClick={handleRefreshSummary}
@@ -304,182 +270,19 @@ export function DocumentSummary({ analysis, className = '' }: DocumentSummaryPro
           </motion.div>
         )}
 
-        {/* Summary Sections */}
-        <div className="space-y-4">
-          {/* Overview Section */}
-          <div className="summary-section">
-            <button
-              onClick={() => toggleSection('overview')}
-              className="w-full flex items-center justify-between p-4 bg-slate-800/50 border border-slate-700 rounded-lg hover:bg-slate-800/70 transition-colors"
-            >
-              <div className="flex items-center space-x-3">
-                <Lightbulb className="w-5 h-5 text-yellow-400" />
-                <span className="font-semibold text-white">What This Document Means</span>
-              </div>
-              <div className="text-slate-400">
-                {expandedSection === 'overview' ? '−' : '+'}
-              </div>
-            </button>
-            
-            {(allExpanded || expandedSection === 'overview') && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                className="mt-3 p-6 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border border-blue-500/30 rounded-xl"
-              >
-                {currentLanguage === 'en' ? (
-                  <MarkdownRenderer text={displayContent?.jargonFreeVersion || ''} />
-                ) : (
-                  <TranslatedContentRenderer content={displayContent?.jargonFreeVersion || ''} />
-                )}
-              </motion.div>
-            )}
-          </div>
-
-          {/* Key Points Section */}
-          <div className="summary-section">
-            <button
-              onClick={() => toggleSection('keyPoints')}
-              className="w-full flex items-center justify-between p-4 bg-slate-800/50 border border-slate-700 rounded-lg hover:bg-slate-800/70 transition-colors"
-            >
-              <div className="flex items-center space-x-3">
-                <Target className="w-5 h-5 text-green-400" />
-                <span className="font-semibold text-white">Key Points</span>
-                <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded-full">
-                  {displayContent?.keyPoints?.length || 0}
-                </span>
-              </div>
-              <div className="text-slate-400">
-                {expandedSection === 'keyPoints' ? '−' : '+'}
-              </div>
-            </button>
-            
-            {(allExpanded || expandedSection === 'keyPoints') && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                className="mt-3 p-6 bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/30 rounded-xl"
-              >
-                <ul className="space-y-4">
-                  {(displayContent?.keyPoints || []).map((point, index) => (
-                    <li key={index} className="flex items-start space-x-3">
-                      <CheckCircle className="w-5 h-5 text-green-400 mt-1 flex-shrink-0" />
-                      <div className="flex-1">
-                        {currentLanguage === 'en' ? (
-                          <span className="text-slate-200 leading-relaxed">{point}</span>
-                        ) : (
-                          <TranslatedContentRenderer content={point} />
-                        )}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </motion.div>
-            )}
-          </div>
-
-          {/* Risk Summary Section */}
-          <div className="summary-section">
-            <button
-              onClick={() => toggleSection('risks')}
-              className="w-full flex items-center justify-between p-4 bg-slate-800/50 border border-slate-700 rounded-lg hover:bg-slate-800/70 transition-colors"
-            >
-              <div className="flex items-center space-x-3">
-                <Shield className="w-5 h-5 text-orange-400" />
-                <span className="font-semibold text-white">Risk Assessment</span>
-              </div>
-              <div className="text-slate-400">
-                {expandedSection === 'risks' ? '−' : '+'}
-              </div>
-            </button>
-            
-            {(allExpanded || expandedSection === 'risks') && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                className="mt-3 p-6 bg-gradient-to-r from-orange-500/10 to-red-500/10 border border-orange-500/30 rounded-xl"
-              >
-                {currentLanguage === 'en' ? (
-                  <MarkdownRenderer text={displayContent?.riskSummary || ''} />
-                ) : (
-                  <TranslatedContentRenderer content={displayContent?.riskSummary || ''} />
-                )}
-              </motion.div>
-            )}
-          </div>
-
-          {/* Recommendations Section */}
-          <div className="summary-section">
-            <button
-              onClick={() => toggleSection('recommendations')}
-              className="w-full flex items-center justify-between p-4 bg-slate-800/50 border border-slate-700 rounded-lg hover:bg-slate-800/70 transition-colors"
-            >
-              <div className="flex items-center space-x-3">
-                <AlertTriangle className="w-5 h-5 text-cyan-400" />
-                <span className="font-semibold text-white">What You Should Do</span>
-                <span className="text-xs bg-cyan-500/20 text-cyan-400 px-2 py-1 rounded-full">
-                  {displayContent?.recommendations?.length || 0}
-                </span>
-              </div>
-              <div className="text-slate-400">
-                {expandedSection === 'recommendations' ? '−' : '+'}
-              </div>
-            </button>
-            
-            {(allExpanded || expandedSection === 'recommendations') && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                className="mt-3 p-6 bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border border-cyan-500/30 rounded-xl"
-              >
-                <ul className="space-y-4">
-                  {(displayContent?.recommendations || []).map((recommendation, index) => (
-                    <li key={index} className="flex items-start space-x-3">
-                      <div className="w-7 h-7 bg-gradient-to-r from-cyan-500/20 to-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-1 border border-cyan-500/30">
-                        <span className="text-cyan-400 text-sm font-bold">{index + 1}</span>
-                      </div>
-                      <div className="flex-1">
-                        {currentLanguage === 'en' ? (
-                          <span className="text-slate-200 leading-relaxed">{recommendation}</span>
-                        ) : (
-                          <TranslatedContentRenderer content={recommendation} />
-                        )}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </motion.div>
-            )}
-          </div>
-
-          {/* Simplified Explanation Section */}
-          <div className="summary-section">
-            <button
-              onClick={() => toggleSection('simplified')}
-              className="w-full flex items-center justify-between p-4 bg-slate-800/50 border border-slate-700 rounded-lg hover:bg-slate-800/70 transition-colors"
-            >
-              <div className="flex items-center space-x-3">
-                <FileText className="w-5 h-5 text-purple-400" />
-                <span className="font-semibold text-white">Simple Explanation</span>
-              </div>
-              <div className="text-slate-400">
-                {expandedSection === 'simplified' ? '−' : '+'}
-              </div>
-            </button>
-            
-            {(allExpanded || expandedSection === 'simplified') && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                className="mt-3 p-6 bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/30 rounded-xl"
-              >
-                {currentLanguage === 'en' ? (
-                  <MarkdownRenderer text={displayContent?.simplifiedExplanation || ''} />
-                ) : (
-                  <TranslatedContentRenderer content={displayContent?.simplifiedExplanation || ''} />
-                )}
-              </motion.div>
-            )}
+        {/* Simple Summary Display */}
+        <div className="p-6 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border border-blue-500/30 rounded-xl">
+          <div className="flex items-start space-x-3">
+            <FileText className="w-6 h-6 text-blue-400 mt-1 flex-shrink-0" />
+            <div className="flex-1">
+              {currentLanguage === 'en' ? (
+                <div className="text-slate-200 leading-relaxed text-lg">
+                  {displayContent?.jargonFreeVersion || 'Document summary not available'}
+                </div>
+              ) : (
+                <TranslatedContentRenderer content={displayContent?.jargonFreeVersion || 'Document summary not available'} />
+              )}
+            </div>
           </div>
         </div>
 

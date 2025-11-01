@@ -1231,61 +1231,21 @@ class DocumentService:
             risk_score = overall_risk.get('score', 0.0)
             confidence = overall_risk.get('confidence_percentage', 0)
             
-            # Build structured summary
+            # Create simple document context summary (5-6 lines max)
             summary_parts = []
             
-            # Header with key metrics
-            summary_parts.append(f"**{doc_name} Analysis Summary**")
-            summary_parts.append(f"**Overall Risk:** {risk_level} ({risk_score:.1f}/1.0) | **Confidence:** {confidence}%")
-            summary_parts.append(f"**Clauses Analyzed:** {len(clause_assessments)} total")
-            
-            # Risk breakdown
-            if risk_counts['RED'] > 0 or risk_counts['YELLOW'] > 0:
-                risk_breakdown = []
-                if risk_counts['RED'] > 0:
-                    risk_breakdown.append(f"🔴 {risk_counts['RED']} High-Risk")
-                if risk_counts['YELLOW'] > 0:
-                    risk_breakdown.append(f"🟡 {risk_counts['YELLOW']} Medium-Risk")
-                if risk_counts['GREEN'] > 0:
-                    risk_breakdown.append(f"🟢 {risk_counts['GREEN']} Low-Risk")
-                
-                summary_parts.append(f"**Risk Distribution:** {' | '.join(risk_breakdown)}")
-            
-            # Key findings with REAL data
-            if risk_level == 'RED':
-                summary_parts.append("⚠️ **Critical Issues Found** - This document contains significant risks that require immediate attention.")
-                if high_risk_clauses:
-                    # Use REAL reasons from actual analysis
-                    real_issues = []
-                    for clause in high_risk_clauses:
-                        reason = clause['reason'][:60] + "..." if len(clause['reason']) > 60 else clause['reason']
-                        real_issues.append(f"Clause {clause['id']}: {reason}")
-                    summary_parts.append(f"**Main Concerns:** {' | '.join(real_issues)}")
-                
-                # Add REAL overall risk reasons if available
-                if overall_risk.get('reasons'):
-                    top_reasons = overall_risk['reasons'][:2]  # Top 2 reasons
-                    summary_parts.append(f"**Key Risk Factors:** {' | '.join(top_reasons)}")
-                    
-            elif risk_level == 'YELLOW':
-                summary_parts.append("⚠️ **Moderate Risks Identified** - Some terms could be improved for better protection.")
-                # Add REAL medium risk details
-                if overall_risk.get('reasons'):
-                    summary_parts.append(f"**Areas of Concern:** {' | '.join(overall_risk['reasons'][:2])}")
+            # Simple document overview
+            summary_parts.append(f"This is a {doc_name.lower()} containing {len(clause_assessments)} clauses that have been analyzed.")
+            summary_parts.append(f"The document has been assessed as {risk_level.lower()} risk overall.")
+            summary_parts.append(f"This analysis covers the key terms, obligations, and provisions within the document.")
+            if confidence >= 80:
+                summary_parts.append(f"The AI analysis provides good confidence ({confidence}%) in this assessment.")
             else:
-                summary_parts.append("✅ **Generally Acceptable** - Most terms appear fair with standard risk levels.")
-                if overall_risk.get('reasons'):
-                    summary_parts.append(f"**Positive Aspects:** {' | '.join(overall_risk['reasons'][:2])}")
+                summary_parts.append(f"Consider professional review as the analysis has {confidence}% confidence.")
+            summary_parts.append(f"This summary gives you an overview of the document's content and risk profile.")
             
-            # Action recommendation
-            if risk_level == 'RED':
-                summary_parts.append("**Recommended Action:** Negotiate changes or seek legal review before signing.")
-            elif risk_level == 'YELLOW':
-                summary_parts.append("**Recommended Action:** Review highlighted clauses and consider improvements.")
-            else:
-                summary_parts.append("**Recommended Action:** Standard review recommended before proceeding.")
             
-            return "\n\n".join(summary_parts)
+            return " ".join(summary_parts)
             
         except Exception as e:
             logger.error(f"Failed to create structured summary: {e}")
@@ -1390,7 +1350,7 @@ class DocumentService:
             from models.ai_models import ClarificationRequest
             
             request = ClarificationRequest(
-                question=f"Create a concise legal summary (max 150 words) for this {document_type.replace('_', ' ')} analysis.",
+                question=f"In exactly 5-6 lines, explain what this {document_type.replace('_', ' ')} document is about and its main purpose. Focus only on the document's context and content, not detailed analysis or clause breakdowns. Keep it simple and concise.",
                 context=enhanced_context,
                 user_expertise_level='intermediate'
             )
