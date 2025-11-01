@@ -213,3 +213,5 @@ export const ExpertLogin: React.FC<ExpertLoginProps> = ({ onLoginSuccess }) => {
     </div>
   );
 };
+
+export default ExpertLogin;

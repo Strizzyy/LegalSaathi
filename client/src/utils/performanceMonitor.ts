@@ -83,7 +83,7 @@ class PerformanceMonitor {
       window.addEventListener('load', () => {
         const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
         this.metrics.ttfb = navigation.responseStart - navigation.requestStart;
-        this.metrics.bundleLoadTime = navigation.loadEventEnd - navigation.navigationStart;
+        this.metrics.bundleLoadTime = navigation.loadEventEnd - navigation.fetchStart;
         
         console.log('TTFB:', this.metrics.ttfb);
         console.log('Bundle Load Time:', this.metrics.bundleLoadTime);
@@ -176,12 +176,12 @@ class PerformanceMonitor {
 
     return {
       webVitals: {
-        lcp: this.metrics.lcp,
-        fid: this.metrics.fid,
-        cls: this.metrics.cls,
-        ttfb: this.metrics.ttfb,
+        ...(this.metrics.lcp !== undefined && { lcp: this.metrics.lcp }),
+        ...(this.metrics.fid !== undefined && { fid: this.metrics.fid }),
+        ...(this.metrics.cls !== undefined && { cls: this.metrics.cls }),
+        ...(this.metrics.ttfb !== undefined && { ttfb: this.metrics.ttfb }),
       },
-      bundleLoadTime: this.metrics.bundleLoadTime,
+      ...(this.metrics.bundleLoadTime !== undefined && { bundleLoadTime: this.metrics.bundleLoadTime }),
       averageComponentLoadTime,
       averageApiResponseTime,
       componentLoadTimes: Object.fromEntries(this.metrics.componentLoadTimes),
@@ -204,17 +204,17 @@ class PerformanceMonitor {
 
     return {
       lcp: {
-        value: this.metrics.lcp,
+        ...(this.metrics.lcp !== undefined && { value: this.metrics.lcp }),
         target: targets.lcp,
         passed: this.metrics.lcp ? this.metrics.lcp <= targets.lcp : false,
       },
       fid: {
-        value: this.metrics.fid,
+        ...(this.metrics.fid !== undefined && { value: this.metrics.fid }),
         target: targets.fid,
         passed: this.metrics.fid ? this.metrics.fid <= targets.fid : false,
       },
       cls: {
-        value: this.metrics.cls,
+        ...(this.metrics.cls !== undefined && { value: this.metrics.cls }),
         target: targets.cls,
         passed: this.metrics.cls ? this.metrics.cls <= targets.cls : false,
       },

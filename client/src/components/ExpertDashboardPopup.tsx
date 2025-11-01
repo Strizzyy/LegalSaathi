@@ -1,6 +1,4 @@
-import React from 'react';
-import { motion } from 'framer-motion';
-import { Brain, ArrowRight, X, Eye, Users } from 'lucide-react';
+import { Brain, ArrowRight, Eye, Users } from 'lucide-react';
 import { Modal } from './Modal';
 
 interface ExpertDashboardPopupProps {

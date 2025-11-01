@@ -7,7 +7,7 @@ import { DashboardWidgetSkeleton, DocumentAnalysisSkeleton, ChartSkeleton } from
 interface LazyRouteProps {
   children: React.ReactNode;
   fallback?: React.ReactNode;
-  errorFallback?: React.ReactNode;
+
   timeout?: number;
   retryAttempts?: number;
   showProgress?: boolean;
@@ -183,18 +183,18 @@ class LazyRouteErrorBoundary extends React.Component<
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+  override componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error('LazyRoute Error:', error, errorInfo);
     this.props.onError?.(error);
   }
 
-  render() {
+  override render() {
     if (this.state.hasError && this.state.error) {
       return (
         <ErrorBoundaryFallback
           error={this.state.error}
           resetError={() => this.setState({ hasError: false, error: null })}
-          componentName={this.props.componentName}
+          {...(this.props.componentName && { componentName: this.props.componentName })}
         />
       );
     }
@@ -206,7 +206,6 @@ class LazyRouteErrorBoundary extends React.Component<
 export const LazyRoute: React.FC<LazyRouteProps> = ({
   children,
   fallback,
-  errorFallback,
   timeout = 10000,
   retryAttempts = 3,
   showProgress = false,
@@ -271,17 +270,17 @@ export const LazyRoute: React.FC<LazyRouteProps> = ({
 
   const defaultFallback = (
     <DefaultLoadingFallback
-      showProgress={showProgress}
-      componentName={componentName}
-      loadingState={loadingState}
-      onRetry={handleRetry}
+      {...(showProgress !== undefined && { showProgress })}
+      {...(componentName && { componentName })}
+      {...(loadingState && { loadingState })}
+      {...(handleRetry && { onRetry: handleRetry })}
     />
   );
 
   return (
     <div className={cn('lazy-route-container', className)}>
       <LazyRouteErrorBoundary
-        componentName={componentName}
+        {...(componentName && { componentName })}
         onError={(error) => {
           setLoadingState(prev => ({
             ...prev,

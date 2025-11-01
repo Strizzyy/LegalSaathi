@@ -827,3 +827,5 @@ export const DocumentReviewInterface: React.FC = () => {
     </div>
   );
 };
+
+export default DocumentReviewInterface;

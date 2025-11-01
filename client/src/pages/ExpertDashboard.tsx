@@ -687,3 +687,5 @@ export const ExpertDashboard: React.FC = () => {
     </div>
   );
 };
+
+export default ExpertDashboard;

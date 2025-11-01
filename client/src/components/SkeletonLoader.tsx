@@ -159,12 +159,16 @@ export const ChartSkeleton: React.FC<SkeletonProps> = ({
         {/* Chart bars */}
         <div className="ml-12 h-full flex items-end justify-between space-x-2">
           {Array.from({ length: 7 }, (_, i) => (
-            <Skeleton 
+            <div 
               key={i} 
               className="w-8 rounded-t"
               style={{ height: `${Math.random() * 80 + 20}%` }}
-              animate={animate} 
-            />
+            >
+              <Skeleton 
+                className="w-full h-full"
+                animate={animate} 
+              />
+            </div>
           ))}
         </div>
         
@@ -266,12 +270,16 @@ export const DashboardWidgetSkeleton: React.FC<SkeletonProps> = ({
       {/* Mini chart */}
       <div className="flex items-end space-x-1 h-8">
         {Array.from({ length: 8 }, (_, i) => (
-          <Skeleton 
+          <div 
             key={i} 
             className="w-2 rounded-t"
             style={{ height: `${Math.random() * 100}%` }}
-            animate={animate} 
-          />
+          >
+            <Skeleton 
+              className="w-full h-full"
+              animate={animate} 
+            />
+          </div>
         ))}
       </div>
     </div>

@@ -1,0 +1,167 @@
+# Google Cloud Run Deployment - Exclude unnecessary files
+
+# Development files and directories
+.git/
+.github/
+.vscode/
+.pytest_cache/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+.venv/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Development databases and logs
+*.db
+*.log
+ai_service_debug.log
+legal_saathi.log
+cost_monitoring.db
+expert_queue.db
+
+# Development scripts and tools
+debug_reviews.py
+create_expert_queue_tables.py
+create_feedback_tables.py
+reset_reviews.py
+start_dev.py
+
+# Documentation and markdown files (not needed for runtime)
+docs/
+md files/
+*.md
+!README.md
+
+# Render-specific files
+render.yaml
+render-build.sh
+render-start.sh
+render_requirements.txt
+RENDER_DEPLOYMENT.md
+
+# Build and deployment scripts
+build.sh
+deploy-cloudrun.sh
+
+# Client development files (keep only dist)
+client/src/
+client/node_modules/
+client/package*.json
+client/tsconfig*.json
+client/vite.config.ts
+client/tailwind.config.js
+client/postcss.config.js
+client/.env
+client/npx
+client/void
+client/void'
+client/{
+
+# Credentials and secrets (should be in environment variables)
+client_secret_*.json
+google-cloud-credentials.json
+legal-saathi-*-firebase-adminsdk-*.json
+
+# Python package files
+pyproject.toml
+uv.lock
+
+# IDE and editor files
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files
+temp/
+tmp/
+*.tmp
+*.temp
+
+# Large binary files and caches
+*.pkl
+*.pickle
+*.cache
+*.model
+*.bin
+
+# Test files
+test_*.py
+*_test.py
+tests/
+
+# Development environment files
+.env.local
+.env.development
+.env.test
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Compiled files
+*.so
+*.dll
+*.exe
+
+# Archive files
+*.zip
+*.tar.gz
+*.rar
+
+# Jupyter notebooks
+*.ipynb
+
+# Coverage reports
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+
+# Profiling data
+.prof
+
+# MyPy cache
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# Celery stuff
+celerybeat-schedule
+celerybeat.pid
+
+# SageMath parsed files
+*.sage.py
+
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# Exclude everything in __pycache__ directories
+**/__pycache__/

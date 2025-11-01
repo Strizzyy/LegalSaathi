@@ -283,7 +283,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onClose }) => {
                         ></div>
                       </div>
                       <div className="text-xs text-gray-600 mt-1">
-                        {quota.current_usage.per_minute} / {quota.quota_limits.per_minute}
+                        {quota.current_usage.per_minute} / {quota.limits.per_minute}
                       </div>
                     </div>
 
@@ -300,7 +300,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onClose }) => {
                         ></div>
                       </div>
                       <div className="text-xs text-gray-600 mt-1">
-                        {quota.current_usage.per_hour} / {quota.quota_limits.per_hour}
+                        {quota.current_usage.per_hour} / {quota.limits.per_hour}
                       </div>
                     </div>
 
@@ -317,7 +317,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onClose }) => {
                         ></div>
                       </div>
                       <div className="text-xs text-gray-600 mt-1">
-                        {quota.current_usage.per_day} / {quota.quota_limits.per_day}
+                        {quota.current_usage.per_day} / {quota.limits.per_day}
                       </div>
                     </div>
                   </div>

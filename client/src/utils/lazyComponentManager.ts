@@ -19,7 +19,7 @@ interface LazyComponentConfig {
 class LazyComponentManager {
   private components = new Map<string, ComponentType<any>>();
   private loadingStates = new Map<string, 'idle' | 'loading' | 'loaded' | 'error'>();
-  private preloadQueue: LazyComponentConfig[] = [];
+
   private loadPromises = new Map<string, Promise<ComponentType<any>>>();
 
   // Heavy UI components configuration (only existing components)
@@ -64,32 +64,28 @@ class LazyComponentManager {
       importFn: () => import('../components/AboutUs'),
       priority: 'low',
       category: 'page',
-      estimatedSize: 25,
-      delay: 3000
+      estimatedSize: 25
     },
     {
       name: 'ContactUs',
       importFn: () => import('../components/ContactUs'),
       priority: 'low',
       category: 'page',
-      estimatedSize: 30,
-      delay: 3000
+      estimatedSize: 30
     },
     {
       name: 'PrivacyPolicy',
       importFn: () => import('../components/PrivacyPolicy'),
       priority: 'low',
       category: 'page',
-      estimatedSize: 35,
-      delay: 5000
+      estimatedSize: 35
     },
     {
       name: 'TermsOfService',
       importFn: () => import('../components/TermsOfService'),
       priority: 'low',
       category: 'page',
-      estimatedSize: 40,
-      delay: 5000
+      estimatedSize: 40
     },
 
     // Modal components
@@ -153,13 +149,16 @@ class LazyComponentManager {
       return priorityOrder[a.priority] - priorityOrder[b.priority];
     });
 
-    this.preloadQueue = sortedComponents.filter(config => {
+    const preloadQueue = sortedComponents.filter(config => {
       // Check preload conditions
       if (config.preloadCondition && !config.preloadCondition()) {
         return false;
       }
       return true;
     });
+    
+    // Process the preload queue (if needed in the future)
+    console.log(`Prepared ${preloadQueue.length} components for preloading`);
   }
 
   // Get lazy component with automatic loading
@@ -404,7 +403,7 @@ class LazyComponentManager {
     this.components.clear();
     this.loadingStates.clear();
     this.loadPromises.clear();
-    this.preloadQueue = [];
+    // Clear any preload queue references
   }
 }
 

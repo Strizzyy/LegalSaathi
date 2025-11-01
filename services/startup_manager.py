@@ -3,6 +3,7 @@ Startup Manager for Optimized Backend Initialization
 Integrates OptimizedServiceManager with FastAPI application lifecycle
 """
 
+import os
 import logging
 import asyncio
 from typing import Dict, Any
@@ -69,30 +70,61 @@ class StartupManager:
     async def _register_services(self):
         """Register all services with the service manager"""
         
-        # Critical services (must be ready before app starts)
-        critical_services = [
-            ('health', 10.0, True),      # Health checks
-            ('cache', 15.0, True),       # Caching system
-            ('auth', 20.0, False),       # Authentication (not required for basic functionality)
-            ('document', 30.0, True),    # Document processing
-        ]
+        # Check if we're in Cloud Run environment for optimization
+        is_cloud_run = os.getenv('GOOGLE_CLOUD_DEPLOYMENT', 'false').lower() == 'true'
+        use_lightweight = os.getenv('USE_LIGHTWEIGHT_SERVICES', 'false').lower() == 'true'
         
-        # Background services (can initialize after app starts)
-        background_services = [
-            ('ai', 45.0, True),          # AI services
-            ('translation', 30.0, False), # Translation services
-            ('speech', 25.0, False),     # Speech services
-            ('vision', 35.0, False),     # Vision processing
-            ('comparison', 20.0, False), # Document comparison
-            ('export', 15.0, False),     # Export functionality
-        ]
-        
-        # Optional services (best effort initialization)
-        optional_services = [
-            ('email', 20.0, False),              # Email services
-            ('cost_monitoring', 10.0, False),    # Cost monitoring
-            ('quota_management', 10.0, False),   # Quota management
-        ]
+        if is_cloud_run or use_lightweight:
+            logger.info("🚀 Configuring services for Cloud Run lightweight deployment")
+            
+            # Critical services (must be ready before app starts) - Cloud Run optimized
+            critical_services = [
+                ('health', 5.0, True),       # Health checks - faster timeout
+                ('cache', 8.0, True),        # Caching system - faster timeout
+                ('document', 15.0, True),    # Document processing - reduced timeout
+            ]
+            
+            # Background services (can initialize after app starts) - reduced set
+            background_services = [
+                ('ai', 20.0, True),          # AI services - reduced timeout
+                ('translation', 15.0, False), # Translation services
+                ('vision', 20.0, False),     # Vision processing
+            ]
+            
+            # Optional services (best effort initialization) - minimal set
+            optional_services = [
+                ('auth', 10.0, False),       # Authentication - moved to optional
+                ('export', 8.0, False),      # Export functionality
+            ]
+            
+            logger.info("✅ Cloud Run service configuration applied - prioritizing fast startup")
+        else:
+            logger.info("🔧 Configuring services for full deployment")
+            
+            # Critical services (must be ready before app starts)
+            critical_services = [
+                ('health', 10.0, True),      # Health checks
+                ('cache', 15.0, True),       # Caching system
+                ('auth', 20.0, False),       # Authentication (not required for basic functionality)
+                ('document', 30.0, True),    # Document processing
+            ]
+            
+            # Background services (can initialize after app starts)
+            background_services = [
+                ('ai', 45.0, True),          # AI services
+                ('translation', 30.0, False), # Translation services
+                ('speech', 25.0, False),     # Speech services
+                ('vision', 35.0, False),     # Vision processing
+                ('comparison', 20.0, False), # Document comparison
+                ('export', 15.0, False),     # Export functionality
+            ]
+            
+            # Optional services (best effort initialization)
+            optional_services = [
+                ('email', 20.0, False),              # Email services
+                ('cost_monitoring', 10.0, False),    # Cost monitoring
+                ('quota_management', 10.0, False),   # Quota management
+            ]
         
         # Register critical services
         for service_name, timeout, required in critical_services:

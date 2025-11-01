@@ -294,6 +294,7 @@ export const setupIntelligentPreloading = () => {
 
       return observer;
     }
+    return undefined;
   };
 
   // Preload on user interaction hints
