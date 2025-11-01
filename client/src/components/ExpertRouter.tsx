@@ -5,9 +5,9 @@
 
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { ExpertLogin } from '../pages/ExpertLogin';
-import { ExpertDashboard } from '../pages/ExpertDashboard';
-import { DocumentReviewInterface } from './DocumentReviewInterface';
+import ExpertLogin from '../pages/ExpertLogin';
+import ExpertDashboard from '../pages/ExpertDashboard';
+import DocumentReviewInterface from './DocumentReviewInterface';
 
 export const ExpertRouter: React.FC = () => {
   return (

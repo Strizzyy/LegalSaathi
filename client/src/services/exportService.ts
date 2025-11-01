@@ -67,24 +67,64 @@ class ExportService {
       
       const blob = await apiService.exportToPDF(apiData);
 
+      // First, let's test if we're actually authenticated
+      try {
+        const authTestResponse = await fetch('/api/auth/current-user');
+        console.log('Auth Test Response:', {
+          status: authTestResponse.status,
+          statusText: authTestResponse.statusText
+        });
+        if (authTestResponse.ok) {
+          const authData = await authTestResponse.json();
+          console.log('Current user data:', authData);
+        } else {
+          console.warn('Auth test failed:', await authTestResponse.text());
+        }
+      } catch (authError) {
+        console.error('Auth test error:', authError);
+      }
+
+      console.log('PDF Export Debug:', {
+        blobExists: !!blob,
+        blobSize: blob?.size,
+        blobType: blob?.type,
+        blobConstructor: blob?.constructor.name
+      });
+
       if (!blob || blob.size === 0) {
-        console.warn('PDF export service returned empty content, falling back to text export');
-        return this.exportAsText(data);
+        console.error('PDF export service returned empty content');
+        return { 
+          success: false, 
+          error: 'PDF generation failed on server. Please try again or contact support.' 
+        };
       }
 
-      // Validate that we received a PDF blob
-      if (blob.type && !blob.type.includes('pdf') && !blob.type.includes('octet-stream')) {
-        console.warn('Received non-PDF content, falling back to text export');
-        return this.exportAsText(data);
-      }
-
+      // Try to download regardless of MIME type - let the user see what we got
       const filename = this.generateFilename('pdf', data.file_info);
+      
+      // If it looks like text content, let's see what it actually contains
+      if (blob.type && blob.type.includes('text/')) {
+        console.warn(`Received text content (${blob.type}), but attempting download anyway`);
+        // Read the content to see what we got
+        const text = await blob.text();
+        console.log('Text content received:', text.substring(0, 500));
+      }
+      
       this.downloadFile(blob, filename);
       
       return { success: true };
-    } catch (error) {
+    } catch (error: any) {
       console.error('PDF export error:', error);
-      // Fallback to text export on error
+      
+      // Check if it's an authentication error
+      if (error.message && error.message.includes('401')) {
+        return { 
+          success: false, 
+          error: 'Please sign in to export PDF documents. Click the "Sign In" button in the top navigation.' 
+        };
+      }
+      
+      // Fallback to text export on other errors
       console.warn('PDF export failed, falling back to text export');
       return this.exportAsText(data);
     }

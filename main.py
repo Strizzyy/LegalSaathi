@@ -1393,14 +1393,102 @@ async def export_comparison_report(
 @limiter.limit("5/minute")
 async def export_to_pdf(request: Request, data: dict):
     """Export analysis results to PDF"""
-    return await export_controller.export_to_pdf(data)
+    try:
+        # Get current user from request state (set by Firebase middleware)
+        current_user = getattr(request.state, 'user', None)
+        user_id = current_user.get('uid', 'anonymous') if current_user else 'anonymous'
+        
+        # Check if user is authenticated (middleware should handle this, but double-check)
+        is_authenticated = getattr(request.state, 'is_authenticated', False)
+        if not is_authenticated:
+            logger.warning(f"Unauthenticated PDF export attempt from user: {user_id}")
+            return JSONResponse(
+                status_code=401,
+                content={
+                    "error": "Authentication required",
+                    "message": "Please log in to export documents",
+                    "error_code": "AUTH_001"
+                }
+            )
+        
+        logger.info(f"PDF export requested by user: {user_id}")
+        
+        # Get or initialize export controller
+        controller = get_initialized_controller('export')
+        if not controller:
+            logger.error("Export controller not available")
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "error": "Export service not available",
+                    "message": "PDF export service is not initialized",
+                    "error_code": "EXPORT_002"
+                }
+            )
+        
+        return await controller.export_to_pdf(data)
+        
+    except Exception as e:
+        logger.error(f"PDF export error: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": "Export failed",
+                "message": "Unable to generate PDF export",
+                "error_code": "EXPORT_001"
+            }
+        )
 
 
 @app.post("/api/export/word")
 @limiter.limit("5/minute")
 async def export_to_word(request: Request, data: dict):
     """Export analysis results to Word document"""
-    return await export_controller.export_to_word(data)
+    try:
+        # Get current user from request state (set by Firebase middleware)
+        current_user = getattr(request.state, 'user', None)
+        user_id = current_user.get('uid', 'anonymous') if current_user else 'anonymous'
+        
+        # Check if user is authenticated (middleware should handle this, but double-check)
+        is_authenticated = getattr(request.state, 'is_authenticated', False)
+        if not is_authenticated:
+            logger.warning(f"Unauthenticated Word export attempt from user: {user_id}")
+            return JSONResponse(
+                status_code=401,
+                content={
+                    "error": "Authentication required",
+                    "message": "Please log in to export documents",
+                    "error_code": "AUTH_001"
+                }
+            )
+        
+        logger.info(f"Word export requested by user: {user_id}")
+        
+        # Get or initialize export controller
+        controller = get_initialized_controller('export')
+        if not controller:
+            logger.error("Export controller not available")
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "error": "Export service not available",
+                    "message": "Word export service is not initialized",
+                    "error_code": "EXPORT_003"
+                }
+            )
+        
+        return await controller.export_to_word(data)
+        
+    except Exception as e:
+        logger.error(f"Word export error: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": "Export failed",
+                "message": "Unable to generate Word export",
+                "error_code": "EXPORT_002"
+            }
+        )
 
 
 # Email notification endpoints

@@ -24,7 +24,13 @@ class AuthController:
     """
     
     def __init__(self):
-        self.firebase_service = FirebaseService()
+        try:
+            self.firebase_service = FirebaseService()
+            self.firebase_available = getattr(self.firebase_service, '_firebase_available', False)
+        except Exception as e:
+            logger.error(f"Failed to initialize Firebase service: {e}")
+            self.firebase_service = None
+            self.firebase_available = False
     
     async def verify_token(self, token_request: FirebaseTokenRequest) -> FirebaseTokenResponse:
         """
@@ -225,8 +231,20 @@ class AuthController:
             Current user information
         """
         try:
+            # Check if Firebase is available
+            if not self.firebase_available:
+                return {
+                    'success': False,
+                    'error': 'Firebase authentication not configured',
+                    'is_authenticated': False
+                }
+            
             if not hasattr(request.state, 'user') or not request.state.user:
-                raise HTTPException(status_code=401, detail="User not authenticated")
+                return {
+                    'success': False,
+                    'error': 'User not authenticated',
+                    'is_authenticated': False
+                }
             
             return {
                 'success': True,
@@ -236,7 +254,11 @@ class AuthController:
             
         except Exception as e:
             logger.error(f"Failed to get current user: {e}")
-            raise HTTPException(status_code=500, detail="Failed to get user information")
+            return {
+                'success': False,
+                'error': 'Failed to get user information',
+                'is_authenticated': False
+            }
     
     async def update_user_profile(self, request: Request, update_data: Dict[str, Any]) -> UserInfoResponse:
         """

@@ -14,6 +14,7 @@ interface LazyComponentConfig {
   category: 'chart' | 'form' | 'admin' | 'dashboard' | 'modal' | 'page' | 'widget';
   estimatedSize?: number; // KB
   dependencies?: string[];
+  delay?: number; // milliseconds
 }
 
 class LazyComponentManager {

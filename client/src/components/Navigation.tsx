@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Shield, Wifi, WifiOff, User, LogIn, UserPlus } from 'lucide-react';
+import { Wifi, WifiOff, User, LogIn, UserPlus, Shield } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from './ui/button';
@@ -54,7 +54,9 @@ export function Navigation({ onShowAuth, onShowProfile, onShowAbout, onShowConta
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
           >
-
+            <div className="w-10 h-10 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-lg flex items-center justify-center group-hover:from-cyan-400 group-hover:to-blue-400 transition-all duration-300">
+              <Shield className="w-6 h-6 text-white" />
+            </div>
             <div>
               <div className="text-xl font-bold text-white group-hover:text-cyan-400 transition-colors">
                 LegalSaathi

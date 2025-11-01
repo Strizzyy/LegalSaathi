@@ -303,17 +303,29 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
         notificationService.exportSuccess('PDF');
       } else {
         featureAvailabilityService.recordFeatureError('export_pdf');
-        notificationService.exportError('PDF', () => {
-          const fallbackData: any = { analysis };
-          if (fileInfo) fallbackData.file_info = fileInfo;
-          if (classification) fallbackData.classification = classification;
-          exportService.exportAsText(fallbackData);
-        });
+        
+        // Check if it's an authentication error
+        if (result.error && result.error.includes('sign in')) {
+          notificationService.error(result.error);
+        } else {
+          notificationService.exportError('PDF', () => {
+            const fallbackData: any = { analysis };
+            if (fileInfo) fallbackData.file_info = fileInfo;
+            if (classification) fallbackData.classification = classification;
+            exportService.exportAsText(fallbackData);
+          });
+        }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Export error:', error);
       featureAvailabilityService.recordFeatureError('export_pdf', error as Error);
-      notificationService.error('Export failed. Please try again or use the text export option.');
+      
+      // Check if it's an authentication error
+      if (error.message && error.message.includes('Authentication required')) {
+        notificationService.error('Please sign in to export PDF documents. Click the "Sign In" button in the top navigation.');
+      } else {
+        notificationService.error('Export failed. Please try again or use the text export option.');
+      }
     } finally {
       setIsExporting(prev => ({ ...prev, pdf: false }));
     }

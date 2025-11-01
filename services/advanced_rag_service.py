@@ -110,6 +110,13 @@ class AdvancedRAGService:
                     self.cross_encoder = None
                     logger.info("⚠️ Cross-encoder skipped due to embedding model unavailability")
             except Exception as e:
+                logger.error(f"Failed to initialize cross-encoder: {e}")
+                self.cross_encoder = None
+                
+        except Exception as e:
+            logger.error(f"Failed to initialize RAG models: {e}")
+            self.embedding_model = None
+            self.cross_encoder = None
     
     def _initialize_lightweight_mode(self):
         """Initialize RAG service in lightweight mode for Cloud Run"""
@@ -145,24 +152,7 @@ class AdvancedRAGService:
         }
         
         logger.info("✅ RAG service initialized in lightweight mode - using rule-based retrieval")
-                logger.warning(f"Cross-encoder loading failed: {e}, using fallback scoring")
-                self.cross_encoder = None
-            
-            # Initialize FAISS vector store only if embedding model is available
-            if self.embedding_model is not None:
-                self.vector_store = faiss.IndexFlatIP(self.embedding_dim)
-                logger.info("✅ FAISS vector store initialized")
-            else:
-                self.vector_store = None
-                logger.info("⚠️ FAISS vector store skipped - running in text-only mode")
-            
-        except Exception as e:
-            logger.error(f"Failed to initialize RAG models: {e}")
-            logger.info("🔄 RAG service will continue in minimal mode")
-            # Don't raise - allow service to continue in degraded mode
-            self.embedding_model = None
-            self.cross_encoder = None
-            self.vector_store = None
+
     
     async def build_knowledge_base(self, documents: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Build vector store and BM25 index from legal documents"""
