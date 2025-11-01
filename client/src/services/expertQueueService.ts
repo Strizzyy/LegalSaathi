@@ -8,27 +8,22 @@ import { auth } from '../firebaseConfig';
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 export interface ExpertReviewRequest {
-  id: string;
-  document_id: string;
+  review_id: string;
   user_email: string;
-  document_type: string;
   confidence_score: number;
-  confidence_breakdown: {
-    overall_confidence: number;
-    clause_confidences: Record<string, number>;
-    section_confidences: Record<string, number>;
-    factors_affecting_confidence: string[];
-    improvement_suggestions: string[];
-  };
-  document_text: string;
-  ai_analysis: any;
-  status: 'pending' | 'assigned' | 'in_progress' | 'completed' | 'cancelled';
+  confidence_breakdown: any;
+  status: 'pending' | 'in_review' | 'completed' | 'cancelled';
   priority: 'low' | 'medium' | 'high' | 'urgent';
-  assigned_expert?: string;
   created_at: string;
   updated_at: string;
-  estimated_completion?: string;
+  assigned_expert_id?: string;
+  assigned_at?: string;
+  completed_at?: string;
+  estimated_completion_hours: number;
+  document_type?: string;
   expert_notes?: string;
+  ai_analysis: any;
+  document_content?: string;
 }
 
 export interface ExpertReviewResponse {
@@ -70,7 +65,22 @@ class ExpertQueueService {
     options: RequestInit = {}
   ): Promise<T> {
     try {
-      const headers = await this.getAuthHeaders();
+      // For testing, try without authentication first, then fall back to auth if needed
+      let headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+
+      try {
+        // Try to get auth headers if user is logged in
+        const authHeaders = await this.getAuthHeaders();
+        headers = { ...headers, ...authHeaders };
+        console.log('Using authenticated request for:', endpoint);
+      } catch (authError) {
+        // Continue without auth headers for public endpoints
+        console.log('No authentication available, trying public access for:', endpoint);
+      }
+      
+      console.log('Making request to:', `${API_BASE_URL}${endpoint}`);
       
       const response = await fetch(`${API_BASE_URL}${endpoint}`, {
         ...options,
@@ -80,17 +90,27 @@ class ExpertQueueService {
         },
       });
 
+      console.log('Response status:', response.status, response.statusText);
+
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Response error:', errorText);
+        
         if (response.status === 401) {
           throw new Error('Authentication required');
         }
         if (response.status === 403) {
           throw new Error('Admin access required');
         }
-        throw new Error(`Request failed: ${response.statusText}`);
+        if (response.status === 404) {
+          throw new Error(`Endpoint not found: ${endpoint}`);
+        }
+        throw new Error(`Request failed (${response.status}): ${response.statusText} - ${errorText}`);
       }
 
-      return await response.json();
+      const data = await response.json();
+      console.log('Response data:', data);
+      return data;
     } catch (error) {
       console.error('Expert Queue API request failed:', error);
       throw error;
@@ -101,14 +121,13 @@ class ExpertQueueService {
    * Submit document for expert review
    */
   async submitForExpertReview(data: {
-    document_id: string;
+    document_content: string;
     user_email: string;
-    document_type: string;
+    document_type?: string;
     confidence_score: number;
     confidence_breakdown: any;
-    document_text: string;
     ai_analysis: any;
-  }): Promise<{ success: boolean; request_id: string; estimated_completion: string }> {
+  }): Promise<{ review_id: string; status: string; estimated_completion_hours: number; priority: string; created_at: string; message: string }> {
     return this.makeAuthenticatedRequest('/api/expert-queue/submit', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -116,94 +135,140 @@ class ExpertQueueService {
   }
 
   /**
-   * Get all expert review requests (admin only)
+   * Get all expert review requests
    */
   async getExpertRequests(
     status?: string,
+    priority?: string,
     page: number = 1,
-    limit: number = 20
+    limit: number = 20,
+    sort_by: string = "created_at",
+    sort_order: string = "desc"
   ): Promise<{
-    requests: ExpertReviewRequest[];
+    items: ExpertReviewRequest[];
     total: number;
     page: number;
     limit: number;
     total_pages: number;
+    has_next: boolean;
+    has_prev: boolean;
   }> {
     const params = new URLSearchParams({
       page: page.toString(),
       limit: limit.toString(),
+      sort_by: sort_by,
+      sort_order: sort_order,
     });
     
     if (status) {
       params.append('status', status);
     }
+    
+    if (priority) {
+      params.append('priority', priority);
+    }
 
-    return this.makeAuthenticatedRequest(`/api/admin/expert-queue/requests?${params}`);
+    return this.makeAuthenticatedRequest(`/api/expert-queue/queue?${params}`);
   }
 
   /**
-   * Get expert queue statistics (admin only)
+   * Get expert queue statistics
    */
-  async getQueueStats(): Promise<ExpertQueueStats> {
-    return this.makeAuthenticatedRequest('/api/admin/expert-queue/stats');
+  async getQueueStats(): Promise<{
+    total_items: number;
+    pending_items: number;
+    in_review_items: number;
+    completed_items: number;
+    cancelled_items: number;
+    average_completion_time_hours: number;
+    oldest_pending_item?: string;
+    expert_workload: Record<string, number>;
+  }> {
+    return this.makeAuthenticatedRequest('/api/expert-queue/stats');
   }
 
   /**
-   * Assign request to expert (admin only)
+   * Assign request to expert
    */
-  async assignToExpert(requestId: string, expertId: string): Promise<{ success: boolean }> {
-    return this.makeAuthenticatedRequest(`/api/admin/expert-queue/assign/${requestId}`, {
-      method: 'POST',
-      body: JSON.stringify({ expert_id: expertId }),
+  async assignToExpert(reviewId: string, expertId: string): Promise<{ success: boolean }> {
+    return this.makeAuthenticatedRequest(`/api/expert-queue/review/${reviewId}/assign/${expertId}`, {
+      method: 'PUT',
     });
   }
 
   /**
-   * Update request status (admin only)
+   * Update request status
    */
   async updateRequestStatus(
-    requestId: string, 
+    reviewId: string, 
     status: string, 
+    expertId?: string,
     notes?: string
   ): Promise<{ success: boolean }> {
-    return this.makeAuthenticatedRequest(`/api/admin/expert-queue/status/${requestId}`, {
+    return this.makeAuthenticatedRequest(`/api/expert-queue/review/${reviewId}/status`, {
       method: 'PUT',
-      body: JSON.stringify({ status, notes }),
+      body: JSON.stringify({ status, expert_id: expertId, notes }),
     });
   }
 
   /**
-   * Submit expert review response (expert only)
+   * Submit expert review response
    */
   async submitExpertReview(
-    requestId: string,
+    reviewId: string,
+    expertId: string,
     reviewData: {
-      expert_analysis: string;
-      confidence_score: number;
-      recommendations: string[];
-      risk_assessment: any;
-      expert_notes: string;
+      expert_analysis: any;
+      expert_notes?: string;
+      clauses_modified: number;
+      complexity_rating: number;
+      review_duration_minutes: number;
     }
-  ): Promise<{ success: boolean }> {
-    return this.makeAuthenticatedRequest(`/api/expert-queue/review/${requestId}`, {
+  ): Promise<{
+    review_id: string;
+    expert_id: string;
+    expert_analysis: any;
+    expert_notes?: string;
+    completed_at: string;
+    review_duration_minutes: number;
+    confidence_improvement: number;
+  }> {
+    return this.makeAuthenticatedRequest(`/api/expert-queue/review/complete?expert_id=${expertId}`, {
       method: 'POST',
-      body: JSON.stringify(reviewData),
+      body: JSON.stringify({
+        review_id: reviewId,
+        ...reviewData
+      }),
     });
   }
 
   /**
-   * Get request details (admin/expert only)
+   * Get request details
    */
-  async getRequestDetails(requestId: string): Promise<ExpertReviewRequest> {
-    return this.makeAuthenticatedRequest(`/api/admin/expert-queue/request/${requestId}`);
+  async getRequestDetails(reviewId: string, includeContent: boolean = false): Promise<ExpertReviewRequest> {
+    return this.makeAuthenticatedRequest(`/api/expert-queue/review/${reviewId}?include_content=${includeContent}`);
+  }
+
+  /**
+   * Get request preview (for HITL dashboard)
+   */
+  async getRequestPreview(reviewId: string): Promise<any> {
+    return this.makeAuthenticatedRequest(`/api/expert/review/${reviewId}/preview`);
+  }
+
+  /**
+   * Get next review for expert
+   */
+  async getNextReviewForExpert(expertId: string): Promise<ExpertReviewRequest | null> {
+    return this.makeAuthenticatedRequest(`/api/expert-queue/next-review/${expertId}`);
   }
 
   /**
    * Cancel expert review request
    */
-  async cancelRequest(requestId: string): Promise<{ success: boolean }> {
-    return this.makeAuthenticatedRequest(`/api/expert-queue/cancel/${requestId}`, {
-      method: 'POST',
+  async cancelRequest(reviewId: string): Promise<{ success: boolean }> {
+    return this.makeAuthenticatedRequest(`/api/expert-queue/review/${reviewId}/cancel`, {
+      method: 'DELETE',
     });
   }
 }

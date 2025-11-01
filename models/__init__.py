@@ -9,3 +9,4 @@ from .ai_models import *
 from .comparison_models import *
 from .support_models import *
 from .auth_models import *
+from .expert_queue_models import *

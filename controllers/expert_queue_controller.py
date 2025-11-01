@@ -1,121 +1,60 @@
 """
 Expert Queue Controller for Human-in-the-Loop System
-Manages expert review requests and queue operations
+Manages expert review requests and queue operations with database persistence
 """
 
 import logging
-import uuid
-from datetime import datetime, timedelta
+import base64
+from datetime import datetime
 from typing import List, Optional
 from fastapi import HTTPException
-from pydantic import BaseModel, Field
+
+from services.expert_queue_service import expert_queue_service
+from models.expert_queue_models import (
+    ExpertReviewSubmission, ExpertReviewResponse, ExpertReviewItemResponse,
+    ExpertAnalysisSubmission, ExpertAnalysisResponse, QueueStatsResponse,
+    QueueFilters, PaginationParams, QueueResponse, ReviewStatus, Priority
+)
 
 logger = logging.getLogger(__name__)
 
 
-class ExpertReviewSubmission(BaseModel):
-    document_id: str
-    user_email: str = Field(..., pattern=r'^[^\s@]+@[^\s@]+\.[^\s@]+$')
-    document_type: str
-    confidence_score: float = Field(..., ge=0.0, le=1.0)
-    confidence_breakdown: dict
-    document_text: str
-    ai_analysis: dict
-
-
-class ExpertReviewRequest(BaseModel):
-    id: str
-    document_id: str
-    user_email: str
-    document_type: str
-    confidence_score: float
-    confidence_breakdown: dict
-    document_text: str
-    ai_analysis: dict
-    status: str = "pending"  # pending, assigned, in_progress, completed, cancelled
-    priority: str = "medium"  # low, medium, high, urgent
-    assigned_expert: Optional[str] = None
-    created_at: datetime
-    updated_at: datetime
-    estimated_completion: Optional[str] = None
-    expert_notes: Optional[str] = None
-
-
-class ExpertQueueStats(BaseModel):
-    total_requests: int
-    pending_requests: int
-    in_progress_requests: int
-    completed_requests: int
-    average_completion_time: float
-    expert_workload: dict
-
-
 class ExpertQueueController:
-    """Controller for expert review queue operations"""
+    """Controller for expert review queue operations with database persistence"""
     
     def __init__(self):
-        # In-memory storage for demo - in production, use database
-        self.expert_requests = {}
-        self.queue_stats = ExpertQueueStats(
-            total_requests=0,
-            pending_requests=0,
-            in_progress_requests=0,
-            completed_requests=0,
-            average_completion_time=36.0,  # hours
-            expert_workload={}
-        )
+        self.queue_service = expert_queue_service
     
-    async def submit_for_expert_review(self, submission: ExpertReviewSubmission) -> dict:
-        """Submit document for expert review"""
+    async def submit_for_expert_review(
+        self, 
+        document_content: str,
+        ai_analysis: dict,
+        user_email: str,
+        confidence_score: float,
+        confidence_breakdown: dict,
+        document_type: Optional[str] = None
+    ) -> ExpertReviewResponse:
+        """Submit document for expert review with database persistence"""
         try:
-            request_id = str(uuid.uuid4())
-            
-            # Determine priority based on confidence score
-            if submission.confidence_score < 0.3:
-                priority = "urgent"
-                estimated_hours = 12
-            elif submission.confidence_score < 0.4:
-                priority = "high"
-                estimated_hours = 24
-            elif submission.confidence_score < 0.5:
-                priority = "medium"
-                estimated_hours = 36
+            # Encode document content as base64 for storage
+            if isinstance(document_content, str):
+                document_content_b64 = base64.b64encode(document_content.encode('utf-8')).decode('utf-8')
             else:
-                priority = "low"
-                estimated_hours = 48
+                document_content_b64 = base64.b64encode(document_content).decode('utf-8')
             
-            estimated_completion = datetime.now() + timedelta(hours=estimated_hours)
-            
-            # Create expert review request
-            expert_request = ExpertReviewRequest(
-                id=request_id,
-                document_id=submission.document_id,
-                user_email=submission.user_email,
-                document_type=submission.document_type,
-                confidence_score=submission.confidence_score,
-                confidence_breakdown=submission.confidence_breakdown,
-                document_text=submission.document_text,
-                ai_analysis=submission.ai_analysis,
-                priority=priority,
-                created_at=datetime.now(),
-                updated_at=datetime.now(),
-                estimated_completion=f"{estimated_hours} hours"
+            submission = ExpertReviewSubmission(
+                document_content=document_content_b64,
+                ai_analysis=ai_analysis,
+                user_email=user_email,
+                confidence_score=confidence_score,
+                confidence_breakdown=confidence_breakdown,
+                document_type=document_type
             )
             
-            # Store request
-            self.expert_requests[request_id] = expert_request
+            response = await self.queue_service.add_to_queue(submission)
             
-            # Update stats
-            self.queue_stats.total_requests += 1
-            self.queue_stats.pending_requests += 1
-            
-            logger.info(f"Expert review request submitted: {request_id}, priority: {priority}")
-            
-            return {
-                "success": True,
-                "request_id": request_id,
-                "estimated_completion": f"{estimated_hours} hours"
-            }
+            logger.info(f"Expert review request submitted: {response.review_id}")
+            return response
             
         except Exception as e:
             logger.error(f"Failed to submit expert review request: {e}")
@@ -126,34 +65,31 @@ class ExpertQueueController:
     
     async def get_expert_requests(
         self, 
-        status: Optional[str] = None,
+        status: Optional[ReviewStatus] = None,
+        priority: Optional[Priority] = None,
+        assigned_expert_id: Optional[str] = None,
         page: int = 1,
-        limit: int = 20
-    ) -> dict:
-        """Get expert review requests with pagination and filtering"""
+        limit: int = 20,
+        sort_by: str = "created_at",
+        sort_order: str = "desc"
+    ) -> QueueResponse:
+        """Get expert review requests with filtering and pagination"""
         try:
-            # Filter requests
-            filtered_requests = []
-            for request in self.expert_requests.values():
-                if status is None or request.status == status:
-                    filtered_requests.append(request)
+            filters = QueueFilters(
+                status=status,
+                priority=priority,
+                assigned_expert_id=assigned_expert_id
+            )
             
-            # Sort by created_at descending
-            filtered_requests.sort(key=lambda x: x.created_at, reverse=True)
+            pagination = PaginationParams(
+                page=page,
+                limit=limit,
+                sort_by=sort_by,
+                sort_order=sort_order
+            )
             
-            # Pagination
-            total = len(filtered_requests)
-            start_idx = (page - 1) * limit
-            end_idx = start_idx + limit
-            paginated_requests = filtered_requests[start_idx:end_idx]
-            
-            return {
-                "requests": [req.dict() for req in paginated_requests],
-                "total": total,
-                "page": page,
-                "limit": limit,
-                "total_pages": (total + limit - 1) // limit
-            }
+            response = await self.queue_service.get_queue_items(filters, pagination)
+            return response
             
         except Exception as e:
             logger.error(f"Failed to get expert requests: {e}")
@@ -162,21 +98,11 @@ class ExpertQueueController:
                 detail=f"Failed to get expert requests: {str(e)}"
             )
     
-    async def get_queue_stats(self) -> ExpertQueueStats:
-        """Get expert queue statistics"""
+    async def get_queue_stats(self) -> QueueStatsResponse:
+        """Get expert queue statistics from database"""
         try:
-            # Recalculate stats from current requests
-            total = len(self.expert_requests)
-            pending = sum(1 for req in self.expert_requests.values() if req.status == "pending")
-            in_progress = sum(1 for req in self.expert_requests.values() if req.status in ["assigned", "in_progress"])
-            completed = sum(1 for req in self.expert_requests.values() if req.status == "completed")
-            
-            self.queue_stats.total_requests = total
-            self.queue_stats.pending_requests = pending
-            self.queue_stats.in_progress_requests = in_progress
-            self.queue_stats.completed_requests = completed
-            
-            return self.queue_stats
+            stats = await self.queue_service.get_queue_stats()
+            return stats
             
         except Exception as e:
             logger.error(f"Failed to get queue stats: {e}")
@@ -185,125 +111,125 @@ class ExpertQueueController:
                 detail=f"Failed to get queue stats: {str(e)}"
             )
     
-    async def assign_to_expert(self, request_id: str, expert_id: str) -> dict:
-        """Assign request to expert"""
+    async def get_next_review_for_expert(self, expert_id: str) -> Optional[ExpertReviewItemResponse]:
+        """Get next review for expert using FIFO ordering"""
         try:
-            if request_id not in self.expert_requests:
-                raise HTTPException(status_code=404, detail="Request not found")
+            review = await self.queue_service.get_next_review(expert_id)
+            return review
             
-            request = self.expert_requests[request_id]
-            request.assigned_expert = expert_id
-            request.status = "assigned"
-            request.updated_at = datetime.now()
+        except Exception as e:
+            logger.error(f"Failed to get next review for expert: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to get next review: {str(e)}"
+            )
+    
+    async def assign_to_expert(self, review_id: str, expert_id: str) -> dict:
+        """Assign review to expert"""
+        try:
+            success = await self.queue_service.mark_in_review(review_id, expert_id)
             
-            # Update stats
-            self.queue_stats.pending_requests -= 1
-            self.queue_stats.in_progress_requests += 1
+            if not success:
+                raise HTTPException(status_code=404, detail="Review not found or not available")
             
-            logger.info(f"Request {request_id} assigned to expert {expert_id}")
-            
+            logger.info(f"Review {review_id} assigned to expert {expert_id}")
             return {"success": True}
             
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Failed to assign request to expert: {e}")
+            logger.error(f"Failed to assign review to expert: {e}")
             raise HTTPException(
                 status_code=500,
-                detail=f"Failed to assign request: {str(e)}"
+                detail=f"Failed to assign review: {str(e)}"
             )
     
-    async def update_request_status(self, request_id: str, status: str, notes: Optional[str] = None) -> dict:
-        """Update request status"""
+    async def update_review_status(
+        self, 
+        review_id: str, 
+        status: ReviewStatus, 
+        expert_id: Optional[str] = None,
+        notes: Optional[str] = None
+    ) -> dict:
+        """Update review status with proper state transitions"""
         try:
-            if request_id not in self.expert_requests:
-                raise HTTPException(status_code=404, detail="Request not found")
+            success = await self.queue_service.update_review_status(
+                review_id, status, expert_id, notes
+            )
             
-            request = self.expert_requests[request_id]
-            old_status = request.status
-            request.status = status
-            request.updated_at = datetime.now()
+            if not success:
+                raise HTTPException(status_code=404, detail="Review not found or invalid status transition")
             
-            if notes:
-                request.expert_notes = notes
-            
-            # Update stats based on status change
-            if old_status == "pending" and status in ["assigned", "in_progress"]:
-                self.queue_stats.pending_requests -= 1
-                self.queue_stats.in_progress_requests += 1
-            elif old_status in ["assigned", "in_progress"] and status == "completed":
-                self.queue_stats.in_progress_requests -= 1
-                self.queue_stats.completed_requests += 1
-            elif old_status in ["assigned", "in_progress"] and status == "cancelled":
-                self.queue_stats.in_progress_requests -= 1
-            elif old_status == "pending" and status == "cancelled":
-                self.queue_stats.pending_requests -= 1
-            
-            logger.info(f"Request {request_id} status updated from {old_status} to {status}")
-            
+            logger.info(f"Review {review_id} status updated to {status.value}")
             return {"success": True}
             
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Failed to update request status: {e}")
+            logger.error(f"Failed to update review status: {e}")
             raise HTTPException(
                 status_code=500,
-                detail=f"Failed to update request status: {str(e)}"
+                detail=f"Failed to update review status: {str(e)}"
             )
     
-    async def get_request_details(self, request_id: str) -> ExpertReviewRequest:
-        """Get detailed information for a specific request"""
+    async def get_review_details(self, review_id: str, include_content: bool = False) -> ExpertReviewItemResponse:
+        """Get detailed information for a specific review"""
         try:
-            if request_id not in self.expert_requests:
-                raise HTTPException(status_code=404, detail="Request not found")
+            review = await self.queue_service.get_review_by_id(review_id, include_content)
             
-            return self.expert_requests[request_id]
+            if not review:
+                raise HTTPException(status_code=404, detail="Review not found")
+            
+            return review
             
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Failed to get request details: {e}")
+            logger.error(f"Failed to get review details: {e}")
             raise HTTPException(
                 status_code=500,
-                detail=f"Failed to get request details: {str(e)}"
+                detail=f"Failed to get review details: {str(e)}"
             )
     
-    async def cancel_request(self, request_id: str) -> dict:
-        """Cancel expert review request"""
+    async def complete_expert_review(
+        self, 
+        submission: ExpertAnalysisSubmission,
+        expert_id: str
+    ) -> ExpertAnalysisResponse:
+        """Complete expert review and update status"""
         try:
-            if request_id not in self.expert_requests:
-                raise HTTPException(status_code=404, detail="Request not found")
+            response = await self.queue_service.complete_review(submission, expert_id)
             
-            request = self.expert_requests[request_id]
+            logger.info(f"Expert review completed: {submission.review_id}")
+            return response
             
-            if request.status in ["completed", "cancelled"]:
-                raise HTTPException(
-                    status_code=400, 
-                    detail=f"Cannot cancel request with status: {request.status}"
-                )
+        except Exception as e:
+            logger.error(f"Failed to complete expert review: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to complete expert review: {str(e)}"
+            )
+    
+    async def cancel_review(self, review_id: str) -> dict:
+        """Cancel expert review"""
+        try:
+            success = await self.queue_service.update_review_status(
+                review_id, ReviewStatus.CANCELLED
+            )
             
-            old_status = request.status
-            request.status = "cancelled"
-            request.updated_at = datetime.now()
+            if not success:
+                raise HTTPException(status_code=404, detail="Review not found or cannot be cancelled")
             
-            # Update stats
-            if old_status == "pending":
-                self.queue_stats.pending_requests -= 1
-            elif old_status in ["assigned", "in_progress"]:
-                self.queue_stats.in_progress_requests -= 1
-            
-            logger.info(f"Request {request_id} cancelled")
-            
+            logger.info(f"Review {review_id} cancelled")
             return {"success": True}
             
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Failed to cancel request: {e}")
+            logger.error(f"Failed to cancel review: {e}")
             raise HTTPException(
                 status_code=500,
-                detail=f"Failed to cancel request: {str(e)}"
+                detail=f"Failed to cancel review: {str(e)}"
             )
 
 

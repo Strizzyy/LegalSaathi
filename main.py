@@ -92,6 +92,7 @@ from controllers.insights_controller import router as insights_router
 from controllers.vision_controller import VisionController
 from controllers.cost_controller import get_cost_router
 from controllers.expert_queue_router import router as expert_queue_router
+from controllers.expert_review_email_controller import router as expert_review_email_router
 
 # Import services for cleanup
 from services.cache_service import CacheService
@@ -191,7 +192,9 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "http://localhost:5173",
-        "https://legalsaathi-document-advisor.onrender.com"
+        "http://localhost:8080",
+        "https://legalsaathi-document-advisor.onrender.com",
+        "null"  # Allow file:// protocol for local testing
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -275,6 +278,17 @@ app.include_router(support_router)
 app.include_router(insights_router)
 app.include_router(get_cost_router())
 app.include_router(expert_queue_router)
+app.include_router(expert_review_email_router)
+
+# Include expert portal router
+try:
+    from controllers.expert_portal_router import router as expert_portal_router
+    app.include_router(expert_portal_router)
+    logger.info("Expert portal router included successfully")
+except ImportError as e:
+    logger.warning(f"Expert portal router not available: {e}")
+except Exception as e:
+    logger.error(f"Failed to include expert portal router: {e}")
 
 
 # Middleware for request logging and performance monitoring

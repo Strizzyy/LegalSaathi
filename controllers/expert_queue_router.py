@@ -1,135 +1,241 @@
 """
-Expert Queue Router for Human-in-the-Loop System
-FastAPI routes for expert review queue management
+FastAPI Router for Expert Queue Management API Endpoints
+Provides REST API for human-in-the-loop expert review system
 """
 
 import logging
-from typing import Optional
-from fastapi import APIRouter, HTTPException, Depends
-from controllers.expert_queue_controller import (
-    expert_queue_controller, 
-    ExpertReviewSubmission
+from typing import Optional, List
+from fastapi import APIRouter, HTTPException, Depends, Query, Body
+from pydantic import BaseModel
+
+from controllers.expert_queue_controller import ExpertQueueController
+from models.expert_queue_models import (
+    ExpertReviewSubmission, ExpertReviewResponse, ExpertReviewItemResponse,
+    ExpertAnalysisSubmission, ExpertAnalysisResponse, QueueStatsResponse,
+    QueueResponse, ReviewStatus, Priority
 )
 
 logger = logging.getLogger(__name__)
 
 # Create router
-router = APIRouter()
+router = APIRouter(prefix="/api/expert-queue", tags=["Expert Queue"])
+
+# Initialize controller
+expert_queue_controller = ExpertQueueController()
 
 
-@router.post("/api/expert-queue/submit")
-async def submit_for_expert_review(submission: ExpertReviewSubmission):
-    """Submit document for expert review"""
+class SubmitReviewRequest(BaseModel):
+    """Request model for submitting document for expert review"""
+    document_content: str
+    ai_analysis: dict
+    user_email: str
+    confidence_score: float
+    confidence_breakdown: dict
+    document_type: Optional[str] = None
+
+
+@router.post("/submit", response_model=ExpertReviewResponse)
+async def submit_for_expert_review(request: SubmitReviewRequest):
+    """
+    Submit document for expert review.
+    
+    - **document_content**: The document text content
+    - **ai_analysis**: AI analysis results
+    - **user_email**: User's email address
+    - **confidence_score**: AI confidence score (0.0 to 1.0)
+    - **confidence_breakdown**: Detailed confidence breakdown
+    - **document_type**: Optional document type classification
+    """
     try:
-        result = await expert_queue_controller.submit_for_expert_review(submission)
-        return result
+        response = await expert_queue_controller.submit_for_expert_review(
+            document_content=request.document_content,
+            ai_analysis=request.ai_analysis,
+            user_email=request.user_email,
+            confidence_score=request.confidence_score,
+            confidence_breakdown=request.confidence_breakdown,
+            document_type=request.document_type
+        )
+        return response
     except Exception as e:
-        logger.error(f"Expert review submission failed: {e}")
+        logger.error(f"Error submitting for expert review: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/api/admin/expert-queue/requests")
-async def get_expert_requests(
-    status: Optional[str] = None,
-    page: int = 1,
-    limit: int = 20
+@router.get("/queue", response_model=QueueResponse)
+async def get_queue_items(
+    status: Optional[ReviewStatus] = Query(None, description="Filter by review status"),
+    priority: Optional[Priority] = Query(None, description="Filter by priority"),
+    assigned_expert_id: Optional[str] = Query(None, description="Filter by assigned expert"),
+    page: int = Query(1, ge=1, description="Page number"),
+    limit: int = Query(20, ge=1, le=100, description="Items per page"),
+    sort_by: str = Query("created_at", description="Sort field"),
+    sort_order: str = Query("desc", pattern="^(asc|desc)$", description="Sort order")
 ):
-    """Get expert review requests (admin only)"""
+    """
+    Get expert review queue items with filtering and pagination.
+    
+    - **status**: Filter by review status (pending, in_review, completed, cancelled)
+    - **priority**: Filter by priority (low, medium, high, urgent)
+    - **assigned_expert_id**: Filter by assigned expert ID
+    - **page**: Page number for pagination
+    - **limit**: Number of items per page
+    - **sort_by**: Field to sort by
+    - **sort_order**: Sort order (asc or desc)
+    """
     try:
-        # TODO: Add admin authentication check
-        result = await expert_queue_controller.get_expert_requests(status, page, limit)
+        response = await expert_queue_controller.get_expert_requests(
+            status=status,
+            priority=priority,
+            assigned_expert_id=assigned_expert_id,
+            page=page,
+            limit=limit,
+            sort_by=sort_by,
+            sort_order=sort_order
+        )
+        return response
+    except Exception as e:
+        logger.error(f"Error getting queue items: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/stats", response_model=QueueStatsResponse)
+async def get_queue_statistics():
+    """
+    Get expert queue statistics.
+    
+    Returns counts by status, average completion time, and expert workload.
+    """
+    try:
+        stats = await expert_queue_controller.get_queue_stats()
+        return stats
+    except Exception as e:
+        logger.error(f"Error getting queue stats: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/next-review/{expert_id}", response_model=Optional[ExpertReviewItemResponse])
+async def get_next_review_for_expert(expert_id: str):
+    """
+    Get next review for expert using FIFO ordering.
+    
+    - **expert_id**: Expert's unique identifier
+    
+    Returns the oldest pending review and assigns it to the expert.
+    """
+    try:
+        review = await expert_queue_controller.get_next_review_for_expert(expert_id)
+        return review
+    except Exception as e:
+        logger.error(f"Error getting next review for expert: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/review/{review_id}", response_model=ExpertReviewItemResponse)
+async def get_review_details(
+    review_id: str,
+    include_content: bool = Query(False, description="Include document content in response")
+):
+    """
+    Get detailed information for a specific review.
+    
+    - **review_id**: Unique review identifier
+    - **include_content**: Whether to include document content (for assigned experts)
+    """
+    try:
+        review = await expert_queue_controller.get_review_details(review_id, include_content)
+        return review
+    except Exception as e:
+        logger.error(f"Error getting review details: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/review/{review_id}/assign/{expert_id}")
+async def assign_review_to_expert(review_id: str, expert_id: str):
+    """
+    Assign review to expert.
+    
+    - **review_id**: Unique review identifier
+    - **expert_id**: Expert's unique identifier
+    """
+    try:
+        result = await expert_queue_controller.assign_to_expert(review_id, expert_id)
         return result
     except Exception as e:
-        logger.error(f"Failed to get expert requests: {e}")
+        logger.error(f"Error assigning review to expert: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/api/admin/expert-queue/stats")
-async def get_queue_stats():
-    """Get expert queue statistics (admin only)"""
+@router.put("/review/{review_id}/status")
+async def update_review_status(
+    review_id: str,
+    status: ReviewStatus = Body(..., description="New review status"),
+    expert_id: Optional[str] = Body(None, description="Expert ID (if assigning)"),
+    notes: Optional[str] = Body(None, description="Optional notes")
+):
+    """
+    Update review status with proper state transitions.
+    
+    - **review_id**: Unique review identifier
+    - **status**: New status (pending, in_review, completed, cancelled)
+    - **expert_id**: Expert ID if assigning review
+    - **notes**: Optional notes about the status change
+    """
     try:
-        # TODO: Add admin authentication check
-        result = await expert_queue_controller.get_queue_stats()
+        result = await expert_queue_controller.update_review_status(
+            review_id, status, expert_id, notes
+        )
         return result
     except Exception as e:
-        logger.error(f"Failed to get queue stats: {e}")
+        logger.error(f"Error updating review status: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/api/admin/expert-queue/assign/{request_id}")
-async def assign_to_expert(request_id: str, assignment_data: dict):
-    """Assign request to expert (admin only)"""
+@router.post("/review/complete", response_model=ExpertAnalysisResponse)
+async def complete_expert_review(
+    submission: ExpertAnalysisSubmission,
+    expert_id: str = Query(..., description="Expert's unique identifier")
+):
+    """
+    Complete expert review and submit analysis.
+    
+    - **submission**: Expert analysis submission with review results
+    - **expert_id**: Expert's unique identifier
+    """
     try:
-        # TODO: Add admin authentication check
-        expert_id = assignment_data.get("expert_id")
-        if not expert_id:
-            raise HTTPException(status_code=400, detail="expert_id is required")
-        
-        result = await expert_queue_controller.assign_to_expert(request_id, expert_id)
+        response = await expert_queue_controller.complete_expert_review(submission, expert_id)
+        return response
+    except Exception as e:
+        logger.error(f"Error completing expert review: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/review/{review_id}/cancel")
+async def cancel_review(review_id: str):
+    """
+    Cancel expert review.
+    
+    - **review_id**: Unique review identifier
+    """
+    try:
+        result = await expert_queue_controller.cancel_review(review_id)
         return result
     except Exception as e:
-        logger.error(f"Failed to assign request to expert: {e}")
+        logger.error(f"Error cancelling review: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.put("/api/admin/expert-queue/status/{request_id}")
-async def update_request_status(request_id: str, status_data: dict):
-    """Update request status (admin only)"""
-    try:
-        # TODO: Add admin authentication check
-        status = status_data.get("status")
-        notes = status_data.get("notes")
-        
-        if not status:
-            raise HTTPException(status_code=400, detail="status is required")
-        
-        result = await expert_queue_controller.update_request_status(request_id, status, notes)
-        return result
-    except Exception as e:
-        logger.error(f"Failed to update request status: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/api/admin/expert-queue/request/{request_id}")
-async def get_request_details(request_id: str):
-    """Get request details (admin/expert only)"""
-    try:
-        # TODO: Add admin/expert authentication check
-        result = await expert_queue_controller.get_request_details(request_id)
-        return result.dict()
-    except Exception as e:
-        logger.error(f"Failed to get request details: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/api/expert-queue/cancel/{request_id}")
-async def cancel_request(request_id: str):
-    """Cancel expert review request"""
-    try:
-        # TODO: Add user authentication check (user should own the request)
-        result = await expert_queue_controller.cancel_request(request_id)
-        return result
-    except Exception as e:
-        logger.error(f"Failed to cancel request: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-# Health check for expert queue system
-@router.get("/api/expert-queue/health")
-async def expert_queue_health():
-    """Health check for expert queue system"""
+# Health check endpoint
+@router.get("/health")
+async def health_check():
+    """Health check for expert queue service"""
     try:
         stats = await expert_queue_controller.get_queue_stats()
         return {
             "status": "healthy",
-            "total_requests": stats.total_requests,
-            "pending_requests": stats.pending_requests,
-            "timestamp": "2024-01-01T00:00:00Z"  # TODO: Use actual timestamp
+            "service": "expert_queue",
+            "queue_items": stats.total_items,
+            "timestamp": "2024-01-01T00:00:00Z"
         }
     except Exception as e:
-        logger.error(f"Expert queue health check failed: {e}")
-        return {
-            "status": "unhealthy",
-            "error": str(e),
-            "timestamp": "2024-01-01T00:00:00Z"  # TODO: Use actual timestamp
-        }
+        logger.error(f"Health check failed: {e}")
+        raise HTTPException(status_code=503, detail="Service unavailable")

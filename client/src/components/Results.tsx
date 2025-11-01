@@ -171,13 +171,37 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
     try {
       if (!analysis) return;
       
+      // Submit document for expert review
+      const submissionData = {
+        document_content: analysis.document_text || 'Document content not available',
+        ai_analysis: {
+          summary: analysis.summary,
+          clause_assessments: analysis.analysis_results,
+          overall_risk: analysis.overall_risk,
+          recommendations: analysis.recommendations,
+          enhanced_insights: analysis.enhanced_insights
+        },
+        user_email: userEmail,
+        confidence_score: analysis.overall_confidence || 0.5,
+        confidence_breakdown: analysis.confidence_breakdown || {
+          overall: analysis.overall_confidence || 0.5,
+          factors: ['Low confidence analysis']
+        },
+        document_type: analysis.document_type || 'general_contract'
+      };
+
+      const response = await expertQueueService.submitForExpertReview(submissionData);
+      
+      console.log('Expert review submitted:', response);
+      notificationService.success(`Document submitted for expert review. Review ID: ${response.review_id}`);
+      
       // Close the confidence popup and show expert dashboard popup
       setShowConfidencePopup(false);
       setShowExpertDashboardPopup(true);
       
     } catch (error) {
-      console.error('Failed to show expert dashboard popup:', error);
-      notificationService.error('Something went wrong. Please try again.');
+      console.error('Failed to submit for expert review:', error);
+      notificationService.error('Failed to submit for expert review. Please try again.');
     }
   };
 

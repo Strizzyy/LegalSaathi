@@ -24,6 +24,9 @@ import { ProgressiveEnhancement, ConnectionStatus } from './components/Progressi
 const Results = lazy(() => import('./components/Results'));
 const AdminPage = lazy(() => import('./pages/AdminPage'));
 const HITLDashboard = lazy(() => import('./pages/HITLDashboard'));
+const ExpertLogin = lazy(() => import('./pages/ExpertLogin'));
+const ExpertDashboard = lazy(() => import('./pages/ExpertDashboard'));
+const DocumentReviewInterface = lazy(() => import('./components/DocumentReviewInterface'));
 const MultipleImageAnalysis = lazy(() => import('./components/MultipleImageAnalysis'));
 const PrivacyPolicy = lazy(() => import('./components/PrivacyPolicy'));
 const TermsOfService = lazy(() => import('./components/TermsOfService'));
@@ -92,7 +95,7 @@ export interface Classification {
 }
 
 function App() {
-  const [currentView, setCurrentView] = useState<'home' | 'results' | 'profile' | 'privacy' | 'terms' | 'about' | 'contact' | 'document-summary' | 'risk-assessment' | 'clause-analysis' | 'multiple-images' | 'admin' | 'hitl'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'results' | 'profile' | 'privacy' | 'terms' | 'about' | 'contact' | 'document-summary' | 'risk-assessment' | 'clause-analysis' | 'multiple-images' | 'admin' | 'hitl' | 'expert-portal' | 'expert-dashboard' | 'expert-review'>('home');
   const [isLoading, setIsLoading] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [fileInfo, setFileInfo] = useState<FileInfo | null>(null);
@@ -146,6 +149,12 @@ function App() {
       setCurrentView('admin');
     } else if (path === '/hitl') {
       setCurrentView('hitl');
+    } else if (path === '/expert-portal') {
+      setCurrentView('expert-portal');
+    } else if (path === '/expert-dashboard') {
+      setCurrentView('expert-dashboard');
+    } else if (path.startsWith('/expert-review/')) {
+      setCurrentView('expert-review');
     } else {
       setCurrentView('home');
     }
@@ -157,6 +166,12 @@ function App() {
         setCurrentView('admin');
       } else if (path === '/hitl') {
         setCurrentView('hitl');
+      } else if (path === '/expert-portal') {
+        setCurrentView('expert-portal');
+      } else if (path === '/expert-dashboard') {
+        setCurrentView('expert-dashboard');
+      } else if (path.startsWith('/expert-review/')) {
+        setCurrentView('expert-review');
       } else {
         setCurrentView('home');
       }
@@ -170,7 +185,8 @@ function App() {
   useEffect(() => {
     if (currentView === 'privacy' || currentView === 'terms' || currentView === 'about' || currentView === 'contact' ||
       currentView === 'document-summary' || currentView === 'risk-assessment' || currentView === 'clause-analysis' ||
-      currentView === 'multiple-images' || currentView === 'admin' || currentView === 'hitl') {
+      currentView === 'multiple-images' || currentView === 'admin' || currentView === 'hitl' || 
+      currentView === 'expert-portal' || currentView === 'expert-dashboard' || currentView === 'expert-review') {
       // Ensure we're at the top when viewing full-page components
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -584,6 +600,45 @@ function App() {
                   </div>}
                 >
                   <HITLDashboard />
+                </LazyRoute>
+              ) : currentView === 'expert-portal' ? (
+                <LazyRoute 
+                  componentName="ExpertLogin"
+                  showProgress={true}
+                  fallback={<div className="min-h-screen bg-slate-900 flex items-center justify-center">
+                    <div className="text-center">
+                      <div className="animate-spin w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full mx-auto mb-4"></div>
+                      <p className="text-slate-300">Loading Expert Portal...</p>
+                    </div>
+                  </div>}
+                >
+                  <ExpertLogin />
+                </LazyRoute>
+              ) : currentView === 'expert-dashboard' ? (
+                <LazyRoute 
+                  componentName="ExpertDashboard"
+                  showProgress={true}
+                  fallback={<div className="min-h-screen bg-slate-900 flex items-center justify-center">
+                    <div className="text-center">
+                      <div className="animate-spin w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full mx-auto mb-4"></div>
+                      <p className="text-slate-300">Loading Expert Dashboard...</p>
+                    </div>
+                  </div>}
+                >
+                  <ExpertDashboard />
+                </LazyRoute>
+              ) : currentView === 'expert-review' ? (
+                <LazyRoute 
+                  componentName="DocumentReviewInterface"
+                  showProgress={true}
+                  fallback={<div className="min-h-screen bg-slate-900 flex items-center justify-center">
+                    <div className="text-center">
+                      <div className="animate-spin w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full mx-auto mb-4"></div>
+                      <p className="text-slate-300">Loading Review Interface...</p>
+                    </div>
+                  </div>}
+                >
+                  <DocumentReviewInterface />
                 </LazyRoute>
               ) : (
                 <ErrorBoundary fallback={

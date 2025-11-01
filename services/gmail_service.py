@@ -25,6 +25,7 @@ from models.email_models import (
     EmailDeliveryStatus, EmailRateLimitInfo, EmailPriority
 )
 from models.document_models import DocumentAnalysisResponse
+from models.expert_queue_models import ExpertAnalysisResponse
 from middleware.email_rate_limiter import email_rate_limiter
 
 logger = logging.getLogger(__name__)
@@ -561,3 +562,328 @@ for legal matters requiring professional judgment.
                 error=f"Development mode error: {str(e)}",
                 delivery_status=EmailDeliveryStatus.FAILED
             )
+    
+    async def send_expert_review_notification(
+        self,
+        user_email: str,
+        review_id: str,
+        notification_type: str = "queued",
+        expert_analysis: Optional[ExpertAnalysisResponse] = None,
+        pdf_content: Optional[bytes] = None,
+        user_id: Optional[str] = None
+    ) -> EmailSendResponse:
+        """Send expert review notification (queued or completed)"""
+        
+        if not self.is_available():
+            return EmailSendResponse(
+                success=False,
+                error="Email service not available",
+                delivery_status=EmailDeliveryStatus.FAILED
+            )
+        
+        try:
+            if notification_type == "queued":
+                subject = "🔍 Your Document is Being Reviewed by a Legal Expert"
+                html_content = self._generate_expert_queued_template(review_id)
+                text_content = self._generate_expert_queued_text(review_id)
+            elif notification_type == "completed" and expert_analysis:
+                subject = "✅ Expert Legal Analysis Complete - Your Document Review"
+                html_content = self._generate_expert_completed_template(expert_analysis)
+                text_content = self._generate_expert_completed_text(expert_analysis)
+            else:
+                return EmailSendResponse(
+                    success=False,
+                    error="Invalid notification type or missing expert analysis",
+                    delivery_status=EmailDeliveryStatus.FAILED
+                )
+            
+            # Create attachment if PDF provided
+            attachments = []
+            if pdf_content and len(pdf_content) > 0:
+                attachment = EmailAttachment(
+                    filename=f"expert_analysis_{review_id}.pdf",
+                    content_type="application/pdf",
+                    size=len(pdf_content),
+                    data=pdf_content
+                )
+                attachments.append(attachment)
+            
+            # Send email
+            email_request = EmailSendRequest(
+                to_email=user_email,
+                subject=subject,
+                html_content=html_content,
+                text_content=text_content,
+                attachments=attachments,
+                priority=EmailPriority.HIGH
+            )
+            
+            response = await self._send_email(email_request)
+            
+            if response.success:
+                logger.info(f"Expert review notification ({notification_type}) sent to {user_email}")
+            
+            return response
+            
+        except Exception as e:
+            logger.error(f"Failed to send expert review notification: {e}")
+            return EmailSendResponse(
+                success=False,
+                error=f"Failed to send notification: {str(e)}",
+                delivery_status=EmailDeliveryStatus.FAILED
+            )
+    
+    def _generate_expert_queued_template(self, review_id: str) -> str:
+        """Generate HTML template for expert review queued notification"""
+        
+        html_template = f"""
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document Queued for Expert Review</title>
+    <style>
+        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f8fafc; }}
+        .container {{ max-width: 600px; margin: 0 auto; background-color: white; }}
+        .header {{ background: linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%); color: white; padding: 30px; text-align: center; }}
+        .header h1 {{ margin: 0; font-size: 28px; font-weight: 700; }}
+        .header p {{ margin: 10px 0 0 0; opacity: 0.9; font-size: 16px; }}
+        .content {{ padding: 30px; }}
+        .expert-badge {{ background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 20px; border-radius: 12px; text-align: center; margin: 25px 0; }}
+        .expert-badge h2 {{ margin: 0 0 10px 0; font-size: 24px; }}
+        .expert-badge p {{ margin: 0; opacity: 0.9; }}
+        .review-info {{ background-color: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 8px; padding: 20px; margin: 25px 0; }}
+        .info-row {{ display: flex; justify-content: space-between; margin: 10px 0; }}
+        .info-label {{ font-weight: 600; color: #475569; }}
+        .info-value {{ color: #1e293b; }}
+        .footer {{ background-color: #1e293b; color: white; padding: 25px; text-align: center; }}
+        .footer p {{ margin: 5px 0; }}
+        .disclaimer {{ font-size: 12px; color: #94a3b8; margin-top: 15px; line-height: 1.4; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 Expert Review Requested</h1>
+            <p>Your Document is Being Reviewed by Legal Professionals</p>
+        </div>
+        
+        <div class="content">
+            <p>Hello,</p>
+            <p>Thank you for using LegalSaathi. Due to the complexity of your document, we've queued it for review by one of our qualified legal experts to ensure you receive the most accurate analysis possible.</p>
+            
+            <div class="expert-badge">
+                <h2>🎓 Expert Review in Progress</h2>
+                <p>Your document will be reviewed by a certified legal professional</p>
+            </div>
+            
+            <div class="review-info">
+                <h3>📋 Review Details</h3>
+                <div class="info-row">
+                    <span class="info-label">Review ID:</span>
+                    <span class="info-value">{review_id}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Estimated Review Time:</span>
+                    <span class="info-value">24-48 hours</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Status:</span>
+                    <span class="info-value">Queued for Expert Review</span>
+                </div>
+            </div>
+            
+            <p>You'll receive your comprehensive expert-reviewed analysis via email once the review is complete. No need to check back - we'll notify you immediately when it's ready.</p>
+            
+            <p>Best regards,<br>
+            <strong>LegalSaathi Expert Review Team</strong></p>
+        </div>
+        
+        <div class="footer">
+            <p><strong>LegalSaathi Document Advisor</strong></p>
+            <p>AI-Powered Legal Analysis with Human Expert Oversight</p>
+            <div class="disclaimer">
+                Expert reviews are conducted by qualified legal professionals. This service provides 
+                legal analysis for informational purposes and does not constitute attorney-client 
+                relationship or legal advice.
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+        """
+        
+        return html_template.strip()
+    
+    def _generate_expert_queued_text(self, review_id: str) -> str:
+        """Generate plain text template for expert review queued notification"""
+        
+        text_template = f"""
+DOCUMENT QUEUED FOR EXPERT REVIEW
+=================================
+
+Hello,
+
+Thank you for using LegalSaathi. Due to the complexity of your document, 
+we've queued it for review by one of our qualified legal experts to ensure 
+you receive the most accurate analysis possible.
+
+EXPERT REVIEW IN PROGRESS
+Your document will be reviewed by a certified legal professional
+
+REVIEW DETAILS
+==============
+Review ID: {review_id}
+Estimated Review Time: 24-48 hours
+Status: Queued for Expert Review
+
+You'll receive your comprehensive expert-reviewed analysis via email once 
+the review is complete. No need to check back - we'll notify you immediately 
+when it's ready.
+
+Best regards,
+LegalSaathi Expert Review Team
+
+---
+LegalSaathi Document Advisor
+AI-Powered Legal Analysis with Human Expert Oversight
+
+DISCLAIMER: Expert reviews are conducted by qualified legal professionals. 
+This service provides legal analysis for informational purposes and does not 
+constitute attorney-client relationship or legal advice.
+        """
+        
+        return text_template.strip()
+    
+    def _generate_expert_completed_template(self, expert_analysis: ExpertAnalysisResponse) -> str:
+        """Generate HTML template for expert review completed notification"""
+        
+        html_template = f"""
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Expert Legal Analysis Complete</title>
+    <style>
+        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f8fafc; }}
+        .container {{ max-width: 600px; margin: 0 auto; background-color: white; }}
+        .header {{ background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 30px; text-align: center; }}
+        .header h1 {{ margin: 0; font-size: 28px; font-weight: 700; }}
+        .header p {{ margin: 10px 0 0 0; opacity: 0.9; font-size: 16px; }}
+        .content {{ padding: 30px; }}
+        .expert-certification {{ background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); color: white; padding: 25px; border-radius: 12px; text-align: center; margin: 25px 0; }}
+        .expert-certification h2 {{ margin: 0 0 10px 0; font-size: 24px; }}
+        .expert-certification p {{ margin: 0; opacity: 0.9; font-size: 16px; }}
+        .certification-badge {{ display: inline-block; background-color: rgba(255, 255, 255, 0.2); padding: 8px 16px; border-radius: 20px; margin-top: 10px; font-weight: 600; }}
+        .review-summary {{ background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 20px; margin: 25px 0; }}
+        .summary-row {{ display: flex; justify-content: space-between; margin: 10px 0; }}
+        .summary-label {{ font-weight: 600; color: #166534; }}
+        .summary-value {{ color: #15803d; }}
+        .footer {{ background-color: #1e293b; color: white; padding: 25px; text-align: center; }}
+        .footer p {{ margin: 5px 0; }}
+        .disclaimer {{ font-size: 12px; color: #94a3b8; margin-top: 15px; line-height: 1.4; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>✅ Expert Analysis Complete</h1>
+            <p>Your Document Has Been Professionally Reviewed</p>
+        </div>
+        
+        <div class="content">
+            <p>Excellent news!</p>
+            <p>Your legal document analysis has been completed by our expert legal team. The comprehensive review is now ready and attached to this email.</p>
+            
+            <div class="expert-certification">
+                <h2>🎓 Expert Certified Analysis</h2>
+                <p>Reviewed and approved by qualified legal professionals</p>
+                <div class="certification-badge">✓ EXPERT VERIFIED</div>
+            </div>
+            
+            <div class="review-summary">
+                <h3>📊 Review Summary</h3>
+                <div class="summary-row">
+                    <span class="summary-label">Review ID:</span>
+                    <span class="summary-value">{expert_analysis.review_id}</span>
+                </div>
+                <div class="summary-row">
+                    <span class="summary-label">Completed:</span>
+                    <span class="summary-value">{expert_analysis.completed_at.strftime('%B %d, %Y at %I:%M %p')}</span>
+                </div>
+                <div class="summary-row">
+                    <span class="summary-label">Review Duration:</span>
+                    <span class="summary-value">{expert_analysis.review_duration_minutes} minutes</span>
+                </div>
+                <div class="summary-row">
+                    <span class="summary-label">Confidence Improvement:</span>
+                    <span class="summary-value">+{expert_analysis.confidence_improvement * 100:.1f}%</span>
+                </div>
+            </div>
+            
+            <p>The complete analysis report is attached as a professionally formatted PDF document with expert certification.</p>
+            
+            <p>Thank you for choosing LegalSaathi's expert review service!</p>
+            
+            <p>Best regards,<br>
+            <strong>LegalSaathi Expert Review Team</strong></p>
+        </div>
+        
+        <div class="footer">
+            <p><strong>LegalSaathi Document Advisor</strong></p>
+            <p>AI-Powered Legal Analysis with Expert Human Oversight</p>
+            <div class="disclaimer">
+                This expert analysis is provided by qualified legal professionals for informational 
+                purposes and does not constitute attorney-client relationship or legal advice.
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+        """
+        
+        return html_template.strip()
+    
+    def _generate_expert_completed_text(self, expert_analysis: ExpertAnalysisResponse) -> str:
+        """Generate plain text template for expert review completed notification"""
+        
+        text_template = f"""
+EXPERT LEGAL ANALYSIS COMPLETE
+==============================
+
+Excellent news!
+
+Your legal document analysis has been completed by our expert legal team. 
+The comprehensive review is now ready and attached to this email.
+
+EXPERT CERTIFIED ANALYSIS
+Reviewed and approved by qualified legal professionals
+✓ EXPERT VERIFIED
+
+REVIEW SUMMARY
+==============
+Review ID: {expert_analysis.review_id}
+Completed: {expert_analysis.completed_at.strftime('%B %d, %Y at %I:%M %p')}
+Review Duration: {expert_analysis.review_duration_minutes} minutes
+Confidence Improvement: +{expert_analysis.confidence_improvement * 100:.1f}%
+
+The complete analysis report is attached as a professionally formatted PDF 
+document with expert certification.
+
+Thank you for choosing LegalSaathi's expert review service!
+
+Best regards,
+LegalSaathi Expert Review Team
+
+---
+LegalSaathi Document Advisor
+AI-Powered Legal Analysis with Expert Human Oversight
+
+DISCLAIMER: This expert analysis is provided by qualified legal professionals 
+for informational purposes and does not constitute attorney-client relationship 
+or legal advice.
+        """
+        
+        return text_template.strip()
