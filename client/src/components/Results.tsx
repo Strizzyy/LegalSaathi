@@ -178,7 +178,7 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
           summary: analysis.summary,
           clause_assessments: analysis.analysis_results,
           overall_risk: analysis.overall_risk,
-          recommendations: analysis.recommendations,
+          recommendations: analysis.analysis_results?.flatMap(result => result.recommendations || []) || [],
           enhanced_insights: analysis.enhanced_insights
         },
         user_email: userEmail,
@@ -1037,7 +1037,7 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
       />
 
       {/* Low Confidence Popup */}
-      {analysis.overall_confidence !== undefined && (
+      {analysis.overall_confidence !== undefined && analysis.confidence_breakdown && (
         <LowConfidencePopup
           isVisible={showConfidencePopup}
           confidence={analysis.overall_confidence}

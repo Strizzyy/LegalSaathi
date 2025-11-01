@@ -347,3 +347,5 @@ export const EmailModal: React.FC<EmailModalProps> = ({
     </AnimatePresence>
   );
 };
+
+export default EmailModal;

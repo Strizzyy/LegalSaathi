@@ -155,10 +155,15 @@ async def fallback_lifespan(app: FastAPI):
         logger.error(f"❌ Cleanup failed: {e}")
 
 
-# Choose lifespan function based on availability
+# Choose lifespan function based on availability and environment
+is_cloud_run = os.getenv('GOOGLE_CLOUD_DEPLOYMENT', 'false').lower() == 'true'
+
 if OPTIMIZED_STARTUP_AVAILABLE:
     selected_lifespan = optimized_lifespan
-    logger.info("Using optimized service initialization")
+    if is_cloud_run:
+        logger.info("Using optimized service initialization for Cloud Run deployment")
+    else:
+        logger.info("Using optimized service initialization for local/development")
 else:
     selected_lifespan = fallback_lifespan
     logger.info("Using fallback service initialization")
@@ -294,11 +299,12 @@ except Exception as e:
 # Middleware for request logging and performance monitoring
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
-    """Log requests and add performance monitoring"""
+    """Log requests and add performance monitoring with Cloud Run optimizations"""
     start_time = time.time()
     
-    # Log request
-    logger.info(f"Request: {request.method} {request.url.path}")
+    # Log request (reduced verbosity for Cloud Run)
+    if not request.url.path.startswith("/health"):  # Skip health check logs
+        logger.info(f"Request: {request.method} {request.url.path}")
     
     # Process request
     response = await call_next(request)
@@ -309,12 +315,28 @@ async def log_requests(request: Request, call_next):
     # Add performance headers
     response.headers["X-Process-Time"] = str(process_time)
     
-    # Add cache headers for API responses
+    # Add optimized cache headers based on content type
     if request.url.path.startswith("/api/"):
+        # API responses - short cache for dynamic content
         response.headers["Cache-Control"] = "public, max-age=300"  # 5 minutes
+    elif request.url.path.startswith("/assets/"):
+        # Static assets - long cache with versioning
+        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"  # 1 year
+    elif request.url.path.endswith((".js", ".css", ".png", ".jpg", ".jpeg", ".svg", ".ico", ".woff", ".woff2")):
+        # Static files - medium cache
+        response.headers["Cache-Control"] = "public, max-age=86400"  # 1 day
+    elif request.url.path in ["/", "/index.html"]:
+        # HTML files - no cache for SPA routing
+        response.headers["Cache-Control"] = "no-cache, must-revalidate"
     
-    # Log response
-    logger.info(f"Response: {response.status_code} - {process_time:.3f}s")
+    # Add security headers for Cloud Run
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    
+    # Log response (reduced verbosity for Cloud Run)
+    if not request.url.path.startswith("/health") and process_time > 1.0:  # Only log slow requests
+        logger.info(f"Response: {response.status_code} - {process_time:.3f}s")
     
     return response
 
@@ -1621,29 +1643,95 @@ async def get_logs(request: Request, lines: int = 100):
         logger.error(f"Error reading logs: {e}")
         raise HTTPException(status_code=500, detail="Failed to read logs")
 
-# Static file serving for React frontend
-if os.path.exists("client/dist"):
-    app.mount("/static", StaticFiles(directory="client/dist/assets"), name="static")
+# Static file serving for React frontend - optimized for Cloud Run
+CLIENT_DIST_PATH = "client/dist"
+CLIENT_INDEX_PATH = os.path.join(CLIENT_DIST_PATH, "index.html")
+
+# Check if client build exists
+if os.path.exists(CLIENT_DIST_PATH) and os.path.exists(CLIENT_INDEX_PATH):
+    logger.info(f"✅ Client build found at {CLIENT_DIST_PATH}")
+    
+    # Mount static assets with proper caching headers
+    app.mount("/assets", StaticFiles(directory=os.path.join(CLIENT_DIST_PATH, "assets")), name="assets")
+    
+    # Serve favicon and other root-level static files
+    @app.get("/favicon.ico")
+    async def favicon():
+        """Serve favicon"""
+        favicon_path = os.path.join(CLIENT_DIST_PATH, "favicon.ico")
+        if os.path.exists(favicon_path):
+            return FileResponse(favicon_path, media_type="image/x-icon")
+        raise HTTPException(status_code=404, detail="Favicon not found")
+    
+    @app.get("/manifest.json")
+    async def manifest():
+        """Serve PWA manifest"""
+        manifest_path = os.path.join(CLIENT_DIST_PATH, "manifest.json")
+        if os.path.exists(manifest_path):
+            return FileResponse(manifest_path, media_type="application/json")
+        raise HTTPException(status_code=404, detail="Manifest not found")
     
     @app.get("/")
     async def serve_frontend():
-        """Serve React frontend"""
-        return FileResponse("client/dist/index.html")
+        """Serve React frontend root"""
+        return FileResponse(CLIENT_INDEX_PATH, media_type="text/html")
     
     @app.get("/{path:path}")
     async def serve_frontend_routes(path: str):
-        """Serve React frontend for all routes (SPA)"""
-        # Check if it's an API route
-        if path.startswith("api/") or path.startswith("docs") or path.startswith("redoc"):
+        """Serve React frontend for all routes (SPA) with optimized static file handling"""
+        # Skip API routes, docs, and health checks
+        if (path.startswith("api/") or 
+            path.startswith("docs") or 
+            path.startswith("redoc") or 
+            path.startswith("health")):
             raise HTTPException(status_code=404, detail="Not found")
         
-        # Serve static files if they exist
-        static_file_path = f"client/dist/{path}"
+        # Handle static files with proper MIME types
+        static_file_path = os.path.join(CLIENT_DIST_PATH, path)
         if os.path.exists(static_file_path) and os.path.isfile(static_file_path):
-            return FileResponse(static_file_path)
+            # Determine MIME type based on file extension
+            mime_type = "text/plain"
+            if path.endswith(".js"):
+                mime_type = "application/javascript"
+            elif path.endswith(".css"):
+                mime_type = "text/css"
+            elif path.endswith(".html"):
+                mime_type = "text/html"
+            elif path.endswith(".json"):
+                mime_type = "application/json"
+            elif path.endswith(".png"):
+                mime_type = "image/png"
+            elif path.endswith(".jpg") or path.endswith(".jpeg"):
+                mime_type = "image/jpeg"
+            elif path.endswith(".svg"):
+                mime_type = "image/svg+xml"
+            elif path.endswith(".ico"):
+                mime_type = "image/x-icon"
+            elif path.endswith(".woff") or path.endswith(".woff2"):
+                mime_type = "font/woff2"
+            elif path.endswith(".ttf"):
+                mime_type = "font/ttf"
+            
+            return FileResponse(static_file_path, media_type=mime_type)
         
-        # Otherwise serve the React app
-        return FileResponse("client/dist/index.html")
+        # For all other routes, serve the React app (SPA routing)
+        return FileResponse(CLIENT_INDEX_PATH, media_type="text/html")
+else:
+    logger.warning(f"⚠️  Client build not found at {CLIENT_DIST_PATH}. Frontend will not be served.")
+    
+    @app.get("/")
+    async def serve_api_info():
+        """Serve API information when frontend is not available"""
+        return {
+            "message": "Legal Saathi API",
+            "version": "2.0.0",
+            "status": "running",
+            "frontend": "not_available",
+            "docs": "/docs",
+            "redoc": "/redoc",
+            "health": "/health",
+            "timestamp": datetime.now().isoformat()
+        }
 
 
 # Root API endpoint

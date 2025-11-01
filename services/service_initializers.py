@@ -84,12 +84,26 @@ async def initialize_document_service() -> Any:
 
 
 async def initialize_ai_service() -> Any:
-    """Initialize AI service"""
+    """Initialize AI service with Cloud Run optimization"""
     try:
-        from services.ai_service import AIService
+        # Check if we're in Cloud Run environment
+        is_cloud_run = os.getenv('GOOGLE_CLOUD_DEPLOYMENT', 'false').lower() == 'true'
+        use_lightweight = os.getenv('USE_LIGHTWEIGHT_SERVICES', 'false').lower() == 'true'
         
-        logger.info("Initializing AI service...")
-        ai_service = AIService()
+        if is_cloud_run or use_lightweight:
+            logger.info("Initializing AI service in lightweight mode for Cloud Run...")
+            # Use lightweight AI service initialization
+            from services.unified_ai_service import UnifiedAIService
+            ai_service = UnifiedAIService()
+            
+            # Configure for lightweight operation
+            if hasattr(ai_service, 'configure_lightweight_mode'):
+                ai_service.configure_lightweight_mode(True)
+                logger.info("AI service configured for lightweight Cloud Run operation")
+        else:
+            logger.info("Initializing AI service in full mode...")
+            from services.ai_service import AIService
+            ai_service = AIService()
         
         # Test AI service availability
         if hasattr(ai_service, 'enabled') and ai_service.enabled:

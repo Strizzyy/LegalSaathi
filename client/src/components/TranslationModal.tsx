@@ -184,3 +184,5 @@ export function TranslationModal({ isOpen, onClose, originalText, title }: Trans
     </Modal>
   );
 }
+
+export default TranslationModal;
