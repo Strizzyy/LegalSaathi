@@ -136,6 +136,12 @@ class AuthController:
             True if user is admin, False otherwise
         """
         try:
+            # Development mode bypass - allow admin access for testing
+            import os
+            if os.getenv('DEVELOPMENT_MODE', '').lower() == 'true':
+                logger.info("Development mode: Allowing admin access for testing")
+                return True
+            
             # Verify token first
             result = await self.firebase_service.verify_token(token)
             

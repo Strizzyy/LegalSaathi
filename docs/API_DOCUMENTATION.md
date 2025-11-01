@@ -888,6 +888,156 @@ Export analysis results to Word document.
 - Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document
 - Content-Disposition: attachment; filename=analysis.docx
 
+### Semantic Search Endpoints (Vertex AI)
+
+#### POST /api/search/similar-documents
+Find similar legal documents using semantic search.
+
+**Rate Limit:** 10 requests/minute
+**Authentication Required:** Yes
+
+**Request Body:**
+```json
+{
+  "document_text": "string",
+  "document_type": "rental_agreement|employment_contract|nda|loan_agreement|partnership_agreement|general_contract",
+  "similarity_threshold": 0.8,
+  "max_results": 10
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "similar_documents": [
+    {
+      "document_id": "string",
+      "similarity_score": 0.92,
+      "document_type": "employment_contract",
+      "key_clauses": ["non_compete", "termination"],
+      "risk_level": "YELLOW"
+    }
+  ],
+  "total_results": 5,
+  "processing_time": 1.8
+}
+```
+
+#### POST /api/search/clause-precedents
+Search for legal precedents and similar clauses.
+
+**Rate Limit:** 15 requests/minute
+**Authentication Required:** Yes
+
+**Request Body:**
+```json
+{
+  "clause_text": "string",
+  "legal_domain": "employment|real_estate|business|intellectual_property",
+  "jurisdiction": "US|UK|CA|AU|IN"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "precedents": [
+    {
+      "precedent_id": "string",
+      "similarity_score": 0.89,
+      "case_reference": "Smith v. Johnson (2023)",
+      "jurisdiction": "US",
+      "outcome": "Clause upheld with modifications",
+      "key_insights": ["Enforceability depends on geographic scope"]
+    }
+  ],
+  "legal_analysis": "string",
+  "recommendations": ["string"]
+}
+```
+
+### Email Notification Endpoints
+
+#### POST /api/email/send-analysis-report
+Send analysis report via Gmail OAuth2.
+
+**Rate Limit:** 5 requests/hour per user
+**Authentication Required:** Yes
+
+**Request Body:**
+```json
+{
+  "recipient_email": "user@example.com",
+  "analysis_id": "string",
+  "include_pdf": true,
+  "custom_message": "Optional custom message"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "email_id": "string",
+  "delivery_status": "sent",
+  "timestamp": "2024-01-01T00:00:00Z"
+}
+```
+
+#### GET /api/email/delivery-status/{email_id}
+Check email delivery status.
+
+**Response:**
+```json
+{
+  "email_id": "string",
+  "status": "sent|delivered|failed|bounced",
+  "delivered_at": "2024-01-01T00:00:00Z",
+  "error_message": null
+}
+```
+
+### Knowledge Graph Endpoints (Neo4j)
+
+#### GET /api/knowledge-graph/entity-relationships/{entity_id}
+Get relationships for a legal entity.
+
+**Rate Limit:** 20 requests/minute
+**Authentication Required:** Yes
+
+**Response:**
+```json
+{
+  "entity_id": "string",
+  "entity_type": "person|company|contract|clause",
+  "relationships": [
+    {
+      "related_entity_id": "string",
+      "relationship_type": "party_to|contains|references",
+      "strength": 0.85,
+      "context": "Employment contract relationship"
+    }
+  ],
+  "total_relationships": 12
+}
+```
+
+#### POST /api/knowledge-graph/query
+Execute custom Cypher query on legal knowledge graph.
+
+**Rate Limit:** 10 requests/minute
+**Authentication Required:** Yes (Admin only)
+
+**Request Body:**
+```json
+{
+  "cypher_query": "MATCH (c:Contract)-[:CONTAINS]->(cl:Clause) WHERE cl.risk_level = 'HIGH' RETURN c, cl LIMIT 10",
+  "parameters": {}
+}
+```
+
 ### Background Tasks Endpoints
 
 #### POST /api/tasks/cleanup
@@ -898,6 +1048,20 @@ Trigger cache cleanup.
 {
   "success": true,
   "message": "Cache cleanup scheduled"
+}
+```
+
+#### POST /api/tasks/rebuild-knowledge-graph
+Rebuild Neo4j knowledge graph from recent analyses.
+
+**Authentication Required:** Yes (Admin only)
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Knowledge graph rebuild initiated",
+  "estimated_completion": "2024-01-01T01:00:00Z"
 }
 ```
 
@@ -1114,7 +1278,23 @@ class LegalSaathiAPI:
 - **Usage**: Legal entity recognition, sentiment analysis
 - **Features**: Legal-specific entity types, confidence scoring
 
-### AI Integration Architecture
+#### 7. Google Vertex AI
+- **Purpose**: Semantic search and document similarity analysis
+- **Usage**: Vector embeddings for legal document comparison and RAG
+- **Features**: Document similarity scoring, semantic search, precedent matching
+- **Rate Limit**: 1000 embedding requests per day
+
+#### 8. Firebase Gmail OAuth2
+- **Purpose**: Secure email delivery and user communication
+- **Usage**: Professional email delivery for analysis reports and expert notifications
+- **Features**: OAuth2-authenticated Gmail API, secure attachments, user consent-based communication
+
+#### 9. Neo4j Graph Database
+- **Purpose**: Legal knowledge graph and relationship mapping
+- **Usage**: Legal entity relationships, contract dependencies, precedent connections
+- **Features**: Graph-based queries, relationship discovery, legal research enhancement
+
+### Enhanced AI Integration Architecture
 
 ```mermaid
 graph TB
@@ -1126,13 +1306,20 @@ graph TB
     E --> D
     F --> D
     D --> G[Natural Language AI]
-    G --> H[Risk Assessment]
-    H --> I{Confidence Check}
-    I -->|High| J[Return Results]
-    I -->|Low| K[Expert Review Queue]
-    J --> L[Translation API]
-    L --> M[Text-to-Speech]
-    M --> N[Final Response]
+    G --> H[Vertex AI Embeddings]
+    H --> I[Neo4j Knowledge Graph]
+    I --> J[Risk Assessment]
+    J --> K{Confidence Check}
+    K -->|High| L[Return Results]
+    K -->|Low| M[Expert Review Queue]
+    L --> N[Translation API]
+    N --> O[Text-to-Speech]
+    O --> P[Gmail Email Delivery]
+    P --> Q[Final Response]
+    
+    style H fill:#ff9800,color:#fff
+    style I fill:#68bc00,color:#fff
+    style P fill:#2196f3,color:#fff
 ```
 
 ## Performance Considerations

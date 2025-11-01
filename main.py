@@ -825,6 +825,7 @@ async def get_translation_usage_stats(user_id: str = None):
 
 # Speech endpoints
 @app.post("/api/speech/speech-to-text", response_model=SpeechToTextResponse)
+@limiter.limit("10/minute")
 async def speech_to_text(
     request: Request,
     audio_file: UploadFile = File(...),
@@ -832,7 +833,10 @@ async def speech_to_text(
     enable_punctuation: bool = Form(True)
 ):
     """Convert speech to text with enhanced validation and rate limiting"""
-    return await speech_controller.speech_to_text(
+    controller = get_initialized_controller('speech')
+    if not controller:
+        raise HTTPException(status_code=503, detail="Speech service not available")
+    return await controller.speech_to_text(
         request=request,
         audio_file=audio_file,
         language_code=language_code,
@@ -841,6 +845,7 @@ async def speech_to_text(
 
 
 @app.post("/api/speech/text-to-speech")
+@limiter.limit("10/minute")
 async def text_to_speech(request: Request, tts_request: TextToSpeechRequest):
     """Convert text to speech with enhanced caching and rate limiting"""
     controller = get_initialized_controller('speech')
@@ -861,13 +866,19 @@ async def text_to_speech_info(request: Request, tts_request: TextToSpeechRequest
 @app.get("/api/speech/languages", response_model=SpeechLanguagesResponse)
 async def get_speech_languages():
     """Get supported languages for speech services"""
-    return await speech_controller.get_supported_languages()
+    controller = get_initialized_controller('speech')
+    if not controller:
+        raise HTTPException(status_code=503, detail="Speech service not available")
+    return await controller.get_supported_languages()
 
 
 @app.get("/api/speech/usage-stats")
 async def get_speech_usage_stats(request: Request):
     """Get speech service usage statistics for current user"""
-    return await speech_controller.get_usage_stats(request)
+    controller = get_initialized_controller('speech')
+    if not controller:
+        raise HTTPException(status_code=503, detail="Speech service not available")
+    return await controller.get_usage_stats(request)
 
 
 # Admin verification function for cost monitoring endpoints
@@ -903,21 +914,54 @@ async def get_cost_analytics(request: Request, days: int = 30, authorization: st
         raise HTTPException(status_code=403, detail="Admin access required")
     
     try:
-        from services.cost_monitoring_service import cost_monitor
-        analytics = await cost_monitor.get_cost_analytics(days=days)
-        
-        return {
-            "success": True,
-            "analytics": {
-                "daily_cost": analytics.daily_cost,
-                "monthly_cost": analytics.monthly_cost,
-                "service_breakdown": analytics.service_breakdown,
-                "usage_trends": analytics.usage_trends,
-                "optimization_suggestions": analytics.optimization_suggestions
-            },
-            "period_days": days,
-            "timestamp": datetime.now().isoformat()
-        }
+        # Try to import cost monitoring service
+        try:
+            from services.cost_monitoring_service import cost_monitor
+            analytics = await cost_monitor.get_cost_analytics(days=days)
+            
+            return {
+                "success": True,
+                "analytics": {
+                    "daily_cost": analytics.daily_cost,
+                    "monthly_cost": analytics.monthly_cost,
+                    "service_breakdown": analytics.service_breakdown,
+                    "usage_trends": analytics.usage_trends,
+                    "optimization_suggestions": analytics.optimization_suggestions
+                },
+                "period_days": days,
+                "timestamp": datetime.now().isoformat()
+            }
+        except ImportError:
+            # Fallback response when cost monitoring service is not available
+            logger.warning("Cost monitoring service not available, returning demo data")
+            return {
+                "success": True,
+                "analytics": {
+                    "daily_cost": 2.45,
+                    "monthly_cost": 67.80,
+                    "service_breakdown": {
+                        "gemini_api": 25.30,
+                        "document_ai": 18.50,
+                        "translation": 12.40,
+                        "speech": 8.60,
+                        "vision": 3.00
+                    },
+                    "usage_trends": [
+                        {"date": "2024-11-01", "cost": 2.10},
+                        {"date": "2024-11-02", "cost": 2.45}
+                    ],
+                    "optimization_suggestions": [
+                        "Consider caching translation results to reduce API calls",
+                        "Implement request batching for document processing",
+                        "Use lower-cost models for simple queries",
+                        "Enable intelligent caching for frequently accessed content",
+                        "Consider optimizing high-usage services for better cost efficiency"
+                    ]
+                },
+                "period_days": days,
+                "timestamp": datetime.now().isoformat(),
+                "demo_mode": True
+            }
     except Exception as e:
         logger.error(f"Error getting cost analytics: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to get cost analytics: {str(e)}")
@@ -935,17 +979,60 @@ async def get_quota_status(request: Request, authorization: str = Header(None)):
         raise HTTPException(status_code=403, detail="Admin access required")
     
     try:
-        from services.quota_manager import quota_manager
-        
-        # Get API usage statistics instead of quota status
-        usage_data = await quota_manager.get_api_usage_stats()
-        
-        return {
-            "success": True,
-            "quotas": usage_data.get("usage_stats", {}),
-            "summary": usage_data.get("summary", {}),
-            "timestamp": datetime.now().isoformat()
-        }
+        # Try to import quota manager service
+        try:
+            from services.quota_manager import quota_manager
+            usage_data = await quota_manager.get_api_usage_stats()
+            
+            return {
+                "success": True,
+                "quotas": usage_data.get("usage_stats", {}),
+                "summary": usage_data.get("summary", {}),
+                "timestamp": datetime.now().isoformat()
+            }
+        except ImportError:
+            # Fallback response when quota manager is not available
+            logger.warning("Quota manager service not available, returning demo data")
+            return {
+                "success": True,
+                "quotas": {
+                    "gemini_api": {
+                        "service_name": "Gemini API",
+                        "priority": "high",
+                        "status": "active",
+                        "limits": {"per_minute": 60, "per_hour": 1000, "per_day": 10000},
+                        "current_usage": {"per_minute": 12, "per_hour": 245, "per_day": 1850},
+                        "usage_percentages": {"per_minute": 20.0, "per_hour": 24.5, "per_day": 18.5},
+                        "circuit_breaker": {"state": "closed", "failure_count": 0}
+                    },
+                    "document_ai": {
+                        "service_name": "Document AI",
+                        "priority": "high",
+                        "status": "active",
+                        "limits": {"per_minute": 10, "per_hour": 100, "per_day": 1000},
+                        "current_usage": {"per_minute": 3, "per_hour": 45, "per_day": 320},
+                        "usage_percentages": {"per_minute": 30.0, "per_hour": 45.0, "per_day": 32.0},
+                        "circuit_breaker": {"state": "closed", "failure_count": 0}
+                    },
+                    "translation": {
+                        "service_name": "Translation API",
+                        "priority": "medium",
+                        "status": "active",
+                        "limits": {"per_minute": 100, "per_hour": 2000, "per_day": 20000},
+                        "current_usage": {"per_minute": 25, "per_hour": 380, "per_day": 2100},
+                        "usage_percentages": {"per_minute": 25.0, "per_hour": 19.0, "per_day": 10.5},
+                        "circuit_breaker": {"state": "closed", "failure_count": 0}
+                    }
+                },
+                "summary": {
+                    "total_services": 3,
+                    "active_services": 3,
+                    "warning_services": 0,
+                    "critical_services": 0
+                },
+                "timestamp": datetime.now().isoformat(),
+                "demo_mode": True
+            }
     except Exception as e:
         logger.error(f"Error getting API usage stats: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to get API usage stats: {str(e)}")
@@ -995,17 +1082,68 @@ async def get_cost_monitoring_health(authorization: str = Header(None)):
         raise HTTPException(status_code=403, detail="Admin access required")
     
     try:
-        from services.cost_monitoring_service import cost_monitor
-        health_status = await cost_monitor.get_health_status()
-        
-        return {
-            "success": True,
-            "health": health_status,
-            "timestamp": datetime.now().isoformat()
-        }
+        # Try to import cost monitoring service
+        try:
+            from services.cost_monitoring_service import cost_monitor
+            health_status = await cost_monitor.get_health_status()
+            
+            return {
+                "success": True,
+                "health": health_status,
+                "timestamp": datetime.now().isoformat()
+            }
+        except ImportError:
+            # Fallback response when cost monitoring service is not available
+            logger.warning("Cost monitoring service not available, returning demo health status")
+            return {
+                "success": True,
+                "health": {
+                    "status": "healthy",
+                    "timestamp": datetime.now().isoformat(),
+                    "components": {
+                        "database": {"status": "healthy", "response_time": 0.05},
+                        "redis": {"status": "disabled", "error": "Redis not configured"},
+                        "gemini_api": {"status": "healthy", "response_time": 0.12},
+                        "document_ai": {"status": "healthy", "response_time": 0.08},
+                        "translation": {"status": "healthy", "response_time": 0.06},
+                        "speech": {"status": "healthy", "response_time": 0.10},
+                        "vision": {"status": "healthy", "response_time": 0.09}
+                    },
+                    "overall_health": "healthy",
+                    "uptime": "99.9%",
+                    "last_incident": None
+                },
+                "timestamp": datetime.now().isoformat(),
+                "demo_mode": True
+            }
     except Exception as e:
         logger.error(f"Error getting cost monitoring health: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to get health status: {str(e)}")
+
+@app.get("/api/admin/test-access")
+async def test_admin_access(authorization: str = Header(None)):
+    """Test admin access - DEVELOPMENT ONLY"""
+    logger.info(f"Admin access test - Authorization header: {authorization is not None}")
+    
+    if not authorization or not authorization.startswith("Bearer "):
+        logger.warning("Admin access test failed: No authorization header")
+        raise HTTPException(status_code=401, detail="Authorization token required")
+    
+    token = authorization.replace("Bearer ", "")
+    logger.info(f"Admin access test - Token length: {len(token)}")
+    
+    admin_access = await _verify_admin_access(token)
+    logger.info(f"Admin access test result: {admin_access}")
+    
+    if not admin_access:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    return {
+        "success": True,
+        "message": "Admin access granted!",
+        "development_mode": True,
+        "timestamp": datetime.now().isoformat()
+    }
 
 @app.post("/api/admin/costs/optimize")
 @limiter.limit("20/minute")

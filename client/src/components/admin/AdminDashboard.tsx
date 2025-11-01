@@ -17,7 +17,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onClose }) => {
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<'analytics' | 'quotas' | 'health'>('analytics');
-  
+
   // Data states
   const [analytics, setAnalytics] = useState<CostAnalytics | null>(null);
   const [quotas, setQuotas] = useState<Record<string, QuotaStatus> | null>(null);
@@ -50,7 +50,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onClose }) => {
   const loadData = async () => {
     try {
       setError(null);
-      
+
       // Load all data in parallel
       const [analyticsRes, quotasRes, healthRes] = await Promise.all([
         adminCostService.getCostAnalytics(30),
@@ -141,7 +141,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onClose }) => {
       <div className="bg-white rounded-lg w-full max-w-6xl h-full max-h-[90vh] overflow-hidden">
         {/* Header */}
         <div className="bg-gray-800 text-white p-4 flex justify-between items-center">
-          <h1 className="text-xl font-bold">🔒 Admin Cost Monitoring Dashboard</h1>
+          <h1 className="text-xl font-bold">Admin Cost Monitoring Dashboard</h1>
           <div className="flex items-center space-x-4">
             <span className="text-sm text-gray-300">
               Admin: {user.email}
@@ -172,11 +172,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onClose }) => {
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key as any)}
-                className={`px-6 py-3 font-medium ${
-                  activeTab === tab.key
-                    ? 'bg-white border-b-2 border-blue-600 text-blue-600'
-                    : 'text-gray-600 hover:text-gray-800'
-                }`}
+                className={`px-6 py-3 font-medium ${activeTab === tab.key
+                  ? 'bg-white border-b-2 border-blue-600 text-blue-600'
+                  : 'text-gray-600 hover:text-gray-800'
+                  }`}
               >
                 {tab.label}
               </button>
@@ -222,8 +221,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onClose }) => {
                 <h3 className="font-semibold mb-4">Service Cost Breakdown</h3>
                 <div className="space-y-2">
                   {Object.entries(analytics.service_breakdown).map(([service, cost]) => {
-                    const percentage = analytics.monthly_cost > 0 
-                      ? (cost / analytics.monthly_cost) * 100 
+                    const percentage = analytics.monthly_cost > 0
+                      ? (cost / analytics.monthly_cost) * 100
                       : 0;
                     return (
                       <div key={service} className="flex justify-between items-center">
@@ -268,7 +267,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onClose }) => {
                   <h3 className="font-semibold mb-3 capitalize">
                     {serviceName.replace('_', ' ')} - {quota.priority} Priority
                   </h3>
-                  
+
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {/* Per Minute */}
                     <div>
@@ -283,7 +282,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onClose }) => {
                         ></div>
                       </div>
                       <div className="text-xs text-gray-600 mt-1">
-                        {quota.current_usage.per_minute} / {quota.quota_limits.per_minute}
+                        {quota.current_usage.per_minute} / {quota.limits.per_minute}
                       </div>
                     </div>
 
@@ -300,7 +299,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onClose }) => {
                         ></div>
                       </div>
                       <div className="text-xs text-gray-600 mt-1">
-                        {quota.current_usage.per_hour} / {quota.quota_limits.per_hour}
+                        {quota.current_usage.per_hour} / {quota.limits.per_hour}
                       </div>
                     </div>
 
@@ -317,7 +316,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onClose }) => {
                         ></div>
                       </div>
                       <div className="text-xs text-gray-600 mt-1">
-                        {quota.current_usage.per_day} / {quota.quota_limits.per_day}
+                        {quota.current_usage.per_day} / {quota.limits.per_day}
                       </div>
                     </div>
                   </div>
@@ -325,9 +324,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onClose }) => {
                   {/* Circuit Breaker Status */}
                   <div className="mt-3 text-sm">
                     <span className="font-medium">Circuit Breaker: </span>
-                    <span className={`capitalize ${
-                      quota.circuit_breaker.state === 'closed' ? 'text-green-600' : 'text-red-600'
-                    }`}>
+                    <span className={`capitalize ${quota.circuit_breaker.state === 'closed' ? 'text-green-600' : 'text-red-600'
+                      }`}>
                       {quota.circuit_breaker.state}
                     </span>
                     {quota.circuit_breaker.failure_count > 0 && (
@@ -348,10 +346,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onClose }) => {
               <div className="bg-white border rounded-lg p-4">
                 <h3 className="font-semibold mb-3">Overall System Status</h3>
                 <div className="flex items-center space-x-2">
-                  <div className={`w-3 h-3 rounded-full ${
-                    health.status === 'healthy' ? 'bg-green-500' : 
+                  <div className={`w-3 h-3 rounded-full ${health.status === 'healthy' ? 'bg-green-500' :
                     health.status === 'degraded' ? 'bg-yellow-500' : 'bg-red-500'
-                  }`}></div>
+                    }`}></div>
                   <span className={`font-medium capitalize ${getStatusColor(health.status)}`}>
                     {health.status}
                   </span>
@@ -369,10 +366,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onClose }) => {
                     <div key={component} className="flex justify-between items-center p-3 bg-gray-50 rounded">
                       <span className="font-medium capitalize">{component}</span>
                       <div className="flex items-center space-x-2">
-                        <div className={`w-2 h-2 rounded-full ${
-                          status.status === 'healthy' ? 'bg-green-500' : 
+                        <div className={`w-2 h-2 rounded-full ${status.status === 'healthy' ? 'bg-green-500' :
                           status.status === 'disabled' ? 'bg-gray-500' : 'bg-red-500'
-                        }`}></div>
+                          }`}></div>
                         <span className={`text-sm capitalize ${getStatusColor(status.status)}`}>
                           {status.status}
                         </span>

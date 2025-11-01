@@ -30,7 +30,7 @@ interface ClauseReview {
   expert_notes?: string;
 }
 
-export const DocumentReviewInterface: React.FC = () => {
+const DocumentReviewInterface: React.FC = () => {
   const { reviewId } = useParams<{ reviewId: string }>();
   const navigate = useNavigate();
   
@@ -827,3 +827,5 @@ export const DocumentReviewInterface: React.FC = () => {
     </div>
   );
 };
+
+export default DocumentReviewInterface;

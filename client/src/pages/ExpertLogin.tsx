@@ -13,7 +13,7 @@ interface ExpertLoginProps {
   onLoginSuccess?: (expertInfo: any) => void;
 }
 
-export const ExpertLogin: React.FC<ExpertLoginProps> = ({ onLoginSuccess }) => {
+const ExpertLogin: React.FC<ExpertLoginProps> = ({ onLoginSuccess }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -213,3 +213,5 @@ export const ExpertLogin: React.FC<ExpertLoginProps> = ({ onLoginSuccess }) => {
     </div>
   );
 };
+
+export default ExpertLogin;

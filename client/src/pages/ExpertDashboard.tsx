@@ -41,7 +41,7 @@ interface QueueStats {
   oldest_pending_item?: string;
 }
 
-export const ExpertDashboard: React.FC = () => {
+const ExpertDashboard: React.FC = () => {
   const [expertInfo, setExpertInfo] = useState<ExpertInfo | null>(null);
   const [queueItems, setQueueItems] = useState<QueueItem[]>([]);
   const [queueStats, setQueueStats] = useState<QueueStats | null>(null);
@@ -687,3 +687,5 @@ export const ExpertDashboard: React.FC = () => {
     </div>
   );
 };
+
+export default ExpertDashboard;
