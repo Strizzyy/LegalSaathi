@@ -1,8 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy } from 'react';
 import { Navigation } from './components/Navigation';
 import { HeroSection } from './components/HeroSection';
 import { DocumentUpload } from './components/DocumentUpload';
-import { Results } from './components/Results';
 import { Footer } from './components/Footer';
 import { LoadingOverlay } from './components/LoadingOverlay';
 import { NotificationProvider } from './components/NotificationProvider';
@@ -11,16 +10,25 @@ import { AuthProvider } from './contexts/AuthContext';
 import { AuthModal } from './components/auth/AuthModal';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { UserProfile } from './components/auth/UserProfile';
-import { PrivacyPolicy } from './components/PrivacyPolicy';
-import { TermsOfService } from './components/TermsOfService';
-import { AboutUs } from './components/AboutUs';
-import { ContactUs } from './components/ContactUs';
 import { ProductSection } from './components/ProductSection';
-import { MultipleImageAnalysis } from './components/MultipleImageAnalysis';
 import { apiService } from './services/apiService';
 import { notificationService } from './services/notificationService';
 import BackendStatusIndicator from './components/BackendStatusIndicator';
-import AdminPage from './pages/AdminPage';
+import LazyRoute from './components/LazyRoute';
+import { initializeProgressivePreloading } from './utils/preloader';
+import { performanceMonitor } from './utils/performanceMonitor';
+import { lazyComponentManager } from './utils/lazyComponentManager';
+import { ProgressiveEnhancement, ConnectionStatus } from './components/ProgressiveEnhancement';
+
+// Lazy-loaded components for code splitting
+const Results = lazy(() => import('./components/Results'));
+const AdminPage = lazy(() => import('./pages/AdminPage'));
+const HITLDashboard = lazy(() => import('./pages/HITLDashboard'));
+const MultipleImageAnalysis = lazy(() => import('./components/MultipleImageAnalysis'));
+const PrivacyPolicy = lazy(() => import('./components/PrivacyPolicy'));
+const TermsOfService = lazy(() => import('./components/TermsOfService'));
+const AboutUs = lazy(() => import('./components/AboutUs'));
+const ContactUs = lazy(() => import('./components/ContactUs'));
 
 export interface AnalysisResult {
   analysis_id: string;
@@ -60,6 +68,17 @@ export interface AnalysisResult {
   document_text?: string;
   document_patterns?: string[];
   compliance_flags?: string[];
+  // Human-in-the-loop confidence fields
+  overall_confidence?: number;
+  should_route_to_expert?: boolean;
+  confidence_breakdown?: {
+    overall_confidence: number;
+    clause_confidences: Record<string, number>;
+    section_confidences: Record<string, number>;
+    component_weights: Record<string, number>;
+    factors_affecting_confidence: string[];
+    improvement_suggestions: string[];
+  };
 }
 
 export interface FileInfo {
@@ -73,7 +92,7 @@ export interface Classification {
 }
 
 function App() {
-  const [currentView, setCurrentView] = useState<'home' | 'results' | 'profile' | 'privacy' | 'terms' | 'about' | 'contact' | 'document-summary' | 'risk-assessment' | 'clause-analysis' | 'multiple-images' | 'admin'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'results' | 'profile' | 'privacy' | 'terms' | 'about' | 'contact' | 'document-summary' | 'risk-assessment' | 'clause-analysis' | 'multiple-images' | 'admin' | 'hitl'>('home');
   const [isLoading, setIsLoading] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [fileInfo, setFileInfo] = useState<FileInfo | null>(null);
@@ -82,11 +101,51 @@ function App() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<'login' | 'register'>('login');
 
+  // Initialize enhanced preloading strategy and performance monitoring
+  useEffect(() => {
+    const preloaders = initializeProgressivePreloading();
+    
+    // Initialize lazy component manager
+    lazyComponentManager.initializeProgressivePreloading();
+    
+    // Smart preloading based on user context
+    const userContext = {
+      isAdmin: localStorage.getItem('user_role') === 'admin',
+      hasUploadedFiles: localStorage.getItem('has_uploaded_files') === 'true',
+      viewedAnalytics: localStorage.getItem('viewed_analytics') === 'true',
+      usedAdvancedFeatures: localStorage.getItem('used_advanced_features') === 'true'
+    };
+    
+    lazyComponentManager.smartPreload(userContext);
+    
+    // Store utilities globally for debugging
+    (window as any).__preloaders = preloaders;
+    (window as any).__performanceMonitor = performanceMonitor;
+    (window as any).__lazyComponentManager = lazyComponentManager;
+    
+    // Log performance summary after initial load
+    setTimeout(() => {
+      const summary = performanceMonitor.getPerformanceSummary();
+      const preloadStats = lazyComponentManager.getPreloadStats();
+      console.log('Performance Summary:', summary);
+      console.log('Preload Statistics:', preloadStats);
+    }, 5000);
+    
+    // Cleanup on unmount
+    return () => {
+      performanceMonitor.cleanup();
+      lazyComponentManager.cleanup();
+      preloaders.cleanup();
+    };
+  }, []);
+
   // Handle URL routing
   useEffect(() => {
     const path = window.location.pathname;
     if (path === '/admin') {
       setCurrentView('admin');
+    } else if (path === '/hitl') {
+      setCurrentView('hitl');
     } else {
       setCurrentView('home');
     }
@@ -96,6 +155,8 @@ function App() {
       const path = window.location.pathname;
       if (path === '/admin') {
         setCurrentView('admin');
+      } else if (path === '/hitl') {
+        setCurrentView('hitl');
       } else {
         setCurrentView('home');
       }
@@ -109,7 +170,7 @@ function App() {
   useEffect(() => {
     if (currentView === 'privacy' || currentView === 'terms' || currentView === 'about' || currentView === 'contact' ||
       currentView === 'document-summary' || currentView === 'risk-assessment' || currentView === 'clause-analysis' ||
-      currentView === 'multiple-images' || currentView === 'admin') {
+      currentView === 'multiple-images' || currentView === 'admin' || currentView === 'hitl') {
       // Ensure we're at the top when viewing full-page components
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -131,13 +192,27 @@ function App() {
 
       if (result.success && result.analysis) {
         console.log('Setting new analysis result:', result.analysis);
-        setAnalysisResult(result.analysis);
-        setFileInfo(null); // File info no longer used
-        setClassification(null); // Classification no longer used
-        setWarnings(result.warnings || []);
-
-        setCurrentView('results');
-        notificationService.success('Document analysis completed successfully');
+        
+        // Check if expert review is needed based on confidence
+        if (result.analysis.should_route_to_expert && result.analysis.overall_confidence !== undefined) {
+          console.log(`Low confidence detected: ${result.analysis.overall_confidence}, showing expert review popup`);
+          // Set analysis result but don't navigate to results yet
+          setAnalysisResult(result.analysis);
+          setFileInfo(null);
+          setClassification(null);
+          setWarnings(result.warnings || []);
+          
+          // The confidence popup will be shown in the Results component
+          setCurrentView('results');
+        } else {
+          // Normal flow for high confidence results
+          setAnalysisResult(result.analysis);
+          setFileInfo(null);
+          setClassification(null);
+          setWarnings(result.warnings || []);
+          setCurrentView('results');
+          notificationService.success('Document analysis completed successfully');
+        }
       } else {
         throw new Error(result.error || 'Analysis failed');
       }
@@ -251,18 +326,22 @@ function App() {
     <ErrorBoundary>
       <AuthProvider>
         <NotificationProvider>
-          <div className="min-h-screen bg-slate-900 relative overflow-hidden">
-            <Navigation
-              onShowAuth={handleShowAuth}
-              onShowProfile={handleShowProfile}
-              onShowAbout={handleShowAbout}
-              onShowContact={handleShowContact}
-            />
+          <ProgressiveEnhancement>
+            <div className="min-h-screen bg-slate-900 relative overflow-hidden">
+              {/* Connection Status */}
+              <ConnectionStatus />
+              
+              <Navigation
+                onShowAuth={handleShowAuth}
+                onShowProfile={handleShowProfile}
+                onShowAbout={handleShowAbout}
+                onShowContact={handleShowContact}
+              />
 
-            {/* Backend Status Indicator */}
-            <div className="fixed top-16 right-4 z-50">
-              <BackendStatusIndicator showDetails={true} />
-            </div>
+              {/* Backend Status Indicator */}
+              <div className="fixed top-16 right-4 z-50">
+                <BackendStatusIndicator showDetails={true} />
+              </div>
 
             <main>
               {currentView === 'home' ? (
@@ -297,13 +376,57 @@ function App() {
                   </ProtectedRoute>
                 </div>
               ) : currentView === 'privacy' ? (
-                <PrivacyPolicy onClose={handleBackToHome} />
+                <LazyRoute 
+                  componentName="PrivacyPolicy"
+                  showProgress={true}
+                  fallback={<div className="min-h-screen bg-slate-900 flex items-center justify-center">
+                    <div className="text-center">
+                      <div className="animate-spin w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full mx-auto mb-4"></div>
+                      <p className="text-slate-300">Loading Privacy Policy...</p>
+                    </div>
+                  </div>}
+                >
+                  <PrivacyPolicy onClose={handleBackToHome} />
+                </LazyRoute>
               ) : currentView === 'terms' ? (
-                <TermsOfService onClose={handleBackToHome} />
+                <LazyRoute 
+                  componentName="TermsOfService"
+                  showProgress={true}
+                  fallback={<div className="min-h-screen bg-slate-900 flex items-center justify-center">
+                    <div className="text-center">
+                      <div className="animate-spin w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full mx-auto mb-4"></div>
+                      <p className="text-slate-300">Loading Terms of Service...</p>
+                    </div>
+                  </div>}
+                >
+                  <TermsOfService onClose={handleBackToHome} />
+                </LazyRoute>
               ) : currentView === 'about' ? (
-                <AboutUs onClose={handleBackToHome} />
+                <LazyRoute 
+                  componentName="AboutUs"
+                  showProgress={true}
+                  fallback={<div className="min-h-screen bg-slate-900 flex items-center justify-center">
+                    <div className="text-center">
+                      <div className="animate-spin w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full mx-auto mb-4"></div>
+                      <p className="text-slate-300">Loading About Us...</p>
+                    </div>
+                  </div>}
+                >
+                  <AboutUs onClose={handleBackToHome} />
+                </LazyRoute>
               ) : currentView === 'contact' ? (
-                <ContactUs onClose={handleBackToHome} />
+                <LazyRoute 
+                  componentName="ContactUs"
+                  showProgress={true}
+                  fallback={<div className="min-h-screen bg-slate-900 flex items-center justify-center">
+                    <div className="text-center">
+                      <div className="animate-spin w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full mx-auto mb-4"></div>
+                      <p className="text-slate-300">Loading Contact Us...</p>
+                    </div>
+                  </div>}
+                >
+                  <ContactUs onClose={handleBackToHome} />
+                </LazyRoute>
               ) : currentView === 'document-summary' ? (
                 <div className="py-20">
                   <div className="container mx-auto px-6">
@@ -404,12 +527,21 @@ function App() {
                           requireAuth={false}
                           onAuthRequired={() => handleShowAuth('login')}
                         >
-                          <MultipleImageAnalysis
-                            onAnalysisComplete={(result) => {
-                              setAnalysisResult(result);
-                              setCurrentView('results');
-                            }}
-                          />
+                          <LazyRoute 
+                            componentName="MultipleImageAnalysis"
+                            showProgress={true}
+                            fallback={<div className="py-20 text-center">
+                              <div className="animate-spin w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full mx-auto mb-4"></div>
+                              <p className="text-slate-300">Loading Multiple Image Analysis...</p>
+                            </div>}
+                          >
+                            <MultipleImageAnalysis
+                              onAnalysisComplete={(result) => {
+                                setAnalysisResult(result);
+                                setCurrentView('results');
+                              }}
+                            />
+                          </LazyRoute>
                         </ProtectedRoute>
                       </ErrorBoundary>
                       <div className="text-center mt-8">
@@ -424,7 +556,35 @@ function App() {
                   </div>
                 </div>
               ) : currentView === 'admin' ? (
-                <AdminPage />
+                <LazyRoute 
+                  componentName="AdminPage"
+                  showProgress={true}
+                  timeout={15000}
+                  fallback={<div className="min-h-screen bg-slate-900 flex items-center justify-center">
+                    <div className="text-center">
+                      <div className="animate-spin w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full mx-auto mb-4"></div>
+                      <p className="text-slate-300">Loading Admin Dashboard...</p>
+                      <p className="text-slate-500 text-sm mt-2">This may take a moment</p>
+                    </div>
+                  </div>}
+                >
+                  <AdminPage />
+                </LazyRoute>
+              ) : currentView === 'hitl' ? (
+                <LazyRoute 
+                  componentName="HITLDashboard"
+                  showProgress={true}
+                  timeout={15000}
+                  fallback={<div className="min-h-screen bg-slate-900 flex items-center justify-center">
+                    <div className="text-center">
+                      <div className="animate-spin w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full mx-auto mb-4"></div>
+                      <p className="text-slate-300">Loading Expert Dashboard...</p>
+                      <p className="text-slate-500 text-sm mt-2">This may take a moment</p>
+                    </div>
+                  </div>}
+                >
+                  <HITLDashboard />
+                </LazyRoute>
               ) : (
                 <ErrorBoundary fallback={
                   <div className="py-20 text-center">
@@ -437,14 +597,23 @@ function App() {
                     </button>
                   </div>
                 }>
-                  <Results
-                    key={analysisResult?.processing_time || Date.now()}
-                    analysis={analysisResult}
-                    fileInfo={fileInfo}
-                    classification={classification}
-                    warnings={warnings}
-                    onBackToHome={handleBackToHome}
-                  />
+                  <LazyRoute 
+                    componentName="Results"
+                    showProgress={true}
+                    fallback={<div className="py-20 text-center">
+                      <div className="animate-spin w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full mx-auto mb-4"></div>
+                      <p className="text-slate-300">Loading Analysis Results...</p>
+                    </div>}
+                  >
+                    <Results
+                      key={analysisResult?.processing_time || Date.now()}
+                      analysis={analysisResult}
+                      fileInfo={fileInfo}
+                      classification={classification}
+                      warnings={warnings}
+                      onBackToHome={handleBackToHome}
+                    />
+                  </LazyRoute>
                 </ErrorBoundary>
               )}
             </main>
@@ -462,6 +631,7 @@ function App() {
               initialMode={authModalMode}
             />
           </div>
+          </ProgressiveEnhancement>
         </NotificationProvider>
       </AuthProvider>
     </ErrorBoundary>

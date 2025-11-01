@@ -20,6 +20,7 @@ load_dotenv()
 from models.ai_models import ClarificationRequest, ClarificationResponse, ConversationSummaryResponse
 from services.personalization_engine import PersonalizationEngine
 from services.enhanced_experience_service import enhanced_experience_service, ExperienceLevel
+from services.confidence_calculator_service import confidence_calculator
 
 # Cost monitoring integration
 try:
@@ -41,7 +42,7 @@ try:
     MULTI_SERVICE_AVAILABLE = True
 except ImportError:
     MULTI_SERVICE_AVAILABLE = False
-    logger.warning("Multi-service manager not available - using basic AI service")
+    logging.getLogger(__name__).warning("Multi-service manager not available - using basic AI service")
 
 # API Gateway client integration
 try:
@@ -188,7 +189,7 @@ class AIService:
         
         logger.info("Unified AI Service initialized with multi-service architecture support")
     
-    async def _get_multi_service_manager(self) -> Optional[MultiServiceManager]:
+    async def _get_multi_service_manager(self) -> Optional[Any]:
         """Get or initialize multi-service manager"""
         if not MULTI_SERVICE_AVAILABLE:
             return None
@@ -663,6 +664,28 @@ MANDATORY REQUIREMENTS FOR THIS RESPONSE:
                 terms_explained_list = [term.term for term in adapted_response.terms_explained] if adapted_response.terms_explained else None
                 complexity_score = adapted_response.complexity_score
             
+            # Calculate overall confidence for human-in-the-loop routing
+            overall_confidence = None
+            should_route_to_expert = None
+            confidence_breakdown_dict = None
+            
+            if request.context:
+                try:
+                    overall_confidence = confidence_calculator.calculate_overall_confidence(request.context)
+                    should_route_to_expert = confidence_calculator.should_route_to_expert(overall_confidence)
+                    confidence_breakdown = confidence_calculator.get_confidence_breakdown(request.context)
+                    confidence_breakdown_dict = {
+                        'overall_confidence': confidence_breakdown.overall_confidence,
+                        'clause_confidences': confidence_breakdown.clause_confidences,
+                        'section_confidences': confidence_breakdown.section_confidences,
+                        'component_weights': confidence_breakdown.component_weights,
+                        'factors_affecting_confidence': confidence_breakdown.factors_affecting_confidence,
+                        'improvement_suggestions': confidence_breakdown.improvement_suggestions
+                    }
+                    logger.info(f"Confidence calculation: overall={overall_confidence:.3f}, route_to_expert={should_route_to_expert}")
+                except Exception as e:
+                    logger.error(f"Error calculating confidence: {e}")
+            
             return ClarificationResponse(
                 success=True,
                 response=ai_response,
@@ -675,7 +698,10 @@ MANDATORY REQUIREMENTS FOR THIS RESPONSE:
                 timestamp=datetime.now(),
                 experience_level=experience_level,
                 terms_explained=terms_explained_list,
-                complexity_score=complexity_score
+                complexity_score=complexity_score,
+                overall_confidence=overall_confidence,
+                should_route_to_expert=should_route_to_expert,
+                confidence_breakdown=confidence_breakdown_dict
             )
             
         except Exception as e:

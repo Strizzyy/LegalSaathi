@@ -384,3 +384,5 @@ export function TermsOfService({ onClose }: TermsOfServiceProps) {
     </div>
   );
 }
+
+export default TermsOfService;

@@ -30,7 +30,10 @@ import { DocumentSummary } from './DocumentSummary';
 import { DocumentComparison } from './DocumentComparison';
 import { EmailModal } from './EmailModal';
 import { PaginatedClauseAnalysis } from './PaginatedClauseAnalysis';
+import { LowConfidencePopup } from './LowConfidencePopup';
+import { ExpertDashboardPopup } from './ExpertDashboardPopup';
 import { ActionableInsights } from './ActionableInsights';
+import { expertQueueService } from '../services/expertQueueService';
 import { MarkdownRenderer } from '../utils/markdownRenderer';
 import GlobalTranslationPanel from './GlobalTranslationPanel';
 import type { DocumentSummaryContent } from '../services/documentSummaryTranslationService';
@@ -55,17 +58,6 @@ export const Results = React.memo(function Results({ analysis, fileInfo, classif
   const [translatedRiskSummary, setTranslatedRiskSummary] = useState<string>('');
   const [riskCurrentLanguage, setRiskCurrentLanguage] = useState('en');
 
-  // Debug: Log the analysis data to see what we're receiving
-  React.useEffect(() => {
-    if (analysis) {
-      console.log('Results component received analysis:', analysis);
-      console.log('Clause texts in Results:', analysis.analysis_results.map(r => ({
-        id: r.clause_id,
-        hasText: !!r.clause_text,
-        textPreview: r.clause_text?.substring(0, 50) + '...'
-      })));
-    }
-  }, [analysis]);
   const [currentLanguage, setCurrentLanguage] = useState('en');
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isHumanSupportOpen, setIsHumanSupportOpen] = useState(false);
@@ -77,6 +69,45 @@ export const Results = React.memo(function Results({ analysis, fileInfo, classif
   const [activeChatClause, setActiveChatClause] = useState<ClauseContext | undefined>(undefined);
   const [isExporting, setIsExporting] = useState<{ pdf: boolean; word: boolean }>({ pdf: false, word: false });
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+  
+  // Human-in-the-loop confidence popup state
+  const [showConfidencePopup, setShowConfidencePopup] = useState(false);
+  const [confidencePopupShown, setConfidencePopupShown] = useState(false);
+  
+  // Expert dashboard popup state
+  const [showExpertDashboardPopup, setShowExpertDashboardPopup] = useState(false);
+
+  // Debug: Log the analysis data to see what we're receiving
+  React.useEffect(() => {
+    if (analysis) {
+      console.log('Results component received analysis:', analysis);
+      console.log('Clause texts in Results:', analysis.analysis_results.map(r => ({
+        id: r.clause_id,
+        hasText: !!r.clause_text,
+        textPreview: r.clause_text?.substring(0, 50) + '...'
+      })));
+      
+      // Check if confidence popup should be shown
+      console.log('🔍 Confidence check:', {
+        should_route_to_expert: analysis.should_route_to_expert,
+        overall_confidence: analysis.overall_confidence,
+        confidencePopupShown: confidencePopupShown,
+        confidence_breakdown: analysis.confidence_breakdown
+      });
+      
+      if (analysis.should_route_to_expert && analysis.overall_confidence !== undefined && !confidencePopupShown) {
+        console.log('✅ Showing confidence popup for low confidence analysis');
+        setShowConfidencePopup(true);
+        setConfidencePopupShown(true);
+      } else {
+        console.log('❌ Not showing confidence popup:', {
+          should_route: analysis.should_route_to_expert,
+          has_confidence: analysis.overall_confidence !== undefined,
+          already_shown: confidencePopupShown
+        });
+      }
+    }
+  }, [analysis, confidencePopupShown]);
 
   if (!analysis) {
     return (
@@ -133,6 +164,39 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
       console.error('Failed to copy results:', error);
       notificationService.copyError();
     }
+  };
+
+  // Confidence popup handlers
+  const handleExpertReviewAccept = async (userEmail: string) => {
+    try {
+      if (!analysis) return;
+      
+      // Close the confidence popup and show expert dashboard popup
+      setShowConfidencePopup(false);
+      setShowExpertDashboardPopup(true);
+      
+    } catch (error) {
+      console.error('Failed to show expert dashboard popup:', error);
+      notificationService.error('Something went wrong. Please try again.');
+    }
+  };
+
+  // Expert dashboard popup handlers
+  const handleGoToExpertDashboard = () => {
+    setShowExpertDashboardPopup(false);
+    // Open HITL dashboard in new tab (expert review system)
+    window.open('/hitl', '_blank');
+  };
+
+  const handleStayOnResults = () => {
+    setShowExpertDashboardPopup(false);
+    notificationService.success('Your expert review request has been submitted. You will receive results via email.');
+  };
+
+  const handleExpertReviewDecline = () => {
+    console.log('User declined expert review');
+    setShowConfidencePopup(false);
+    notificationService.success('Proceeding with AI analysis results');
   };
 
   const openTranslation = (text: string, title: string) => {
@@ -947,6 +1011,28 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
         }}
         userEmail="" // This should come from auth context when available
       />
+
+      {/* Low Confidence Popup */}
+      {analysis.overall_confidence !== undefined && (
+        <LowConfidencePopup
+          isVisible={showConfidencePopup}
+          confidence={analysis.overall_confidence}
+          confidenceBreakdown={analysis.confidence_breakdown}
+          onAccept={handleExpertReviewAccept}
+          onDecline={handleExpertReviewDecline}
+          onClose={() => setShowConfidencePopup(false)}
+        />
+      )}
+
+      {/* Expert Dashboard Popup */}
+      <ExpertDashboardPopup
+        isVisible={showExpertDashboardPopup}
+        onGoToDashboard={handleGoToExpertDashboard}
+        onStayHere={handleStayOnResults}
+        onClose={() => setShowExpertDashboardPopup(false)}
+      />
     </>
   );
 });
+
+export default Results;

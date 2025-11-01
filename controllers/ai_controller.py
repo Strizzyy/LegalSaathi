@@ -25,7 +25,8 @@ class AIController:
         try:
             logger.info(f"Processing AI clarification request: question='{request.question[:50]}...', context_size={len(str(request.context)) if request.context else 0}")
             
-            if not self.ai_service.enabled:
+            # Check if AI service is available
+            if not self.ai_service or not hasattr(self.ai_service, 'enabled') or not self.ai_service.enabled:
                 raise HTTPException(
                     status_code=503,
                     detail="AI clarification service is not available"

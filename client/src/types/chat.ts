@@ -81,3 +81,41 @@ export interface ExpertProfile {
   responseTime: string;
   availability: 'available' | 'busy' | 'offline';
 }
+
+// Human-in-the-Loop Confidence Types
+export interface ConfidenceBreakdown {
+  overall_confidence: number;
+  clause_confidences: Record<string, number>;
+  section_confidences: Record<string, number>;
+  component_weights: Record<string, number>;
+  factors_affecting_confidence: string[];
+  improvement_suggestions: string[];
+}
+
+export interface ClarificationResponse {
+  success: boolean;
+  response: string;
+  conversation_id: string;
+  confidence_score: number;
+  response_quality: string;
+  processing_time: number;
+  fallback?: boolean;
+  service_used?: string;
+  error_type?: string;
+  timestamp?: string;
+  experience_level?: string;
+  terms_explained?: string[];
+  complexity_score?: number;
+  // Human-in-the-loop confidence fields
+  overall_confidence?: number;
+  should_route_to_expert?: boolean;
+  confidence_breakdown?: ConfidenceBreakdown;
+}
+
+export interface ExpertReviewConsent {
+  documentId: string;
+  userEmail: string;
+  consentGiven: boolean;
+  timestamp: Date;
+  estimatedReviewTime: string;
+}

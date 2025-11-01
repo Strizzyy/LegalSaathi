@@ -307,3 +307,5 @@ export function PrivacyPolicy({ onClose }: PrivacyPolicyProps) {
     </div>
   );
 }
+
+export default PrivacyPolicy;

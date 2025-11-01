@@ -134,7 +134,7 @@ class GoogleTranslateService:
         # Google Cloud Translate API endpoint
         self.base_url = "https://translation.googleapis.com/language/translate/v2"
         
-    async def translate_text(self, text: str, target_language: str = 'hi', source_language: str = 'auto') -> Dict[str, Any]:
+    async def translate_text(self, text: str, target_language: str = 'hi', source_language: Optional[str] = None) -> Dict[str, Any]:
         """
         Translate text using Google Cloud Translate API
         
@@ -146,6 +146,10 @@ class GoogleTranslateService:
         Returns:
             Dictionary with translation result
         """
+        # Handle None source_language
+        if source_language is None:
+            source_language = 'auto'
+            
         if not self.cloud_enabled:
             return self._fallback_translation(text, target_language, source_language)
         
@@ -186,7 +190,7 @@ class GoogleTranslateService:
                     text_to_translate,
                     target_language=target_language
                 )
-                detected_language = result.get('detectedSourceLanguage', 'unknown')
+                detected_language = result.get('detectedSourceLanguage', 'en')
             else:
                 # Specify source language
                 result = self.client.translate(
@@ -262,9 +266,9 @@ class GoogleTranslateService:
                             translated_text += item[0]
                     
                     # Detect source language if auto-detected
-                    detected_language = source_language
+                    detected_language = source_language if source_language != 'auto' else 'en'
                     if len(result) > 2 and result[2]:
-                        detected_language = result[2]
+                        detected_language = result[2] or 'en'
                     
                     return {
                         'success': True,

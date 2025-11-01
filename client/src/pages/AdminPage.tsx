@@ -7,13 +7,13 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { adminCostService } from '../services/adminCostService';
 import type { CostAnalytics, QuotaStatus, HealthStatus } from '../types/admin';
-import { ArrowLeft, RefreshCw, DollarSign, Activity, Shield } from 'lucide-react';
+import { ArrowLeft, RefreshCw, DollarSign, Activity, Shield, Users, Clock, CheckCircle } from 'lucide-react';
 
 const AdminPage: React.FC = () => {
   const { user } = useAuth();
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
-  const [activeTab, setActiveTab] = useState<'analytics' | 'usage' | 'health'>('analytics');
+  const [activeTab, setActiveTab] = useState<'analytics' | 'usage' | 'health' | 'expert-queue'>('expert-queue');
   
   // Data states
   const [analytics, setAnalytics] = useState<CostAnalytics | null>(null);
@@ -21,6 +21,13 @@ const AdminPage: React.FC = () => {
   const [health, setHealth] = useState<HealthStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState<boolean>(false);
+
+  // Navigation function
+  const handleBackToApp = () => {
+    // Navigate back to the main application
+    window.history.pushState({}, '', '/');
+    window.location.reload();
+  };
 
   // Check admin access on mount
   useEffect(() => {
@@ -70,6 +77,8 @@ const AdminPage: React.FC = () => {
       setRefreshing(false);
     }
   };
+
+
 
   const formatCurrency = (amount: number): string => {
     return new Intl.NumberFormat('en-US', {
@@ -145,12 +154,6 @@ const AdminPage: React.FC = () => {
     );
   }
 
-  const handleBackToApp = () => {
-    // Navigate back to the main application
-    window.history.pushState({}, '', '/');
-    window.location.reload();
-  };
-
   return (
     <div className="min-h-screen bg-slate-900">
       {/* Header */}
@@ -196,6 +199,7 @@ const AdminPage: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex space-x-8">
             {[
+              { key: 'expert-queue', label: 'Expert Queue', icon: Users },
               { key: 'analytics', label: 'Cost Analytics', icon: DollarSign },
               { key: 'usage', label: 'API Usage', icon: Activity },
               { key: 'health', label: 'System Health', icon: Shield }
@@ -487,6 +491,139 @@ const AdminPage: React.FC = () => {
                       </div>
                     </div>
                   ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Expert Queue Tab - Demo Version */}
+        {activeTab === 'expert-queue' && (
+          <div className="space-y-6">
+            {/* Demo Banner */}
+            <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg p-6 border border-blue-500">
+              <div className="flex items-center">
+                <Users className="w-8 h-8 text-white mr-4" />
+                <div>
+                  <h2 className="text-xl font-bold text-white">Expert Review Queue - Demo Mode</h2>
+                  <p className="text-blue-100 mt-1">
+                    This dashboard shows how experts would manage low-confidence document reviews in production.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Demo Queue Statistics */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
+                <div className="flex items-center">
+                  <div className="p-2 bg-blue-900/50 rounded-lg">
+                    <Users className="w-6 h-6 text-blue-400" />
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-slate-400">Total Requests</p>
+                    <p className="text-2xl font-bold text-white">1</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
+                <div className="flex items-center">
+                  <div className="p-2 bg-yellow-900/50 rounded-lg">
+                    <Clock className="w-6 h-6 text-yellow-400" />
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-slate-400">Pending</p>
+                    <p className="text-2xl font-bold text-white">1</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
+                <div className="flex items-center">
+                  <div className="p-2 bg-orange-900/50 rounded-lg">
+                    <Activity className="w-6 h-6 text-orange-400" />
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-slate-400">In Progress</p>
+                    <p className="text-2xl font-bold text-white">0</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
+                <div className="flex items-center">
+                  <div className="p-2 bg-emerald-900/50 rounded-lg">
+                    <CheckCircle className="w-6 h-6 text-emerald-400" />
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-slate-400">Completed</p>
+                    <p className="text-2xl font-bold text-white">0</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Demo Expert Request */}
+            <div className="bg-slate-800 rounded-lg border border-slate-700">
+              <div className="px-6 py-4 border-b border-slate-700">
+                <h3 className="text-lg font-medium text-white">Expert Review Requests</h3>
+              </div>
+              <div className="p-6">
+                <div className="bg-slate-700/50 rounded-lg p-4 border border-slate-600">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center space-x-4">
+                      <div className="w-3 h-3 bg-yellow-400 rounded-full"></div>
+                      <div>
+                        <h4 className="font-medium text-white">Employment Contract Review</h4>
+                        <p className="text-sm text-slate-400">Request ID: demo-123</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-yellow-900/50 text-yellow-400 border border-yellow-700">
+                        Pending
+                      </span>
+                      <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-orange-900/50 text-orange-400 border border-orange-700">
+                        High Priority
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <div>
+                      <p className="text-sm text-slate-400">AI Confidence</p>
+                      <div className="flex items-center mt-1">
+                        <div className="w-2 h-2 bg-red-400 rounded-full mr-2"></div>
+                        <span className="text-white font-medium">35%</span>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-sm text-slate-400">Document Type</p>
+                      <p className="text-white font-medium mt-1">Employment Contract</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-slate-400">Submitted</p>
+                      <p className="text-white font-medium mt-1">Just now</p>
+                    </div>
+                  </div>
+
+                  <div className="mb-4">
+                    <p className="text-sm text-slate-400 mb-2">Issues Identified:</p>
+                    <ul className="text-sm text-slate-300 space-y-1">
+                      <li>• Complex legal language in non-compete clause</li>
+                      <li>• Ambiguous termination conditions</li>
+                      <li>• Multi-jurisdictional compliance concerns</li>
+                    </ul>
+                  </div>
+
+                  <div className="flex space-x-3">
+                    <button className="bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition-colors">
+                      Assign to Expert
+                    </button>
+                    <button className="bg-slate-600 text-white px-4 py-2 rounded-lg hover:bg-slate-700 transition-colors">
+                      View Details
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

@@ -118,8 +118,9 @@ class GmailService:
             self.gmail_client = None
     
     def is_available(self) -> bool:
-        """Check if Gmail service is available (Gmail API or SMTP fallback)"""
-        return (self.gmail_client is not None) or (self.smtp_service and self.smtp_service.is_available())
+        """Check if Gmail service is available (prioritize SMTP over Gmail API)"""
+        # Prioritize SMTP service as it's more reliable and simpler
+        return (self.smtp_service and self.smtp_service.is_available()) or (self.gmail_client is not None)
     
     def check_rate_limit(self, user_id: str) -> EmailRateLimitInfo:
         """Check rate limiting for user"""
@@ -167,8 +168,26 @@ class GmailService:
             )
         
         try:
-            # Try Gmail API first, then SMTP fallback
-            if self.gmail_client is not None:
+            # Prioritize SMTP service for reliability
+            if self.smtp_service and self.smtp_service.is_available():
+                logger.info("Using SMTP service for email delivery")
+                response = await self.smtp_service.send_analysis_report(
+                    user_email=user_email,
+                    analysis_result=analysis_result,
+                    pdf_content=pdf_content,
+                    user_id=user_id,
+                    custom_message=custom_message
+                )
+                
+                if response.success:
+                    # Increment rate limit counters
+                    self.increment_rate_limit(user_id)
+                    logger.info(f"Analysis report sent successfully via SMTP to {user_email}")
+                
+                return response
+            
+            # Fallback to Gmail API if SMTP is not available
+            elif self.gmail_client is not None:
                 # Use Gmail API
                 subject = self._generate_email_subject(analysis_result)
                 html_content = self._generate_html_email_template(analysis_result, custom_message)

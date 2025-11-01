@@ -152,13 +152,20 @@ class EmailController:
         """Test email service availability and configuration"""
         try:
             is_available = self.gmail_service.is_available()
+            smtp_available = self.gmail_service.smtp_service and self.gmail_service.smtp_service.is_available()
+            gmail_api_available = self.gmail_service.gmail_client is not None
             
             return {
                 "success": True,
                 "email_service_available": is_available,
+                "smtp_service_available": smtp_available,
+                "smtp_configured": smtp_available,
+                "gmail_api_available": gmail_api_available,
                 "gmail_client_initialized": self.gmail_service.gmail_client is not None,
                 "credentials_available": self.gmail_service.credentials is not None,
-                "message": "Email service ready" if is_available else "Email service not configured"
+                "primary_service": "SMTP" if smtp_available else "Gmail API" if gmail_api_available else "None",
+                "sender_email": self.gmail_service.smtp_service.sender_email if smtp_available else "Not configured",
+                "message": "Email service ready (SMTP)" if smtp_available else "Email service ready (Gmail API)" if gmail_api_available else "Email service not configured"
             }
         except Exception as e:
             logger.error(f"Email service test failed: {e}")
@@ -275,40 +282,95 @@ class EmailController:
             )
         
         try:
-            # Create a simple test email
-            from models.email_models import EmailSendRequest, EmailPriority
-            
-            html_content = """
-            <html>
-            <body>
-                <h2>LegalSaathi Email Test</h2>
-                <p>This is a test email from LegalSaathi to verify email functionality.</p>
-                <p>If you received this email, the email service is working correctly.</p>
-                <br>
-                <p>Best regards,<br>LegalSaathi Team</p>
-            </body>
-            </html>
-            """
-            
-            text_content = """
-            LegalSaathi Email Test
-            
-            This is a test email from LegalSaathi to verify email functionality.
-            If you received this email, the email service is working correctly.
-            
-            Best regards,
-            LegalSaathi Team
-            """
-            
-            email_request = EmailSendRequest(
-                to_email=user_email,
-                subject=subject,
-                html_content=html_content,
-                text_content=text_content,
-                priority=EmailPriority.NORMAL
-            )
-            
-            response = await self.gmail_service._send_email(email_request)
+            # Use SMTP service directly for test emails
+            if self.gmail_service.smtp_service and self.gmail_service.smtp_service.is_available():
+                logger.info("Using SMTP service for test email")
+                
+                html_content = f"""
+                <html>
+                <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                    <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                        <h2 style="color: #0ea5e9;">🧪 LegalSaathi Email Test</h2>
+                        <p>This is a test email from LegalSaathi to verify email functionality.</p>
+                        <p>If you received this email, the SMTP email service is working correctly!</p>
+                        
+                        <div style="background-color: #f0fdf4; border: 1px solid #10b981; border-radius: 8px; padding: 15px; margin: 20px 0;">
+                            <p style="margin: 0; color: #065f46;"><strong>✅ Email Configuration Status:</strong></p>
+                            <ul style="margin: 10px 0; color: #065f46;">
+                                <li>SMTP Server: Gmail (smtp.gmail.com:587)</li>
+                                <li>Authentication: App Password</li>
+                                <li>Sender: {self.gmail_service.smtp_service.sender_email}</li>
+                            </ul>
+                        </div>
+                        
+                        <p>You can now send analysis reports with PDF attachments!</p>
+                        <br>
+                        <p>Best regards,<br><strong>LegalSaathi Team</strong></p>
+                    </div>
+                </body>
+                </html>
+                """
+                
+                text_content = f"""
+                LegalSaathi Email Test
+                
+                This is a test email from LegalSaathi to verify email functionality.
+                If you received this email, the SMTP email service is working correctly!
+                
+                Email Configuration Status:
+                - SMTP Server: Gmail (smtp.gmail.com:587)
+                - Authentication: App Password
+                - Sender: {self.gmail_service.smtp_service.sender_email}
+                
+                You can now send analysis reports with PDF attachments!
+                
+                Best regards,
+                LegalSaathi Team
+                """
+                
+                response = await self.gmail_service.smtp_service._send_smtp_email(
+                    to_email=user_email,
+                    subject=subject,
+                    html_content=html_content,
+                    text_content=text_content,
+                    pdf_content=None  # No PDF for test email
+                )
+            else:
+                # Fallback to Gmail API
+                logger.info("Using Gmail API for test email")
+                from models.email_models import EmailSendRequest, EmailPriority
+                
+                html_content = """
+                <html>
+                <body>
+                    <h2>LegalSaathi Email Test</h2>
+                    <p>This is a test email from LegalSaathi to verify email functionality.</p>
+                    <p>If you received this email, the email service is working correctly.</p>
+                    <br>
+                    <p>Best regards,<br>LegalSaathi Team</p>
+                </body>
+                </html>
+                """
+                
+                text_content = """
+                LegalSaathi Email Test
+                
+                This is a test email from LegalSaathi to verify email functionality.
+                If you received this email, the email service is working correctly.
+                
+                Best regards,
+                LegalSaathi Team
+                """
+                
+                email_request = EmailSendRequest(
+                    to_email=user_email,
+                    subject=subject,
+                    html_content=html_content,
+                    text_content=text_content,
+                    priority=EmailPriority.NORMAL
+                )
+                
+                response = await self.gmail_service._send_email(email_request)
             
             if response.success:
                 self.gmail_service.increment_rate_limit(user_id)

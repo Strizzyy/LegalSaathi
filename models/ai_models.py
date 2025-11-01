@@ -41,6 +41,10 @@ class ClarificationResponse(BaseModel):
     experience_level: Optional[str] = None
     terms_explained: Optional[List[str]] = None
     complexity_score: Optional[float] = None
+    # Human-in-the-loop confidence fields
+    overall_confidence: Optional[float] = None
+    should_route_to_expert: Optional[bool] = None
+    confidence_breakdown: Optional[Dict[str, Any]] = None
 
 
 class ConversationSummaryResponse(BaseModel):

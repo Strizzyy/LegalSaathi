@@ -2,6 +2,151 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Enhanced animations for lazy loading and progressive enhancement */
+@keyframes shimmer {
+  0% {
+    background-position: -200px 0;
+  }
+  100% {
+    background-position: calc(200px + 100%) 0;
+  }
+}
+
+@keyframes wave {
+  0%, 60%, 100% {
+    transform: initial;
+  }
+  30% {
+    transform: translateY(-15px);
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Utility classes for animations */
+.animate-shimmer {
+  animation: shimmer 2s infinite linear;
+  background: linear-gradient(
+    90deg,
+    #374151 25%,
+    #4b5563 50%,
+    #374151 75%
+  );
+  background-size: 200px 100%;
+}
+
+.animate-wave {
+  animation: wave 2s ease-in-out infinite;
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.6s ease-out;
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 0.6s ease-out;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.4s ease-out;
+}
+
+/* Progressive enhancement styles */
+.progressive-enhancement {
+  transition: all 0.3s ease;
+}
+
+.progressive-enhancement.loading {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.progressive-enhancement.error {
+  opacity: 0.5;
+  filter: grayscale(50%);
+}
+
+/* Lazy loading container styles */
+.lazy-route-container {
+  min-height: 200px;
+  position: relative;
+}
+
+.lazy-route-container.loading {
+  overflow: hidden;
+}
+
+/* Skeleton loading styles */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    #374151 25%,
+    #4b5563 50%,
+    #374151 75%
+  );
+  background-size: 200px 100%;
+  animation: shimmer 2s infinite linear;
+}
+
+/* Connection status styles */
+.connection-status {
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Responsive lazy loading */
+@media (max-width: 768px) {
+  .lazy-route-container {
+    min-height: 150px;
+  }
+}
+
+/* Reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .animate-shimmer,
+  .animate-wave,
+  .animate-fade-in-up,
+  .animate-slide-in-right,
+  .animate-scale-in {
+    animation: none;
+  }
+  
+  .progressive-enhancement {
+    transition: none;
+  }
+}
+
 @layer base {
   :root {
     --background: 222.2 84% 4.9%;

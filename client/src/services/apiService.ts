@@ -757,12 +757,20 @@ class APIService {
           };
         }),
         processing_time: backendResponse.processing_time,
-        enhanced_insights: backendResponse.enhanced_insights
+        enhanced_insights: backendResponse.enhanced_insights,
+        // Human-in-the-loop confidence fields
+        overall_confidence: backendResponse.overall_confidence,
+        should_route_to_expert: backendResponse.should_route_to_expert,
+        confidence_breakdown: backendResponse.confidence_breakdown
       };
 
       console.log('✅ TRANSFORMED ANALYSIS RESULT:', {
         clauseCount: analysisResult.analysis_results.length,
-        firstClauseText: analysisResult.analysis_results[0]?.clause_text?.substring(0, 100) + '...'
+        firstClauseText: analysisResult.analysis_results[0]?.clause_text?.substring(0, 100) + '...',
+        // Debug confidence fields
+        overall_confidence: analysisResult.overall_confidence,
+        should_route_to_expert: analysisResult.should_route_to_expert,
+        has_confidence_breakdown: !!analysisResult.confidence_breakdown
       });
 
       return {

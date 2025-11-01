@@ -421,3 +421,5 @@ export function ContactUs({ onClose }: ContactUsProps) {
     </div>
   );
 }
+
+export default ContactUs;

@@ -24,6 +24,7 @@ from services.advanced_rag_service import advanced_rag_service
 # INTERNAL COST MONITORING - Never expose to users
 from services.cost_monitoring_service import cost_monitor
 from services.quota_manager import quota_manager, ServicePriority
+from services.confidence_calculator_service import confidence_calculator
 
 logger = logging.getLogger(__name__)
 
@@ -299,6 +300,38 @@ class DocumentService:
             
             logger.info("✅ Analysis results unmasked successfully")
             
+            # Calculate confidence for human-in-the-loop routing
+            logger.info("🤖 Calculating AI confidence for expert review routing...")
+            
+            # Prepare analysis data for confidence calculation
+            analysis_data = {
+                'clause_analysis': [
+                    {
+                        'clause_id': clause.clause_id,
+                        'confidence_percentage': clause.risk_assessment.confidence_percentage,
+                        'risk_level': {
+                            'confidence_percentage': clause.risk_assessment.confidence_percentage,
+                            'score': clause.risk_assessment.score
+                        }
+                    }
+                    for clause in unmasked_clause_assessments
+                ],
+                'document_summary': {
+                    'confidence_percentage': 85  # Default summary confidence - can be enhanced later
+                },
+                'risk_assessment': {
+                    'confidence_percentage': sum(clause.risk_assessment.confidence_percentage for clause in unmasked_clause_assessments) / len(unmasked_clause_assessments) if unmasked_clause_assessments else 70
+                }
+            }
+            
+            overall_confidence = confidence_calculator.calculate_overall_confidence(analysis_data)
+            should_route_to_expert = confidence_calculator.should_route_to_expert(overall_confidence)
+            confidence_breakdown = confidence_calculator.get_confidence_breakdown(analysis_data)
+            
+            logger.info(f"🎯 Confidence calculated: {overall_confidence:.3f}, Expert review needed: {should_route_to_expert}")
+            logger.info(f"🔍 Analysis data structure: {analysis_data}")
+            logger.info(f"📊 Confidence breakdown: overall={confidence_breakdown.overall_confidence}, factors={confidence_breakdown.factors_affecting_confidence}")
+            
             # Create response with unmasked content (timestamp auto-generated with current time)
             response = DocumentAnalysisResponse(
                 analysis_id=analysis_id,
@@ -309,7 +342,18 @@ class DocumentService:
                 recommendations=unmasked_recommendations,
                 enhanced_insights=enhanced_insights,
                 document_text=request.document_text,  # Include original text for comparison
-                document_type=request.document_type.value  # Include document type for comparison
+                document_type=request.document_type.value,  # Include document type for comparison
+                # Human-in-the-loop confidence fields
+                overall_confidence=overall_confidence,
+                should_route_to_expert=should_route_to_expert,
+                confidence_breakdown={
+                    'overall_confidence': confidence_breakdown.overall_confidence,
+                    'clause_confidences': confidence_breakdown.clause_confidences,
+                    'section_confidences': confidence_breakdown.section_confidences,
+                    'component_weights': confidence_breakdown.component_weights,
+                    'factors_affecting_confidence': confidence_breakdown.factors_affecting_confidence,
+                    'improvement_suggestions': confidence_breakdown.improvement_suggestions
+                }
             )
             
             # Store complete analysis results for pagination/search/filtering

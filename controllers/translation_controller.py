@@ -35,6 +35,13 @@ class TranslationController:
         try:
             logger.info(f"Translating text to {request.target_language}")
             
+            # Check if translation service is available
+            if not hasattr(self.translation_service, 'enabled') or not self.translation_service.enabled:
+                raise HTTPException(
+                    status_code=503,
+                    detail="Translation service is currently unavailable"
+                )
+            
             # Check cache first
             cache_key = self.cache_service.get_cache_key(
                 f"{request.text}_{request.target_language}", 
@@ -47,12 +54,13 @@ class TranslationController:
                 return TranslationResponse(**cached_result)
             
             # Perform translation
-            result = self.translation_service.translate_text(
+            result = await self.translation_service.translate_text(
                 text=request.text,
                 target_language=request.target_language,
                 source_language=request.source_language
             )
             
+
             # Handle both dict and object formats for result
             success = result.get('success', False) if isinstance(result, dict) else getattr(result, 'success', False)
             if not success:
@@ -66,7 +74,7 @@ class TranslationController:
             response = TranslationResponse(
                 success=result['success'],
                 translated_text=result['translated_text'],
-                source_language=result['source_language'],
+                source_language=result.get('source_language', 'auto'),
                 target_language=result['target_language'],
                 language_name=result['language_name'],
                 confidence_score=0.9  # Default confidence for Google Translate
@@ -109,7 +117,7 @@ class TranslationController:
                 # Add legal context to improve translation accuracy
                 translation_text = f"Legal clause: {request.clause_text}"
             
-            result = self.translation_service.translate_text(
+            result = await self.translation_service.translate_text(
                 text=translation_text,
                 target_language=request.target_language,
                 source_language=request.source_language
@@ -140,7 +148,7 @@ class TranslationController:
                 clause_id=request.clause_id,
                 original_text=request.clause_text,
                 translated_text=translated_text,
-                source_language=result['source_language'],
+                source_language=result.get('source_language', 'auto'),
                 target_language=result['target_language'],
                 language_name=result['language_name'],
                 legal_context=legal_context,

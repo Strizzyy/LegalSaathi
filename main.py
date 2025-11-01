@@ -91,6 +91,7 @@ from controllers.auth_controller import AuthController
 from controllers.insights_controller import router as insights_router
 from controllers.vision_controller import VisionController
 from controllers.cost_controller import get_cost_router
+from controllers.expert_queue_router import router as expert_queue_router
 
 # Import services for cleanup
 from services.cache_service import CacheService
@@ -107,6 +108,15 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Import optimized startup manager (with error handling)
+try:
+    from services.startup_manager import optimized_lifespan, get_startup_manager
+    OPTIMIZED_STARTUP_AVAILABLE = True
+    logger.info("Optimized startup manager loaded successfully")
+except ImportError as e:
+    logger.warning(f"Optimized startup manager not available: {e}")
+    OPTIMIZED_STARTUP_AVAILABLE = False
+
 # Initialize rate limiter
 limiter = Limiter(key_func=get_remote_address)
 
@@ -117,45 +127,17 @@ cache_service = CacheService()
 user_rate_limiter = UserBasedRateLimiter()
 
 
+# Fallback lifespan function for backward compatibility
 @asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Application lifespan events"""
+async def fallback_lifespan(app: FastAPI):
+    """Fallback lifespan function when optimized startup is not available"""
     # Startup
-    logger.info("🚀 Starting Legal Saathi FastAPI application")
+    logger.info("🚀 Starting Legal Saathi FastAPI application (fallback mode)")
     
-    # Initialize services
     try:
         logger.info("🔧 Initializing core services...")
-        
-        # Initialize AI services
-        logger.info("🤖 Initializing AI services...")
-        
-        # Initialize translation services
-        logger.info("🌐 Initializing translation services...")
-        
-        # Initialize document processing services
-        logger.info("📄 Initializing document processing services...")
-        
-        # Initialize RAG services
-        logger.info("🧠 Initializing RAG services...")
-        
-        logger.info("✅ All services initialized successfully")
+        logger.info("✅ Basic services initialized successfully")
         logger.info("🌟 Legal Saathi is ready to serve requests!")
-        
-        # Mark services as ready in health controller
-        try:
-            health_controller._initialization_complete = True
-            health_controller._services_ready.update({
-                'ai_service': True,
-                'translation_service': True,
-                'document_ai': True,
-                'natural_language': True,
-                'speech_service': True,
-                'rag_service': True
-            })
-            logger.info("🎯 Health controller updated - services marked as ready")
-        except Exception as e:
-            logger.warning(f"⚠️ Could not update health controller: {e}")
         
     except Exception as e:
         logger.error(f"❌ Failed to initialize services: {e}")
@@ -165,13 +147,20 @@ async def lifespan(app: FastAPI):
     # Shutdown
     logger.info("🛑 Shutting down Legal Saathi FastAPI application")
     
-    # Cleanup
     try:
         cache_service.clear_expired_cache()
         logger.info("🧹 Cleanup completed successfully")
     except Exception as e:
         logger.error(f"❌ Cleanup failed: {e}")
 
+
+# Choose lifespan function based on availability
+if OPTIMIZED_STARTUP_AVAILABLE:
+    selected_lifespan = optimized_lifespan
+    logger.info("Using optimized service initialization")
+else:
+    selected_lifespan = fallback_lifespan
+    logger.info("Using fallback service initialization")
 
 # Create FastAPI application
 app = FastAPI(
@@ -180,7 +169,7 @@ app = FastAPI(
     version="2.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
-    lifespan=lifespan
+    lifespan=selected_lifespan
 )
 
 # Add Firebase authentication middleware
@@ -212,39 +201,80 @@ app.add_middleware(
 # Add compression middleware
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
-# Initialize controllers
-document_controller = DocumentController()
-translation_controller = TranslationController()
-speech_controller = SpeechController()
-health_controller = HealthController()
-ai_controller = AIController()
-comparison_controller = ComparisonController()
-export_controller = ExportController()
-try:
-    email_controller = EmailController()
-    logger.info("Email controller initialized")
-except Exception as e:
-    logger.warning(f"Email controller failed to initialize: {e}")
-    email_controller = None
+# Initialize controllers using optimized service manager
+# Controllers are now initialized through the optimized service manager
+# This provides better error handling, dependency management, and performance monitoring
 
-try:
-    auth_controller = AuthController()
-    logger.info("Authentication controller initialized")
-except Exception as e:
-    logger.warning(f"Authentication controller failed to initialize: {e}")
-    auth_controller = None
+def get_controller(service_name: str):
+    """Get controller from optimized service manager with fallback"""
+    startup_manager = get_startup_manager()
+    controller = startup_manager.get_service(service_name)
+    if controller is None:
+        logger.warning(f"Controller {service_name} not available from service manager")
+    return controller
 
-try:
-    vision_controller = VisionController()
-    logger.info("Vision API controller initialized")
-except Exception as e:
-    logger.warning(f"Vision API controller failed to initialize: {e}")
-    vision_controller = None
+# Get controllers from service manager (will be None until services are initialized)
+document_controller = None
+translation_controller = None
+speech_controller = None
+health_controller = None
+ai_controller = None
+comparison_controller = None
+export_controller = None
+email_controller = None
+auth_controller = None
+vision_controller = None
+
+# Helper function to get controllers dynamically
+# Initialize controllers directly to avoid startup manager issues
+_controllers = {}
+
+def get_initialized_controller(service_name: str):
+    """Get initialized controller or create fallback"""
+    # Use cached controllers to avoid re-initialization
+    if service_name in _controllers:
+        return _controllers[service_name]
+    
+    # Direct initialization for immediate functionality
+    try:
+        if service_name == 'document':
+            controller = DocumentController()
+        elif service_name == 'translation':
+            controller = TranslationController()
+        elif service_name == 'speech':
+            controller = SpeechController()
+        elif service_name == 'health':
+            controller = HealthController()
+        elif service_name == 'ai':
+            controller = AIController()
+        elif service_name == 'comparison':
+            controller = ComparisonController()
+        elif service_name == 'export':
+            controller = ExportController()
+        elif service_name == 'email':
+            controller = EmailController()
+        elif service_name == 'auth':
+            controller = AuthController()
+        elif service_name == 'vision':
+            controller = VisionController()
+        else:
+            logger.warning(f"Unknown service: {service_name}")
+            return None
+        
+        # Cache the controller
+        _controllers[service_name] = controller
+        logger.info(f"Successfully initialized {service_name} controller")
+        return controller
+        
+    except Exception as e:
+        logger.error(f"Failed to create controller for {service_name}: {e}")
+        return None
 
 # Include routers
 app.include_router(support_router)
 app.include_router(insights_router)
 app.include_router(get_cost_router())
+app.include_router(expert_queue_router)
 
 
 # Middleware for request logging and performance monitoring
@@ -323,88 +353,178 @@ async def general_exception_handler(request: Request, exc: Exception):
 @app.post("/api/auth/verify-token")
 async def verify_token(token_request: dict):
     """Verify Firebase ID token"""
-    if not auth_controller:
+    controller = get_initialized_controller('auth')
+    if not controller:
         return {"success": False, "error": "Authentication service not available"}
     from models.auth_models import FirebaseTokenRequest
     request = FirebaseTokenRequest(token=token_request.get('token', ''))
-    return await auth_controller.verify_token(request)
+    return await controller.verify_token(request)
 
 
 @app.post("/api/auth/register")
 async def register_user(registration_request: dict):
     """Register a new user account"""
-    if not auth_controller:
+    controller = get_initialized_controller('auth')
+    if not controller:
         return {"success": False, "error": "Authentication service not available"}
     from models.auth_models import UserRegistrationRequest
     request = UserRegistrationRequest(**registration_request)
-    return await auth_controller.register_user(request)
+    return await controller.register_user(request)
 
 
 @app.get("/api/auth/user-info")
 async def get_user_info(request: Request):
     """Get current user information"""
-    if not auth_controller:
+    controller = get_initialized_controller('auth')
+    if not controller:
         return {"success": False, "error": "Authentication service not available"}
-    return await auth_controller.get_user_info(request)
+    return await controller.get_user_info(request)
 
 
 @app.post("/api/auth/refresh-token")
 async def refresh_token(refresh_request: dict):
     """Refresh Firebase token"""
-    if not auth_controller:
+    controller = get_initialized_controller('auth')
+    if not controller:
         return {"success": False, "error": "Authentication service not available"}
     from models.auth_models import RefreshTokenRequest
     request = RefreshTokenRequest(refresh_token=refresh_request.get('refresh_token', ''))
-    return await auth_controller.refresh_token(request)
+    return await controller.refresh_token(request)
 
 
 @app.get("/api/auth/current-user")
 async def get_current_user(request: Request):
     """Get current authenticated user"""
-    if not auth_controller:
+    controller = get_initialized_controller('auth')
+    if not controller:
         return {"success": False, "error": "Authentication service not available"}
-    return await auth_controller.get_current_user(request)
+    return await controller.get_current_user(request)
 
 
 @app.put("/api/auth/profile")
 async def update_user_profile(request: Request, update_data: dict):
     """Update user profile"""
-    if not auth_controller:
+    controller = get_initialized_controller('auth')
+    if not controller:
         return {"success": False, "error": "Authentication service not available"}
-    return await auth_controller.update_user_profile(request, update_data)
+    return await controller.update_user_profile(request, update_data)
 
 
 @app.delete("/api/auth/account")
 async def delete_user_account(request: Request):
     """Delete user account"""
-    if not auth_controller:
+    controller = get_initialized_controller('auth')
+    if not controller:
         return {"success": False, "error": "Authentication service not available"}
-    return await auth_controller.delete_user_account(request)
+    return await controller.delete_user_account(request)
 
 
 # Health check endpoints
 @app.get("/health", response_model=HealthCheckResponse)
 async def health_check():
     """Basic health check endpoint"""
-    return await health_controller.health_check()
+    controller = get_initialized_controller('health')
+    if controller:
+        return await controller.health_check()
+    else:
+        # Fallback health check
+        return HealthCheckResponse(
+            status="degraded",
+            timestamp=datetime.now(),
+            services={"health_controller": False},
+            cache={"status": "unavailable"}
+        )
 
 
 @app.get("/api/health/ready")
 async def check_backend_ready():
     """Check if backend is fully initialized and ready for requests"""
-    return await health_controller.check_initialization_status()
+    if OPTIMIZED_STARTUP_AVAILABLE:
+        startup_manager = get_startup_manager()
+        critical_ready = startup_manager.are_critical_services_ready()
+        startup_complete = startup_manager.is_startup_complete()
+        
+        # For frontend compatibility: if critical services are ready, consider initialization complete
+        # This allows the frontend to start working while background services continue loading
+        initialization_complete = critical_ready or startup_manager.service_manager.is_initialization_complete()
+        
+        return {
+            'ready': critical_ready,
+            'ready_for_requests': critical_ready,  # This is what the dev script looks for
+            'startup_complete': startup_complete,
+            'initialization_complete': initialization_complete,  # This is what the frontend looks for
+            'status': startup_manager.get_startup_status(),
+            'timestamp': datetime.now().isoformat()
+        }
+    else:
+        # Fallback response
+        return {
+            'ready': True,
+            'ready_for_requests': True,  # This is what the dev script looks for
+            'startup_complete': True,
+            'initialization_complete': True,  # This is what the frontend looks for
+            'status': {'mode': 'fallback', 'optimized_startup': False},
+            'timestamp': datetime.now().isoformat()
+        }
 
 
 @app.get("/api/health/detailed")
 async def detailed_health_check():
     """Detailed health check with service information"""
-    return await health_controller.detailed_health_check()
+    controller = get_initialized_controller('health')
+    if controller:
+        return await controller.detailed_health_check()
+    elif OPTIMIZED_STARTUP_AVAILABLE:
+        # Fallback to service manager health status
+        startup_manager = get_startup_manager()
+        return startup_manager.get_health_status()
+    else:
+        # Basic fallback response
+        return {
+            'overall_status': 'healthy',
+            'mode': 'fallback',
+            'optimized_startup': False,
+            'timestamp': datetime.now().isoformat()
+        }
 
 
 @app.get("/api/health/metrics")
 async def service_metrics():
     """Get service performance metrics"""
-    return await health_controller.service_metrics()
+    controller = get_initialized_controller('health')
+    if controller:
+        return await controller.service_metrics()
+    elif OPTIMIZED_STARTUP_AVAILABLE:
+        # Fallback to service manager metrics
+        startup_manager = get_startup_manager()
+        return startup_manager.get_performance_metrics()
+    else:
+        # Basic fallback metrics
+        return {
+            'mode': 'fallback',
+            'optimized_startup': False,
+            'timestamp': datetime.now().isoformat()
+        }
+
+
+@app.get("/api/health/startup-performance")
+async def get_startup_performance():
+    """Get detailed startup performance metrics from optimized service manager"""
+    if OPTIMIZED_STARTUP_AVAILABLE:
+        startup_manager = get_startup_manager()
+        return {
+            'startup_status': startup_manager.get_startup_status(),
+            'performance_metrics': startup_manager.get_performance_metrics(),
+            'health_status': startup_manager.get_health_status(),
+            'timestamp': datetime.now().isoformat()
+        }
+    else:
+        return {
+            'mode': 'fallback',
+            'optimized_startup': False,
+            'message': 'Optimized startup performance metrics not available',
+            'timestamp': datetime.now().isoformat()
+        }
 
 
 # Document analysis endpoints
@@ -412,7 +532,10 @@ async def service_metrics():
 @limiter.limit("10/minute")
 async def analyze_document(request: Request, analysis_request: DocumentAnalysisRequest):
     """Analyze legal document text"""
-    return await document_controller.analyze_document(analysis_request)
+    controller = get_initialized_controller('document')
+    if not controller:
+        raise HTTPException(status_code=503, detail="Document analysis service not available")
+    return await controller.analyze_document(analysis_request)
 
 
 @app.post("/api/analyze/file", response_model=DocumentAnalysisResponse)
@@ -424,10 +547,14 @@ async def analyze_document_file(
     user_expertise_level: str = Form("beginner")
 ):
     """Analyze uploaded document file"""
+    controller = get_initialized_controller('document')
+    if not controller:
+        raise HTTPException(status_code=503, detail="Document analysis service not available")
+    
     # Get user ID from request (set by auth middleware)
     user_id = getattr(request.state, 'user_id', 'anonymous')
     
-    return await document_controller.analyze_document_file(
+    return await controller.analyze_document_file(
         file=file,
         document_type=document_type,
         user_expertise_level=user_expertise_level,
@@ -439,13 +566,19 @@ async def analyze_document_file(
 @limiter.limit("5/minute")
 async def start_async_analysis(request: Request, analysis_request: DocumentAnalysisRequest):
     """Start async document analysis"""
-    return await document_controller.start_async_analysis(analysis_request)
+    controller = get_initialized_controller('document')
+    if not controller:
+        raise HTTPException(status_code=503, detail="Document analysis service not available")
+    return await controller.start_async_analysis(analysis_request)
 
 
 @app.get("/api/analysis/status/{analysis_id}", response_model=AnalysisStatusResponse)
 async def get_analysis_status(analysis_id: str):
     """Get status of ongoing analysis"""
-    return await document_controller.get_analysis_status(analysis_id)
+    controller = get_initialized_controller('document')
+    if not controller:
+        raise HTTPException(status_code=503, detail="Document analysis service not available")
+    return await controller.get_analysis_status(analysis_id)
 
 
 @app.get("/api/analysis/{analysis_id}/clauses")
@@ -457,7 +590,10 @@ async def get_paginated_clauses(
     sort_by: str = "risk_score"
 ):
     """Get paginated clause results with filtering and sorting"""
-    return await document_controller.get_paginated_clauses(
+    controller = get_initialized_controller('document')
+    if not controller:
+        raise HTTPException(status_code=503, detail="Document analysis service not available")
+    return await controller.get_paginated_clauses(
         analysis_id=analysis_id,
         page=page,
         page_size=page_size,
@@ -473,7 +609,10 @@ async def search_clauses(
     fields: str = None
 ):
     """Search within analyzed clauses"""
-    return await document_controller.search_clauses(
+    controller = get_initialized_controller('document')
+    if not controller:
+        raise HTTPException(status_code=503, detail="Document analysis service not available")
+    return await controller.search_clauses(
         analysis_id=analysis_id,
         search_query=q,
         search_fields=fields
@@ -483,7 +622,10 @@ async def search_clauses(
 @app.get("/api/analysis/{analysis_id}/clauses/{clause_id}")
 async def get_clause_details(analysis_id: str, clause_id: str):
     """Get detailed information for a specific clause"""
-    return await document_controller.get_clause_details(
+    controller = get_initialized_controller('document')
+    if not controller:
+        raise HTTPException(status_code=503, detail="Document analysis service not available")
+    return await controller.get_clause_details(
         analysis_id=analysis_id,
         clause_id=clause_id
     )
@@ -492,7 +634,10 @@ async def get_clause_details(analysis_id: str, clause_id: str):
 @app.post("/api/analysis/{analysis_id}/export")
 async def export_analysis(analysis_id: str, format: str = "pdf"):
     """Export analysis results"""
-    return await document_controller.export_analysis(analysis_id, format)
+    controller = get_initialized_controller('document')
+    if not controller:
+        raise HTTPException(status_code=503, detail="Document analysis service not available")
+    return await controller.export_analysis(analysis_id, format)
 
 
 # Vision API endpoints for image processing
@@ -504,13 +649,14 @@ async def extract_text_from_image(
     preprocess: bool = True
 ):
     """Extract text from uploaded image using Vision API"""
-    if not vision_controller:
+    controller = get_initialized_controller('vision')
+    if not controller:
         raise HTTPException(status_code=503, detail="Vision API service not available")
     
     # Get user ID from request (set by auth middleware)
     user_id = getattr(request.state, 'user_id', 'anonymous')
     
-    return await vision_controller.extract_text_from_image(
+    return await controller.extract_text_from_image(
         file=file,
         user_id=user_id,
         preprocess=preprocess
@@ -526,13 +672,14 @@ async def analyze_image_document(
     user_expertise_level: str = Form("beginner")
 ):
     """Analyze legal document from image using Vision API + document analysis"""
-    if not vision_controller:
+    controller = get_initialized_controller('vision')
+    if not controller:
         raise HTTPException(status_code=503, detail="Vision API service not available")
     
     # Get user ID from request (set by auth middleware)
     user_id = getattr(request.state, 'user_id', 'anonymous')
     
-    return await vision_controller.analyze_image_document(
+    return await controller.analyze_image_document(
         file=file,
         document_type=document_type,
         user_expertise_level=user_expertise_level,
@@ -549,13 +696,14 @@ async def analyze_multiple_image_documents(
     user_expertise_level: str = Form("beginner")
 ):
     """Analyze multiple legal document images using Vision API + document analysis"""
-    if not vision_controller:
+    controller = get_initialized_controller('vision')
+    if not controller:
         raise HTTPException(status_code=503, detail="Vision API service not available")
     
     # Get user ID from request (set by auth middleware)
     user_id = getattr(request.state, 'user_id', 'anonymous')
     
-    return await vision_controller.analyze_multiple_image_documents(
+    return await controller.analyze_multiple_image_documents(
         files=files,
         document_type=document_type,
         user_expertise_level=user_expertise_level,
@@ -566,7 +714,8 @@ async def analyze_multiple_image_documents(
 @app.get("/api/vision/status")
 async def get_vision_service_status():
     """Get status of Vision API services"""
-    if not vision_controller:
+    controller = get_initialized_controller('vision')
+    if not controller:
         return {
             "success": False,
             "error": "Vision API service not available",
@@ -575,7 +724,7 @@ async def get_vision_service_status():
             "document_ai": {"enabled": False}
         }
     
-    return await vision_controller.get_vision_service_status()
+    return await controller.get_vision_service_status()
 
 
 @app.get("/api/vision/supported-formats")
@@ -596,20 +745,29 @@ async def get_vision_supported_formats():
 @limiter.limit("20/minute")
 async def translate_text(request: Request, translation_request: TranslationRequest):
     """Translate text to target language"""
-    return await translation_controller.translate_text(translation_request)
+    controller = get_initialized_controller('translation')
+    if not controller:
+        raise HTTPException(status_code=503, detail="Translation service not available")
+    return await controller.translate_text(translation_request)
 
 
 @app.post("/api/translate/clause", response_model=ClauseTranslationResponse)
 @limiter.limit("15/minute")
 async def translate_clause(request: Request, clause_request: ClauseTranslationRequest):
     """Translate legal clause with context"""
-    return await translation_controller.translate_clause(clause_request)
+    controller = get_initialized_controller('translation')
+    if not controller:
+        raise HTTPException(status_code=503, detail="Translation service not available")
+    return await controller.translate_clause(clause_request)
 
 
 @app.get("/api/translate/languages", response_model=TranslationLanguagesResponse)
 async def get_translation_languages():
     """Get supported languages for translation"""
-    return await translation_controller.get_supported_languages()
+    controller = get_initialized_controller('translation')
+    if not controller:
+        raise HTTPException(status_code=503, detail="Translation service not available")
+    return await controller.get_supported_languages()
 
 
 # Document Summary Translation endpoints
@@ -617,26 +775,38 @@ async def get_translation_languages():
 @limiter.limit("10/minute")
 async def translate_document_summary(request: Request, summary_request: DocumentSummaryTranslationRequest):
     """Translate complete document summary with all sections"""
-    return await translation_controller.translate_document_summary(summary_request)
+    controller = get_initialized_controller('translation')
+    if not controller:
+        raise HTTPException(status_code=503, detail="Translation service not available")
+    return await controller.translate_document_summary(summary_request)
 
 
 @app.post("/api/translate/summary-section", response_model=SummarySectionTranslationResponse)
 @limiter.limit("20/minute")
 async def translate_summary_section(request: Request, section_request: SummarySectionTranslationRequest):
     """Translate individual summary section with legal context"""
-    return await translation_controller.translate_summary_section(section_request)
+    controller = get_initialized_controller('translation')
+    if not controller:
+        raise HTTPException(status_code=503, detail="Translation service not available")
+    return await controller.translate_summary_section(section_request)
 
 
 @app.get("/api/translate/languages/enhanced", response_model=EnhancedSupportedLanguagesResponse)
 async def get_enhanced_translation_languages():
     """Get enhanced supported languages with metadata for document summary translation"""
-    return await translation_controller.get_enhanced_supported_languages()
+    controller = get_initialized_controller('translation')
+    if not controller:
+        raise HTTPException(status_code=503, detail="Translation service not available")
+    return await controller.get_enhanced_supported_languages()
 
 
 @app.get("/api/translate/usage-stats", response_model=TranslationUsageStats)
 async def get_translation_usage_stats(user_id: str = None):
     """Get translation usage statistics for monitoring"""
-    return await translation_controller.get_translation_usage_stats(user_id)
+    controller = get_initialized_controller('translation')
+    if not controller:
+        raise HTTPException(status_code=503, detail="Translation service not available")
+    return await controller.get_translation_usage_stats(user_id)
 
 
 # Speech endpoints
@@ -659,13 +829,19 @@ async def speech_to_text(
 @app.post("/api/speech/text-to-speech")
 async def text_to_speech(request: Request, tts_request: TextToSpeechRequest):
     """Convert text to speech with enhanced caching and rate limiting"""
-    return await speech_controller.text_to_speech(request, tts_request)
+    controller = get_initialized_controller('speech')
+    if not controller:
+        raise HTTPException(status_code=503, detail="Speech service not available")
+    return await controller.text_to_speech(request, tts_request)
 
 
 @app.post("/api/speech/text-to-speech/info", response_model=TextToSpeechResponse)
 async def text_to_speech_info(request: Request, tts_request: TextToSpeechRequest):
     """Get text-to-speech metadata without audio"""
-    return await speech_controller.get_text_to_speech_info(request, tts_request)
+    controller = get_initialized_controller('speech')
+    if not controller:
+        raise HTTPException(status_code=503, detail="Speech service not available")
+    return await controller.get_text_to_speech_info(request, tts_request)
 
 
 @app.get("/api/speech/languages", response_model=SpeechLanguagesResponse)
@@ -684,12 +860,14 @@ async def get_speech_usage_stats(request: Request):
 async def _verify_admin_access(token: str) -> bool:
     """Verify admin access for cost monitoring endpoints - INTERNAL USE ONLY"""
     try:
-        if not auth_controller:
+        # Get auth controller from service manager
+        controller = get_initialized_controller('auth')
+        if not controller:
             logger.error("Auth controller not initialized")
             return False
         
         # Use Firebase authentication with admin role checking
-        is_admin = await auth_controller.verify_admin_access(token)
+        is_admin = await controller.verify_admin_access(token)
         return is_admin
         
     except Exception as e:
@@ -847,9 +1025,24 @@ async def get_ai_clarification(request: Request, clarification_request: Clarific
     """Get AI-powered clarification"""
     try:
         logger.info(f"Received clarification request: {clarification_request.question[:50] if clarification_request.question else 'No question'}...")
-        logger.debug(f"Request details - Question length: {len(clarification_request.question)}, Experience level: {clarification_request.user_expertise_level}")
         
-        result = await ai_controller.get_clarification(clarification_request)
+        controller = get_initialized_controller('ai')
+        if not controller:
+            logger.warning("AI controller not available, providing fallback response")
+            return ClarificationResponse(
+                success=True,
+                response="I'm currently experiencing technical difficulties with my AI services. However, I can see you're asking about your legal document. For the most accurate analysis, I recommend reviewing the specific clauses you're concerned about and considering consultation with a legal professional for detailed guidance.",
+                conversation_id="fallback",
+                confidence_score=25,
+                response_quality="fallback",
+                processing_time=0.1,
+                fallback=True,
+                error_type="AIServiceUnavailable",
+                service_used="fallback_handler",
+                timestamp=datetime.now()
+            )
+        
+        result = await controller.get_clarification(clarification_request)
         logger.info(f"AI clarification result: success={result.success}, service_used={result.service_used}")
         
         # If AI service failed, return a proper fallback response
@@ -1041,7 +1234,8 @@ async def export_to_word(request: Request, data: dict):
 @limiter.limit("5/hour")
 async def send_analysis_email(request: Request, email_request: dict):
     """Send analysis report via email"""
-    if not email_controller:
+    controller = get_initialized_controller('email')
+    if not controller:
         return {"success": False, "error": "Email service not available"}
     
     try:
@@ -1054,7 +1248,7 @@ async def send_analysis_email(request: Request, email_request: dict):
         notification_request = EmailNotificationRequest(**email_request['notification'])
         analysis_data = email_request.get('analysis_data', {})
         
-        response = await email_controller.send_analysis_email(
+        response = await controller.send_analysis_email(
             request=notification_request,
             analysis_data=analysis_data,
             current_user=current_user
@@ -1074,11 +1268,12 @@ async def send_analysis_email(request: Request, email_request: dict):
 @app.get("/api/email/rate-limit/{user_id}")
 async def get_email_rate_limit(user_id: str):
     """Get email rate limit information for user"""
-    if not email_controller:
+    controller = get_initialized_controller('email')
+    if not controller:
         return {"success": False, "error": "Email service not available"}
     
     try:
-        rate_limit_info = await email_controller.get_email_rate_limit_info(user_id)
+        rate_limit_info = await controller.get_email_rate_limit_info(user_id)
         return rate_limit_info.dict()
     except Exception as e:
         logger.error(f"Rate limit check error: {e}")
@@ -1088,17 +1283,19 @@ async def get_email_rate_limit(user_id: str):
 @app.get("/api/email/test")
 async def test_email_service():
     """Test email service availability"""
-    if not email_controller:
+    controller = get_initialized_controller('email')
+    if not controller:
         return {"success": False, "error": "Email service not available"}
     
-    return await email_controller.test_email_service()
+    return await controller.test_email_service()
 
 
 @app.post("/api/email/send-test")
 @limiter.limit("2/hour")
 async def send_test_email(request: Request, test_request: dict):
     """Send test email to verify functionality"""
-    if not email_controller:
+    controller = get_initialized_controller('email')
+    if not controller:
         return {"success": False, "error": "Email service not available"}
     
     try:
@@ -1110,7 +1307,7 @@ async def send_test_email(request: Request, test_request: dict):
         if not user_email:
             return {"success": False, "error": "Email address required"}
         
-        response = await email_controller.send_test_email(
+        response = await controller.send_test_email(
             user_email=user_email,
             user_id=user_id,
             subject=test_request.get('subject', 'LegalSaathi Test Email')
@@ -1120,6 +1317,133 @@ async def send_test_email(request: Request, test_request: dict):
         
     except Exception as e:
         logger.error(f"Test email error: {e}")
+        return {"success": False, "error": str(e)}
+
+
+@app.post("/api/email/send-test-with-pdf")
+@limiter.limit("1/hour")
+async def send_test_email_with_pdf(request: Request, test_request: dict):
+    """Send test email with PDF attachment to verify PDF functionality"""
+    controller = get_initialized_controller('email')
+    if not controller:
+        return {"success": False, "error": "Email service not available"}
+    
+    try:
+        # Get current user from request state
+        current_user = getattr(request.state, 'user', None)
+        user_id = current_user.get('uid', 'anonymous') if current_user else 'anonymous'
+        
+        user_email = test_request.get('email')
+        if not user_email:
+            return {"success": False, "error": "Email address required"}
+        
+        # Create a simple test PDF content
+        from reportlab.pdfgen import canvas
+        from reportlab.lib.pagesizes import letter
+        import io
+        
+        # Create PDF in memory
+        buffer = io.BytesIO()
+        p = canvas.Canvas(buffer, pagesize=letter)
+        width, height = letter
+        
+        # Add content to PDF
+        p.setFont("Helvetica-Bold", 16)
+        p.drawString(100, height - 100, "LegalSaathi PDF Attachment Test")
+        
+        p.setFont("Helvetica", 12)
+        p.drawString(100, height - 140, "This is a test PDF attachment to verify email functionality.")
+        p.drawString(100, height - 160, f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        p.drawString(100, height - 180, f"Sent to: {user_email}")
+        
+        p.setFont("Helvetica-Bold", 12)
+        p.drawString(100, height - 220, "PDF Attachment Features:")
+        p.setFont("Helvetica", 10)
+        p.drawString(120, height - 240, "✓ SMTP Email Service")
+        p.drawString(120, height - 255, "✓ PDF Generation")
+        p.drawString(120, height - 270, "✓ Email Attachment")
+        p.drawString(120, height - 285, "✓ Gmail SMTP Integration")
+        
+        p.showPage()
+        p.save()
+        
+        pdf_content = buffer.getvalue()
+        buffer.close()
+        
+        logger.info(f"Generated test PDF, size: {len(pdf_content)} bytes")
+        
+        # Send email with PDF using SMTP service directly
+        if controller.gmail_service.smtp_service and controller.gmail_service.smtp_service.is_available():
+            html_content = f"""
+            <html>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                    <h2 style="color: #0ea5e9;">📎 LegalSaathi PDF Attachment Test</h2>
+                    <p>This is a test email with PDF attachment to verify email functionality.</p>
+                    
+                    <div style="background-color: #eff6ff; border: 1px solid #3b82f6; border-radius: 8px; padding: 15px; margin: 20px 0;">
+                        <p style="margin: 0; color: #1e40af;"><strong>📋 Test Details:</strong></p>
+                        <ul style="margin: 10px 0; color: #1e40af;">
+                            <li>Email Service: SMTP (Gmail)</li>
+                            <li>PDF Size: {len(pdf_content)} bytes</li>
+                            <li>Attachment: test_document.pdf</li>
+                            <li>Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</li>
+                        </ul>
+                    </div>
+                    
+                    <p>If you received this email with the PDF attachment, the email service is working correctly!</p>
+                    <br>
+                    <p>Best regards,<br><strong>LegalSaathi Team</strong></p>
+                </div>
+            </body>
+            </html>
+            """
+            
+            text_content = f"""
+            LegalSaathi PDF Attachment Test
+            
+            This is a test email with PDF attachment to verify email functionality.
+            
+            Test Details:
+            - Email Service: SMTP (Gmail)
+            - PDF Size: {len(pdf_content)} bytes
+            - Attachment: test_document.pdf
+            - Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+            
+            If you received this email with the PDF attachment, the email service is working correctly!
+            
+            Best regards,
+            LegalSaathi Team
+            """
+            
+            response = await controller.gmail_service.smtp_service._send_smtp_email(
+                to_email=user_email,
+                subject="LegalSaathi PDF Attachment Test",
+                html_content=html_content,
+                text_content=text_content,
+                pdf_content=pdf_content
+            )
+            
+            if response.success:
+                controller.gmail_service.increment_rate_limit(user_id)
+                return {
+                    "success": True,
+                    "message_id": response.message_id,
+                    "delivery_status": response.delivery_status.value,
+                    "pdf_size": len(pdf_content),
+                    "service_used": "SMTP"
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": response.error,
+                    "delivery_status": response.delivery_status.value
+                }
+        else:
+            return {"success": False, "error": "SMTP service not available"}
+        
+    except Exception as e:
+        logger.error(f"Test email with PDF error: {e}")
         return {"success": False, "error": str(e)}
 
 

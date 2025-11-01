@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:analyze": "vite build && echo 'Bundle analysis available at dist/bundle-analysis.html'",
     "preview": "vite preview",
     "type-check": "tsc --noEmit"
   },
@@ -62,9 +63,11 @@
     "@vitejs/plugin-react-swc": "^3.10.2",
     "autoprefixer": "^10.4.20",
     "postcss": "^8.5.0",
+    "rollup-plugin-visualizer": "^6.0.5",
     "tailwindcss": "^3.4.15",
     "tailwindcss-animate": "^1.0.7",
     "typescript": "^5.9.2",
-    "vite": "^6.3.5"
+    "vite": "^6.3.5",
+    "vite-plugin-compression": "^0.5.1"
   }
 }

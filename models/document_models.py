@@ -88,6 +88,10 @@ class DocumentAnalysisResponse(BaseModel):
     enhanced_insights: Optional[Dict[str, Any]] = None
     document_text: Optional[str] = None  # Original document text for comparison features
     document_type: Optional[str] = None  # Document type for comparison features
+    # Human-in-the-loop confidence fields
+    overall_confidence: Optional[float] = None
+    should_route_to_expert: Optional[bool] = None
+    confidence_breakdown: Optional[Dict[str, Any]] = None
 
 
 class AnalysisStatusResponse(BaseModel):

@@ -112,6 +112,13 @@ class SpeechController:
             user_id = getattr(request_obj.state, 'user_id', None) or "anonymous"
             is_authenticated = getattr(request_obj.state, 'is_authenticated', False)
             
+            # Check if speech service is available
+            if not self.speech_service or not hasattr(self.speech_service, 'enabled') or not self.speech_service.enabled:
+                raise HTTPException(
+                    status_code=503,
+                    detail="Speech service is not available"
+                )
+            
             # Check rate limits
             if not self.rate_limiter.check_rate_limit(user_id, 'text_to_speech', request_obj):
                 rate_info = self.rate_limiter.get_rate_limit_info(user_id, 'text_to_speech')
@@ -121,12 +128,6 @@ class SpeechController:
                 )
             
             logger.info(f"Processing text-to-speech for user: {user_id}, language: {tts_request.language_code}")
-            
-            if not self.speech_service.enabled:
-                raise HTTPException(
-                    status_code=503,
-                    detail="Speech service is not available"
-                )
             
             # Process text-to-speech with enhanced service
             result = self.speech_service.text_to_speech(

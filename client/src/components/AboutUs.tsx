@@ -266,3 +266,5 @@ export function AboutUs({ onClose }: AboutUsProps) {
     </div>
   );
 }
+
+export default AboutUs;

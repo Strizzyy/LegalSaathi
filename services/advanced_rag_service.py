@@ -47,29 +47,75 @@ class AdvancedRAGService:
         self._initialize_models()
         
     def _initialize_models(self):
-        """Initialize embedding and reranking models"""
+        """Initialize embedding and reranking models with offline fallback"""
         try:
             logger.info("🧠 Initializing Advanced RAG models...")
             
-            # Initialize sentence transformer for embeddings
-            self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
-            logger.info("✅ Sentence transformer loaded")
-            
-            # Initialize cross-encoder for reranking (using correct model name)
+            # Initialize sentence transformer for embeddings with timeout and offline fallback
             try:
-                self.cross_encoder = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')
-                logger.info("✅ Cross-encoder loaded")
+                # Set shorter timeout for model loading
+                import socket
+                original_timeout = socket.getdefaulttimeout()
+                socket.setdefaulttimeout(10.0)  # 10 second timeout
+                
+                self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+                logger.info("✅ Sentence transformer loaded")
+                
+                # Restore original timeout
+                socket.setdefaulttimeout(original_timeout)
+                
+            except Exception as e:
+                logger.warning(f"Failed to load sentence transformer from online: {e}")
+                logger.info("🔄 Attempting offline mode or fallback...")
+                
+                # Try to use cached model if available
+                try:
+                    import os
+                    from pathlib import Path
+                    
+                    # Check if model is cached locally
+                    cache_dir = Path.home() / '.cache' / 'huggingface' / 'transformers'
+                    if cache_dir.exists():
+                        logger.info("📁 Checking for cached models...")
+                        # Try to load from cache with offline mode
+                        os.environ['TRANSFORMERS_OFFLINE'] = '1'
+                        self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2', local_files_only=True)
+                        logger.info("✅ Sentence transformer loaded from cache")
+                    else:
+                        raise Exception("No cached model found")
+                        
+                except Exception as cache_error:
+                    logger.warning(f"Cache loading failed: {cache_error}")
+                    logger.info("🚫 RAG service will run in degraded mode without embeddings")
+                    self.embedding_model = None
+            
+            # Initialize cross-encoder for reranking with similar fallback
+            try:
+                if self.embedding_model is not None:
+                    self.cross_encoder = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')
+                    logger.info("✅ Cross-encoder loaded")
+                else:
+                    self.cross_encoder = None
+                    logger.info("⚠️ Cross-encoder skipped due to embedding model unavailability")
             except Exception as e:
                 logger.warning(f"Cross-encoder loading failed: {e}, using fallback scoring")
                 self.cross_encoder = None
             
-            # Initialize FAISS vector store
-            self.vector_store = faiss.IndexFlatIP(self.embedding_dim)
-            logger.info("✅ FAISS vector store initialized")
+            # Initialize FAISS vector store only if embedding model is available
+            if self.embedding_model is not None:
+                self.vector_store = faiss.IndexFlatIP(self.embedding_dim)
+                logger.info("✅ FAISS vector store initialized")
+            else:
+                self.vector_store = None
+                logger.info("⚠️ FAISS vector store skipped - running in text-only mode")
             
         except Exception as e:
             logger.error(f"Failed to initialize RAG models: {e}")
-            raise
+            logger.info("🔄 RAG service will continue in minimal mode")
+            # Don't raise - allow service to continue in degraded mode
+            self.embedding_model = None
+            self.cross_encoder = None
+            self.vector_store = None
     
     async def build_knowledge_base(self, documents: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Build vector store and BM25 index from legal documents"""
@@ -299,30 +345,39 @@ class AdvancedRAGService:
     
     async def _build_vector_store(self, chunks: List[str]):
         """Build FAISS vector store with embeddings"""
+        if self.embedding_model is None or self.vector_store is None:
+            logger.info("⚠️ Skipping vector store build - embedding model not available")
+            return
+            
         logger.info("🔢 Building vector embeddings...")
         
-        # Generate embeddings in optimized batches for maximum speed
-        batch_size = 8  # Smaller batches for faster processing
-        all_embeddings = []
-        
-        for i in range(0, len(chunks), batch_size):
-            batch = chunks[i:i + batch_size]
-            embeddings = self.embedding_model.encode(
-                batch, 
-                convert_to_numpy=True,
-                show_progress_bar=False,  # Disable progress bar
-                batch_size=batch_size,  # Explicit batch size
-                normalize_embeddings=True  # Normalize for better similarity
-            )
-            all_embeddings.append(embeddings)
-        
-        # Combine all embeddings
-        embeddings_matrix = np.vstack(all_embeddings).astype('float32')
-        
-        # Add to FAISS index
-        self.vector_store.add(embeddings_matrix)
-        
-        logger.info(f"✅ Added {embeddings_matrix.shape[0]} embeddings to vector store")
+        try:
+            # Generate embeddings in optimized batches for maximum speed
+            batch_size = 8  # Smaller batches for faster processing
+            all_embeddings = []
+            
+            for i in range(0, len(chunks), batch_size):
+                batch = chunks[i:i + batch_size]
+                embeddings = self.embedding_model.encode(
+                    batch, 
+                    convert_to_numpy=True,
+                    show_progress_bar=False,  # Disable progress bar
+                    batch_size=batch_size,  # Explicit batch size
+                    normalize_embeddings=True  # Normalize for better similarity
+                )
+                all_embeddings.append(embeddings)
+            
+            # Combine all embeddings
+            embeddings_matrix = np.vstack(all_embeddings).astype('float32')
+            
+            # Add to FAISS index
+            self.vector_store.add(embeddings_matrix)
+            
+            logger.info(f"✅ Added {embeddings_matrix.shape[0]} embeddings to vector store")
+            
+        except Exception as e:
+            logger.error(f"Failed to build vector store: {e}")
+            logger.info("🔄 Continuing without vector embeddings")
     
     async def _build_bm25_index(self, chunks: List[str]):
         """Build BM25 sparse retrieval index"""
@@ -444,25 +499,32 @@ class AdvancedRAGService:
         return relationships
     
     async def retrieve_and_rerank(self, query: str, context: Dict[str, Any] = None) -> List[Dict[str, Any]]:
-        """Multi-stage retrieval with comprehensive reranking - OPTIMIZED"""
+        """Multi-stage retrieval with comprehensive reranking - OPTIMIZED with offline fallback"""
         logger.info(f"🔍 Multi-stage retrieval for query: {query[:50]}...")
         
         try:
-            # OPTIMIZATION: Parallel retrieval for better performance
-            dense_task = asyncio.create_task(self._dense_vector_search(query))
-            sparse_task = asyncio.create_task(self._sparse_bm25_search(query))
-            
-            # Execute both retrievals concurrently
-            dense_results, sparse_results = await asyncio.gather(dense_task, sparse_task)
-            
-            # Stage 3: Combine and deduplicate results
-            combined_results = self._combine_retrieval_results(dense_results, sparse_results)
+            # Check if we have embedding capabilities
+            if self.embedding_model is not None and self.vector_store is not None:
+                # OPTIMIZATION: Parallel retrieval for better performance
+                dense_task = asyncio.create_task(self._dense_vector_search(query))
+                sparse_task = asyncio.create_task(self._sparse_bm25_search(query))
+                
+                # Execute both retrievals concurrently
+                dense_results, sparse_results = await asyncio.gather(dense_task, sparse_task)
+                
+                # Stage 3: Combine and deduplicate results
+                combined_results = self._combine_retrieval_results(dense_results, sparse_results)
+            else:
+                # Fallback to BM25 only when embeddings are not available
+                logger.info("🔄 Using BM25-only retrieval (offline mode)")
+                sparse_results = await self._sparse_bm25_search(query)
+                combined_results = sparse_results
             
             # OPTIMIZATION: Limit results early to reduce processing time
             if len(combined_results) > self.reranking_top_k:
                 combined_results = combined_results[:self.reranking_top_k]
             
-            # Stage 4: Streamlined reranking pipeline
+            # Stage 4: Streamlined reranking pipeline (with fallback)
             reranked_results = await self._optimized_reranking(query, combined_results, context)
             
             # Stage 5: Quick memory and feedback application
@@ -474,31 +536,41 @@ class AdvancedRAGService:
             
         except Exception as e:
             logger.error(f"Retrieval and reranking failed: {e}")
+            # Return empty results rather than crashing
             return []
     
     async def _dense_vector_search(self, query: str) -> List[Dict[str, Any]]:
-        """Dense vector search using embeddings"""
-        # Generate query embedding
-        query_embedding = self.embedding_model.encode([query], convert_to_numpy=True)
-        
-        # Search in FAISS index
-        distances, indices = self.vector_store.search(
-            query_embedding.astype('float32'), 
-            k=min(self.max_chunks_per_retrieval, self.vector_store.ntotal)
-        )
-        
-        results = []
-        for i, (distance, idx) in enumerate(zip(distances[0], indices[0])):
-            if idx < len(self.document_chunks):
-                results.append({
-                    'text': self.document_chunks[idx],
-                    'metadata': self.chunk_metadata[idx],
-                    'dense_score': float(distance),
-                    'retrieval_method': 'dense_vector',
-                    'rank': i
-                })
-        
-        return results
+        """Dense vector search using embeddings with offline fallback"""
+        if self.embedding_model is None or self.vector_store is None:
+            logger.info("⚠️ Dense vector search not available - using fallback")
+            return []
+            
+        try:
+            # Generate query embedding
+            query_embedding = self.embedding_model.encode([query], convert_to_numpy=True)
+            
+            # Search in FAISS index
+            distances, indices = self.vector_store.search(
+                query_embedding.astype('float32'), 
+                k=min(self.max_chunks_per_retrieval, self.vector_store.ntotal)
+            )
+            
+            results = []
+            for i, (distance, idx) in enumerate(zip(distances[0], indices[0])):
+                if idx < len(self.document_chunks):
+                    results.append({
+                        'text': self.document_chunks[idx],
+                        'metadata': self.chunk_metadata[idx],
+                        'dense_score': float(distance),
+                        'retrieval_method': 'dense_vector',
+                        'rank': i
+                    })
+            
+            return results
+            
+        except Exception as e:
+            logger.error(f"Dense vector search failed: {e}")
+            return []
     
     async def _sparse_bm25_search(self, query: str) -> List[Dict[str, Any]]:
         """Sparse BM25 search"""
@@ -741,14 +813,14 @@ class AdvancedRAGService:
         return results
     
     async def _optimized_reranking(self, query: str, results: List[Dict], context: Dict = None) -> List[Dict]:
-        """Optimized reranking pipeline for better performance"""
+        """Optimized reranking pipeline for better performance with offline fallback"""
         if not results:
             return results
         
         # OPTIMIZATION: Only use cross-encoder for top results
         top_results = results[:10]  # Limit to top 10 for cross-encoder
         
-        # Cross-encoder reranking (only for top results)
+        # Cross-encoder reranking (only for top results) with offline fallback
         if self.cross_encoder and top_results:
             try:
                 pairs = [(query, result['text'][:500]) for result in top_results]  # Limit text length
@@ -762,6 +834,13 @@ class AdvancedRAGService:
                 
             except Exception as e:
                 logger.warning(f"Cross-encoder reranking failed: {e}")
+                # Fallback to simple text matching score
+                for result in top_results:
+                    result['cross_encoder_score'] = self._simple_text_similarity(query, result['text'])
+        else:
+            # Offline fallback: use simple text similarity
+            for result in top_results:
+                result['cross_encoder_score'] = self._simple_text_similarity(query, result['text'])
         
         # Quick legal domain scoring
         for result in results:
@@ -777,6 +856,19 @@ class AdvancedRAGService:
         results.sort(key=lambda x: x.get('final_score', 0), reverse=True)
         
         return results
+    
+    def _simple_text_similarity(self, query: str, text: str) -> float:
+        """Simple text similarity fallback when cross-encoder is not available"""
+        query_words = set(query.lower().split())
+        text_words = set(text.lower().split())
+        
+        if not query_words or not text_words:
+            return 0.0
+        
+        intersection = query_words.intersection(text_words)
+        union = query_words.union(text_words)
+        
+        return len(intersection) / len(union) if union else 0.0
     
     def _quick_apply_memory_and_feedback(self, query: str, results: List[Dict]) -> List[Dict]:
         """Quick memory and feedback application without async overhead"""
