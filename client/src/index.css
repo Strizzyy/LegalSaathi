@@ -968,4 +968,47 @@ own content styling */
   word-break: break-all;
   overflow-wrap: anywhere;
   line-height: 1.4;
+}/* Voice
+ Input Dropdown Fixes */
+.voice-input-dropdown {
+  position: fixed !important;
+  z-index: 9999 !important;
+}
+
+/* Ensure dropdowns are not clipped by parent containers */
+.dropdown-container {
+  position: relative;
+  z-index: 50;
+}
+
+.dropdown-menu {
+  position: absolute;
+  z-index: 9999;
+  min-width: 100%;
+}
+
+/* Fix for language dropdown positioning */
+.language-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 9999;
+  margin-top: 0.5rem;
+  background: rgb(30 41 59);
+  border: 1px solid rgb(71 85 105);
+  border-radius: 0.5rem;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  max-height: 16rem;
+  overflow-y: auto;
+  width: 16rem;
+}
+
+/* Ensure proper stacking context */
+.voice-input-container {
+  position: relative;
+  z-index: 10;
+}
+
+.voice-input-container .language-dropdown {
+  z-index: 9999;
 }

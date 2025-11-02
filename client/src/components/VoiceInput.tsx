@@ -241,10 +241,10 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({
   }, [showLanguageDropdown]);
 
   return (
-    <div className={cn("flex items-center space-x-3", className)}>
+    <div className={cn("voice-input-container flex items-center space-x-3", className)}>
       {/* Language Selector */}
       {showLanguageSelector && !isRecording && !isProcessing && (
-        <div className="relative" ref={dropdownRef}>
+        <div className="relative z-50" ref={dropdownRef}>
           <button
             type="button"
             onClick={() => setShowLanguageDropdown(!showLanguageDropdown)}
@@ -262,7 +262,23 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({
 
           {/* Language Dropdown */}
           {showLanguageDropdown && (
-            <div className="absolute top-full left-0 mt-2 w-64 bg-slate-800 border border-slate-600 rounded-lg shadow-lg z-50 max-h-64 overflow-y-auto">
+            <div 
+              className="absolute top-full left-0 mt-2 w-64 bg-slate-800 border border-slate-600 rounded-lg shadow-2xl max-h-64 overflow-y-auto z-[99999]"
+              style={{
+                position: 'absolute',
+                top: '100%',
+                left: 0,
+                marginTop: '0.5rem',
+                zIndex: 99999,
+                backgroundColor: 'rgb(30 41 59)',
+                border: '1px solid rgb(71 85 105)',
+                borderRadius: '0.5rem',
+                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+                maxHeight: '16rem',
+                overflowY: 'auto',
+                width: '16rem'
+              }}
+            >
               {SUPPORTED_LANGUAGES.map((lang) => (
                 <button
                   key={lang.code}

@@ -35,14 +35,23 @@ export function TranslationModal({ isOpen, onClose, originalText, title }: Trans
   const handleTranslate = async () => {
     if (!selectedLanguage || isLoading) return;
 
+    console.log('Starting translation:', { 
+      textLength: originalText.length, 
+      targetLanguage: selectedLanguage,
+      sourceLanguage: 'en'
+    });
+
     setIsLoading(true);
     try {
       const result = await apiService.translateText(originalText, selectedLanguage, 'en');
+      
+      console.log('Translation result:', result);
       
       if (result.success && result.translated_text) {
         setTranslatedText(result.translated_text);
         notificationService.translationSuccess();
       } else {
+        console.error('Translation failed:', result);
         notificationService.translationError();
       }
     } catch (error) {
