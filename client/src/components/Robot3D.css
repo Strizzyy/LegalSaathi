@@ -1,0 +1,426 @@
+.robot-container {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 140px;
+  height: 140px;
+  z-index: 1000;
+  cursor: pointer;
+  transform-style: preserve-3d;
+  margin-bottom: 0;
+  /* Performance optimizations */
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  /* Ensure it doesn't interfere with content */
+  pointer-events: auto;
+}
+
+/* Responsive positioning */
+@media (max-width: 1024px) {
+  .robot-container {
+    bottom: 20px;
+    right: 15px;
+    width: 120px;
+    height: 120px;
+  }
+}
+
+@media (max-width: 768px) {
+  .robot-container {
+    bottom: 15px;
+    right: 10px;
+    width: 100px;
+    height: 100px;
+  }
+}
+
+@media (max-width: 640px) {
+  .robot-container {
+    bottom: 10px;
+    right: 10px;
+    width: 80px;
+    height: 80px;
+  }
+}
+
+.robot {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  transform-style: preserve-3d;
+  animation: float 3s ease-in-out infinite;
+  /* Performance optimizations */
+  will-change: transform;
+  transform: translate3d(0, 0, 0);
+}
+
+/* Static robot for fallback */
+.robot-static {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  transform-style: preserve-3d;
+  /* No animations for fallback */
+}
+
+/* Fallback container styling */
+.robot-fallback {
+  opacity: 0.9;
+}
+
+/* Loading state */
+.robot-loading {
+  /* Keep same positioning as main robot */
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 140px;
+  height: 140px;
+  z-index: 1000;
+}
+
+/* Apply same responsive rules to loading state */
+@media (max-width: 1024px) {
+  .robot-loading {
+    bottom: 20px;
+    right: 15px;
+    width: 120px;
+    height: 120px;
+  }
+}
+
+@media (max-width: 768px) {
+  .robot-loading {
+    bottom: 15px;
+    right: 10px;
+    width: 100px;
+    height: 100px;
+  }
+}
+
+@media (max-width: 640px) {
+  .robot-loading {
+    bottom: 10px;
+    right: 10px;
+    width: 80px;
+    height: 80px;
+  }
+}
+
+.robot-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.loading-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid rgba(14, 165, 233, 0.3);
+  border-top: 2px solid #0ea5e9;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  will-change: transform;
+}
+
+.speech-bubble {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 8px 12px;
+  border-radius: 12px;
+  color: white;
+  font-size: 11px;
+  white-space: normal;
+  bottom: 110%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 130px;
+  opacity: 0;
+  animation: fadeIn 0.5s ease-out forwards;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.speech-bubble::after {
+  content: '';
+  position: absolute;
+  bottom: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 10px 10px 0;
+  border-style: solid;
+  border-color: rgba(255, 255, 255, 0.1) transparent transparent;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 20px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+/* Head */
+.head {
+  width: 80px;
+  height: 70px;
+  background: #f8f9fa;
+  border-radius: 40px;
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  box-shadow: 
+    0 5px 15px rgba(0,0,0,0.1),
+    inset 0 -5px 10px rgba(0,0,0,0.05);
+}
+
+/* Screen/Face */
+.screen {
+  width: 60px;
+  height: 40px;
+  background: #1a1a1a;
+  border-radius: 10px;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  overflow: hidden;
+}
+
+/* Eyes */
+.eyes {
+  display: flex;
+  justify-content: space-between;
+  width: 40px;
+  position: absolute;
+  top: 45%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.eye {
+  width: 4px;
+  height: 16px;
+  background: #0ea5e9;
+  border-radius: 2px;
+  box-shadow: 0 0 8px rgba(14, 165, 233, 0.6);
+}
+
+/* Smile */
+.smile {
+  width: 16px;
+  height: 6px;
+  border-bottom: 2px solid #0ea5e9;
+  border-radius: 0 0 20px 20px;
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  box-shadow: 0 0 8px rgba(14, 165, 233, 0.3);
+}
+
+/* Ear pieces */
+.ear {
+  width: 15px;
+  height: 15px;
+  background: #1a1a1a;
+  border-radius: 50%;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.ear.left {
+  left: -8px;
+}
+
+.ear.right {
+  right: -8px;
+}
+
+/* Antenna */
+.antenna {
+  width: 4px;
+  height: 15px;
+  background: #1a1a1a;
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.antenna::after {
+  content: '';
+  width: 8px;
+  height: 8px;
+  background: #1a1a1a;
+  border-radius: 50%;
+  position: absolute;
+  top: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+/* Body */
+.body {
+  width: 90px;
+  height: 80px;
+  background: #f8f9fa;
+  border-radius: 45px;
+  position: absolute;
+  top: 55px;
+  left: 50%;
+  transform: translateX(-50%);
+  box-shadow: 
+    0 5px 15px rgba(0,0,0,0.1),
+    inset 0 -5px 10px rgba(0,0,0,0.05);
+  overflow: visible;
+}
+
+/* Arms */
+.arm {
+  width: 20px;
+  height: 45px;
+  background: #f8f9fa;
+  position: absolute;
+  top: 15px;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.arm.left {
+  left: -15px;
+  transform-origin: top center;
+  animation: waveLeft 3s ease-in-out infinite;
+  will-change: transform;
+  backface-visibility: hidden;
+}
+
+.arm.right {
+  right: -15px;
+  transform-origin: top center;
+  will-change: auto;
+}
+
+/* Hands */
+.hand {
+  width: 18px;
+  height: 18px;
+  background: #f8f9fa;
+  border-radius: 50%;
+  position: absolute;
+  bottom: -9px;
+  left: 50%;
+  transform: translateX(-50%);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+/* Legs */
+.legs {
+  position: absolute;
+  bottom: -25px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 15px;
+}
+
+.leg {
+  width: 15px;
+  height: 25px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  position: relative;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.foot {
+  width: 20px;
+  height: 8px;
+  background: #f8f9fa;
+  border-radius: 10px;
+  position: absolute;
+  bottom: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -10px, 0);
+  }
+}
+
+@keyframes waveLeft {
+  0%, 100% {
+    transform: rotate(0deg) translate3d(0, 0, 0);
+  }
+  50% {
+    transform: rotate(-20deg) translate3d(0, -5px, 0);
+  }
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -2px, 0);
+  }
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.leg {
+  animation: bounce 1s ease-in-out infinite;
+  will-change: transform;
+  backface-visibility: hidden;
+}
+
+.leg:nth-child(2) {
+  animation-delay: 0.5s;
+}
+
+.robot-container:hover .head {
+  transform: translateX(-50%) scale(1.02);
+  will-change: transform;
+}
+
+.robot-container:hover .eye {
+  box-shadow: 0 0 12px rgba(14, 165, 233, 0.8);
+  will-change: box-shadow;
+}
+
+.robot-container:hover .hand {
+  transform: translateX(-50%) scale(1.1);
+  will-change: transform;
+}
+
+/* Disable animations for fallback robot */
+.robot-fallback .robot-static * {
+  animation: none !important;
+  will-change: auto;
+}

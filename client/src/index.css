@@ -1,0 +1,693 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Enhanced animations for lazy loading and progressive enhancement */
+@keyframes shimmer {
+  0% {
+    background-position: -200px 0;
+  }
+  100% {
+    background-position: calc(200px + 100%) 0;
+  }
+}
+
+@keyframes wave {
+  0%, 60%, 100% {
+    transform: initial;
+  }
+  30% {
+    transform: translateY(-15px);
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Utility classes for animations */
+.animate-shimmer {
+  animation: shimmer 2s infinite linear;
+  background: linear-gradient(
+    90deg,
+    #374151 25%,
+    #4b5563 50%,
+    #374151 75%
+  );
+  background-size: 200px 100%;
+}
+
+.animate-wave {
+  animation: wave 2s ease-in-out infinite;
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.6s ease-out;
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 0.6s ease-out;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.4s ease-out;
+}
+
+/* Progressive enhancement styles */
+.progressive-enhancement {
+  transition: all 0.3s ease;
+}
+
+.progressive-enhancement.loading {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.progressive-enhancement.error {
+  opacity: 0.5;
+  filter: grayscale(50%);
+}
+
+/* Lazy loading container styles */
+.lazy-route-container {
+  min-height: 200px;
+  position: relative;
+}
+
+.lazy-route-container.loading {
+  overflow: hidden;
+}
+
+/* Skeleton loading styles */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    #374151 25%,
+    #4b5563 50%,
+    #374151 75%
+  );
+  background-size: 200px 100%;
+  animation: shimmer 2s infinite linear;
+}
+
+/* Connection status styles */
+.connection-status {
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Responsive lazy loading */
+@media (max-width: 768px) {
+  .lazy-route-container {
+    min-height: 150px;
+  }
+}
+
+/* Reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .animate-shimmer,
+  .animate-wave,
+  .animate-fade-in-up,
+  .animate-slide-in-right,
+  .animate-scale-in {
+    animation: none;
+  }
+  
+  .progressive-enhancement {
+    transition: none;
+  }
+}
+
+@layer base {
+  :root {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 199 89% 48%;
+    --primary-foreground: 222.2 84% 4.9%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 199 89% 48%;
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Custom animations and styles */
+@layer components {
+  /* Simple loading animations */
+  @keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+
+  .animate-shimmer {
+    animation: shimmer 3s linear infinite;
+  }
+
+  /* Loading overlay styles */
+  .loading-overlay {
+    backdrop-filter: blur(8px);
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.95) 100%);
+  }
+
+  .spinner {
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  .traffic-light {
+    @apply w-4 h-4 rounded-full inline-block;
+  }
+
+  .traffic-light.red {
+    @apply bg-red-500 shadow-lg shadow-red-500/50;
+  }
+
+  .traffic-light.yellow {
+    @apply bg-yellow-500 shadow-lg shadow-yellow-500/50;
+  }
+
+  .traffic-light.green {
+    @apply bg-green-500 shadow-lg shadow-green-500/50;
+  }
+
+  .traffic-light-medium {
+    @apply w-6 h-6 rounded-full inline-block;
+  }
+
+  .traffic-light-medium.red {
+    @apply bg-red-500 shadow-lg shadow-red-500/50;
+  }
+
+  .traffic-light-medium.yellow {
+    @apply bg-yellow-500 shadow-lg shadow-yellow-500/50;
+  }
+
+  .traffic-light-medium.green {
+    @apply bg-green-500 shadow-lg shadow-green-500/50;
+  }
+
+  .traffic-light-large {
+    @apply w-8 h-8 rounded-full inline-block;
+  }
+
+  .traffic-light-large.red {
+    @apply bg-red-500 shadow-lg shadow-red-500/50;
+  }
+
+  .traffic-light-large.yellow {
+    @apply bg-yellow-500 shadow-lg shadow-yellow-500/50;
+  }
+
+  .traffic-light-large.green {
+    @apply bg-green-500 shadow-lg shadow-green-500/50;
+  }
+
+  .confidence-bar {
+    @apply w-full h-2 bg-slate-700 rounded-full overflow-hidden;
+  }
+
+  .confidence-fill {
+    @apply h-full transition-all duration-300;
+  }
+
+  .confidence-fill.high {
+    @apply bg-green-500;
+  }
+
+  .confidence-fill.medium {
+    @apply bg-yellow-500;
+  }
+
+  .confidence-fill.low {
+    @apply bg-red-500;
+  }
+
+  .loading-overlay {
+    @apply fixed inset-0 bg-slate-900/95 backdrop-blur-sm z-50 flex items-center justify-center;
+  }
+
+  .loading-content {
+    @apply text-center space-y-6 p-8;
+  }
+
+  .spinner {
+    @apply w-12 h-12 border-4 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin mx-auto;
+  }
+
+  .google-cloud-badge {
+    @apply inline-flex items-center gap-2 px-3 py-1 bg-blue-500/20 text-blue-400 rounded-full text-sm border border-blue-500/30;
+  }
+
+  .variability-warning {
+    @apply flex items-center gap-2 text-yellow-400 text-sm;
+  }
+
+  .ai-processing-indicator {
+    @apply flex items-center gap-2 text-sm text-slate-300;
+  }
+
+  .progressive-disclosure {
+    @apply border border-slate-700 rounded-lg overflow-hidden;
+  }
+
+  .disclosure-header {
+    @apply flex items-center justify-between p-4 bg-slate-800/50 cursor-pointer hover:bg-slate-800/70 transition-colors;
+  }
+
+  .disclosure-content {
+    @apply p-4 bg-slate-900/50;
+  }
+
+  .disclosure-toggle {
+    @apply transition-transform duration-200;
+  }
+
+  .disclosure-toggle.open {
+    @apply rotate-180;
+  }
+
+  .feature-card {
+    @apply bg-slate-800/30 border border-slate-700 rounded-lg hover:bg-slate-800/50 transition-colors;
+  }
+
+  .clause-analysis-item {
+    @apply bg-slate-800/30 border border-slate-700 rounded-lg p-6 space-y-4;
+  }
+
+  .clause-analysis-item.red {
+    @apply border-red-500/50 bg-red-500/5;
+  }
+
+  .clause-analysis-item.yellow {
+    @apply border-yellow-500/50 bg-yellow-500/5;
+  }
+
+  .clause-analysis-item.green {
+    @apply border-green-500/50 bg-green-500/5;
+  }
+
+  .notification {
+    @apply fixed top-4 right-4 z-50 max-w-sm p-4 rounded-lg shadow-lg border;
+  }
+
+  .notification.success {
+    @apply bg-green-500/20 border-green-500/50 text-green-400;
+  }
+
+  .notification.error {
+    @apply bg-red-500/20 border-red-500/50 text-red-400;
+  }
+
+  .notification.warning {
+    @apply bg-yellow-500/20 border-yellow-500/50 text-yellow-400;
+  }
+
+  .notification.info {
+    @apply bg-blue-500/20 border-blue-500/50 text-blue-400;
+  }
+
+  .loading-overlay {
+    @apply fixed inset-0 bg-slate-900/95 backdrop-blur-sm z-50 flex items-center justify-center;
+  }
+
+  .loading-content {
+    @apply relative text-center max-w-md mx-auto px-6;
+  }
+
+  .spinner {
+    @apply w-16 h-16 border-4 border-slate-600 border-t-cyan-500 rounded-full mx-auto mb-8;
+  }
+
+  @keyframes float {
+
+    0%,
+    100% {
+      transform: translateY(0px);
+    }
+
+    50% {
+      transform: translateY(-20px);
+    }
+  }
+
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-slate-800;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-slate-600 rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-slate-500;
+  }
+
+  /* Focus styles for accessibility */
+  .focus-visible {
+    @apply outline-none ring-2 ring-cyan-500 ring-offset-2 ring-offset-slate-900;
+  }
+
+  /* Smooth transitions */
+  * {
+    @apply transition-colors duration-200;
+  }
+
+  /* Print styles */
+  @media print {
+    .no-print {
+      display: none !important;
+    }
+  }
+}
+
+/* Custom utilities */
+@layer utilities {
+  .text-shadow {
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+  }
+
+  .backdrop-blur-xs {
+    backdrop-filter: blur(2px);
+  }
+
+  .gradient-text {
+    @apply bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent;
+  }
+
+  .glass-effect {
+    @apply bg-white/5 backdrop-blur-sm border border-white/10;
+  }
+}
+
+/* Translation and Summarization Components */
+.clause-translation-container {
+  @apply space-y-2;
+}
+
+.translation-display {
+  @apply overflow-hidden;
+}
+
+.document-summary {
+  @apply w-full;
+}
+
+.document-summary-loading {
+  @apply w-full;
+}
+
+.document-summary-error {
+  @apply w-full;
+}
+
+.summary-section {
+  @apply space-y-2;
+}
+
+.clause-summary {
+  @apply inline-block;
+}
+
+/* Enhanced clause analysis styles */
+.clause-analysis-item .clause-translation-container,
+.clause-analysis-item .clause-summary {
+  @apply opacity-90 hover:opacity-100 transition-opacity;
+}
+
+/* Language selection styles */
+.language-selector {
+  @apply grid grid-cols-2 md:grid-cols-3 gap-2;
+}
+
+.language-option {
+  @apply p-3 rounded-lg border text-left transition-all cursor-pointer;
+}
+
+.language-option.selected {
+  @apply border-cyan-500 bg-cyan-500/10 text-cyan-400;
+}
+
+.language-option:not(.selected) {
+  @apply border-slate-600 bg-slate-700/50 text-slate-300 hover:border-slate-500;
+}
+
+/* Side-by-side translation display */
+.translation-comparison {
+  @apply grid md:grid-cols-2 gap-4;
+}
+
+.translation-original {
+  @apply bg-slate-700/50 border border-slate-600 rounded p-3;
+}
+
+.translation-result {
+  @apply bg-blue-500/10 border border-blue-500/30 rounded p-3;
+}
+
+/* Summary expansion animations */
+.summary-expand-enter {
+  @apply opacity-0 max-h-0;
+}
+
+.summary-expand-enter-active {
+  @apply opacity-100 max-h-screen transition-all duration-300;
+}
+
+.summary-expand-exit {
+  @apply opacity-100 max-h-screen;
+}
+
+.summary-expand-exit-active {
+  @apply opacity-0 max-h-0 transition-all duration-300;
+}
+
+/* Interactive button states */
+.translation-button {
+  @apply inline-flex items-center px-3 py-1 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-lg hover:from-blue-400 hover:to-cyan-400 transition-all text-xs;
+}
+
+.translation-button:disabled {
+  @apply opacity-50 cursor-not-allowed;
+}
+
+.summary-button {
+  @apply inline-flex items-center px-3 py-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:from-purple-400 hover:to-pink-400 transition-all text-xs;
+}
+
+.summary-button:disabled {
+  @apply opacity-50 cursor-not-allowed;
+}
+
+/* Copy button states */
+.copy-button {
+  @apply inline-flex items-center px-2 py-1 text-xs bg-slate-600 text-slate-300 rounded hover:bg-slate-500 transition-colors;
+}
+
+.copy-button.copied {
+  @apply bg-green-600 text-green-200;
+}
+
+/* Loading states */
+.translation-loading {
+  @apply flex items-center justify-center space-x-3 p-4 bg-slate-800/50 border border-slate-700 rounded-lg;
+}
+
+.summary-loading {
+  @apply flex items-center justify-center space-x-3 p-4 bg-slate-800/50 border border-slate-700 rounded-lg;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .translation-comparison {
+    @apply grid-cols-1 space-y-4;
+  }
+
+  .language-selector {
+    @apply grid-cols-2;
+  }
+
+  .clause-analysis-item .flex.flex-wrap {
+    @apply flex-col items-start space-y-2;
+  }
+}
+
+/* Accessibility improvements */
+.translation-button:focus-visible,
+.summary-button:focus-visible,
+.copy-button:focus-visible {
+  @apply ring-2 ring-cyan-500 ring-offset-2 ring-offset-slate-900 outline-none;
+}
+
+/* Animation for summary sections */
+.summary-section-enter {
+  @apply transform scale-95 opacity-0;
+}
+
+.summary-section-enter-active {
+  @apply transform scale-100 opacity-100 transition-all duration-200;
+}
+
+/* Enhanced visual feedback */
+.clause-translation-container:hover,
+.clause-summary:hover {
+  @apply transform scale-105 transition-transform duration-200;
+}
+
+/* Status indicators */
+.translation-status {
+  @apply inline-flex items-center space-x-1 text-xs;
+}
+
+.translation-status.loading {
+  @apply text-blue-400;
+}
+
+.translation-status.success {
+  @apply text-green-400;
+}
+
+.translation-status.error {
+  @apply text-red-400;
+}
+
+/* Markd
+own content styling */
+.markdown-content {
+  @apply space-y-4;
+}
+
+.markdown-content h3 {
+  @apply text-lg font-bold text-white mb-3 flex items-center border-b border-slate-700/50 pb-2;
+}
+
+.markdown-content h3 .w-2 {
+  @apply rounded-full mr-3;
+  background-color: rgb(34 211 238);
+}
+
+.markdown-content p {
+  @apply text-slate-200 leading-relaxed mb-3;
+}
+
+.markdown-content strong {
+  @apply font-bold text-white;
+}
+
+.markdown-content ul {
+  @apply space-y-2 my-3;
+}
+
+.markdown-content ol {
+  @apply space-y-2 my-3;
+}
+
+.markdown-content li {
+  @apply flex items-start space-x-2 text-slate-200;
+}
+
+.markdown-content ul li .w-2 {
+  @apply rounded-full mt-2 flex-shrink-0;
+  background-color: rgb(34 211 238);
+}
+
+.markdown-content ol li .w-6 {
+  @apply rounded-full flex items-center justify-center flex-shrink-0 mt-0.5;
+  background-color: rgb(6 182 212 / 0.2);
+}
+
+.markdown-content ol li .text-cyan-400 {
+  @apply text-xs font-bold;
+  color: rgb(34 211 238);
+}
+
+/* Improved spacing and typography */
+.markdown-content .mb-4:last-child {
+  @apply mb-0;
+}
+
+.markdown-content .ml-5 {
+  @apply text-slate-200 leading-relaxed;
+}
+
+/* Enhanced readability */
+.markdown-content {
+  @apply text-base leading-7;
+}
+
+.markdown-content .text-sm {
+  @apply leading-6;
+}
+
+/* Better section spacing */
+.markdown-content>div:not(:last-child) {
+  @apply mb-6;
+}
+
+/* Highlight important sections */
+.markdown-content h3:first-child {
+  color: rgb(34 211 238);
+}
