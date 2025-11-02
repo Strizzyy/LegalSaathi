@@ -38,8 +38,16 @@ const AdminAccessButton: React.FC = () => {
         checkAdminAccess();
     }, [user]);
 
-    // Don't render anything if user is not admin
-    if (!user || !isAdmin || checking) {
+    // Don't render anything if user is not admin or still checking
+    if (!user || checking) {
+        return null;
+    }
+
+    // In development mode, show admin button for admin emails even if server check fails
+    const adminEmails = ['23cd3034@rgipt.ac.in', 'admin@legalsaathi.com', 'k.sharmashubh123@gmail.com', '23mc3055@rgipt.ac.in'];
+    const isAdminEmail = adminEmails.includes(user.email || '');
+    
+    if (!isAdmin && !isAdminEmail) {
         return null;
     }
 
@@ -49,13 +57,22 @@ const AdminAccessButton: React.FC = () => {
         window.dispatchEvent(new PopStateEvent('popstate'));
     };
 
+    const buttonClass = isAdmin 
+        ? "flex items-center space-x-2 px-3 py-2 text-sm bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+        : "flex items-center space-x-2 px-3 py-2 text-sm bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors";
+    
+    const buttonTitle = isAdmin 
+        ? "Admin Cost Monitoring Dashboard"
+        : "Admin Dashboard (Development Mode)";
+
     return (
         <button
             onClick={handleAdminClick}
-            className="flex items-center space-x-2 px-3 py-2 text-sm bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
-            title="Admin Cost Monitoring Dashboard"
+            className={buttonClass}
+            title={buttonTitle}
         >
             <span>Admin</span>
+            {!isAdmin && isAdminEmail && <span className="text-xs">*</span>}
         </button>
     );
 };

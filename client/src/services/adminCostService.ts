@@ -18,10 +18,14 @@ class AdminCostService {
   private async getAuthHeaders(): Promise<Record<string, string>> {
     const user = auth.currentUser;
     if (!user) {
+      console.error('Admin service: No authenticated user');
       throw new Error('User not authenticated');
     }
 
+    console.log('Admin service: Getting token for user:', user.email);
     const token = await user.getIdToken();
+    console.log('Admin service: Token obtained, length:', token.length);
+    
     return {
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json',
@@ -103,11 +107,33 @@ class AdminCostService {
   }
 
   /**
+   * Test basic API connectivity
+   */
+  async testConnection(): Promise<boolean> {
+    try {
+      console.log('Testing API connection to:', API_BASE_URL);
+      const response = await fetch(`${API_BASE_URL}/health`);
+      console.log('API connection test response:', response.status);
+      return response.ok;
+    } catch (error) {
+      console.error('API connection test failed:', error);
+      return false;
+    }
+  }
+
+  /**
    * Check if current user has admin access
    */
   async checkAdminAccess(): Promise<boolean> {
     try {
-      // First check if user is authenticated
+      // First test basic API connectivity
+      const apiConnected = await this.testConnection();
+      if (!apiConnected) {
+        console.error('Admin check failed: API not reachable');
+        return false;
+      }
+
+      // Check if user is authenticated
       const user = auth.currentUser;
       if (!user) {
         console.log('Admin check failed: No authenticated user');

@@ -14,6 +14,8 @@
   -webkit-backface-visibility: hidden;
   /* Ensure it doesn't interfere with content */
   pointer-events: auto;
+  /* Ensure robot stays within viewport */
+  max-width: calc(100vw - 40px);
 }
 
 /* Responsive positioning */
@@ -24,6 +26,12 @@
     width: 120px;
     height: 120px;
   }
+  
+  .speech-bubble {
+    width: 120px;
+    font-size: 10px;
+    max-width: calc(100vw - 30px);
+  }
 }
 
 @media (max-width: 768px) {
@@ -33,6 +41,13 @@
     width: 100px;
     height: 100px;
   }
+  
+  .speech-bubble {
+    width: 110px;
+    font-size: 9px;
+    padding: 6px 10px;
+    max-width: calc(100vw - 20px);
+  }
 }
 
 @media (max-width: 640px) {
@@ -41,6 +56,39 @@
     right: 10px;
     width: 80px;
     height: 80px;
+  }
+  
+  .speech-bubble {
+    width: 100px;
+    font-size: 8px;
+    padding: 5px 8px;
+    max-width: calc(100vw - 20px);
+  }
+  
+  .speech-bubble::after {
+    right: 15px;
+    border-width: 8px 8px 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .robot-container {
+    bottom: 8px;
+    right: 8px;
+    width: 70px;
+    height: 70px;
+  }
+  
+  .speech-bubble {
+    width: 90px;
+    font-size: 7px;
+    padding: 4px 6px;
+    max-width: calc(100vw - 16px);
+  }
+  
+  .speech-bubble::after {
+    right: 12px;
+    border-width: 6px 6px 0;
   }
 }
 
@@ -74,7 +122,7 @@
   /* Keep same positioning as main robot */
   position: fixed;
   bottom: 20px;
-  right: 20px;
+  right: clamp(10px, 20px, calc(100vw - 140px));
   width: 140px;
   height: 140px;
   z-index: 1000;
@@ -84,7 +132,7 @@
 @media (max-width: 1024px) {
   .robot-loading {
     bottom: 20px;
-    right: 15px;
+    right: clamp(10px, 15px, calc(100vw - 120px));
     width: 120px;
     height: 120px;
   }
@@ -93,7 +141,7 @@
 @media (max-width: 768px) {
   .robot-loading {
     bottom: 15px;
-    right: 10px;
+    right: clamp(8px, 10px, calc(100vw - 100px));
     width: 100px;
     height: 100px;
   }
@@ -102,9 +150,18 @@
 @media (max-width: 640px) {
   .robot-loading {
     bottom: 10px;
-    right: 10px;
+    right: clamp(8px, 10px, calc(100vw - 80px));
     width: 80px;
     height: 80px;
+  }
+}
+
+@media (max-width: 480px) {
+  .robot-loading {
+    bottom: 8px;
+    right: clamp(6px, 8px, calc(100vw - 70px));
+    width: 70px;
+    height: 70px;
   }
 }
 
@@ -140,21 +197,22 @@
   font-size: 11px;
   white-space: normal;
   bottom: 110%;
-  left: 50%;
-  transform: translateX(-50%);
+  right: 0;
   width: 130px;
+  max-width: calc(100vw - 40px);
   opacity: 0;
   animation: fadeIn 0.5s ease-out forwards;
   text-align: center;
   line-height: 1.2;
+  /* Ensure speech bubble stays within viewport */
+  box-sizing: border-box;
 }
 
 .speech-bubble::after {
   content: '';
   position: absolute;
   bottom: -10px;
-  left: 50%;
-  transform: translateX(-50%);
+  right: 20px;
   border-width: 10px 10px 0;
   border-style: solid;
   border-color: rgba(255, 255, 255, 0.1) transparent transparent;
@@ -163,11 +221,11 @@
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translate(-50%, 20px);
+    transform: translateY(20px);
   }
   to {
     opacity: 1;
-    transform: translate(-50%, 0);
+    transform: translateY(0);
   }
 }
 
@@ -419,8 +477,65 @@
   will-change: transform;
 }
 
+/* Enhanced clickable feedback */
+.robot-container:hover {
+  filter: brightness(1.1);
+}
+
+.robot-container:active {
+  transform: scale(0.95);
+  transition: transform 0.1s ease;
+}
+
+/* Add a subtle glow effect on hover */
+.robot-container:hover .screen {
+  box-shadow: 0 0 20px rgba(14, 165, 233, 0.4);
+}
+
+/* Cursor pointer for better UX */
+.robot-container {
+  cursor: pointer;
+}
+
+/* Focus styles for accessibility */
+.robot-container:focus-visible {
+  outline: 2px solid #0ea5e9;
+  outline-offset: 4px;
+  border-radius: 50%;
+}
+
 /* Disable animations for fallback robot */
 .robot-fallback .robot-static * {
   animation: none !important;
   will-change: auto;
+}
+
+/* Additional viewport safety for robot positioning */
+.robot-container {
+  /* Ensure robot never goes beyond viewport */
+  right: clamp(10px, 20px, calc(100vw - 140px));
+}
+
+@media (max-width: 1024px) {
+  .robot-container {
+    right: clamp(10px, 15px, calc(100vw - 120px));
+  }
+}
+
+@media (max-width: 768px) {
+  .robot-container {
+    right: clamp(8px, 10px, calc(100vw - 100px));
+  }
+}
+
+@media (max-width: 640px) {
+  .robot-container {
+    right: clamp(8px, 10px, calc(100vw - 80px));
+  }
+}
+
+@media (max-width: 480px) {
+  .robot-container {
+    right: clamp(6px, 8px, calc(100vw - 70px));
+  }
 }

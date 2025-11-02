@@ -29,7 +29,7 @@ export const DocumentUpload = React.memo(function DocumentUpload({ onSubmit }: D
   const [expertiseLevel, setExpertiseLevel] = useState<ExperienceLevel>(() =>
     experienceLevelService.getCurrentLevel()
   );
-  const [userQuestions, setUserQuestions] = useState('');
+
   const [charCount, setCharCount] = useState(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -255,9 +255,7 @@ CONFIDENTIALITY TERMS:
         formData.append('document_type', 'general_contract');
         formData.append('user_expertise_level', expertiseLevel);
 
-        if (userQuestions.trim()) {
-          formData.append('user_questions', userQuestions.trim());
-        }
+
 
         // Mark this as text analysis
         formData.append('is_file_upload', 'false');
@@ -268,7 +266,7 @@ CONFIDENTIALITY TERMS:
       console.error('Error submitting form:', error);
       notificationService.error('Failed to submit document. Please try again.');
     }
-  }, [selectedFile, selectedFiles, documentText, expertiseLevel, userQuestions, onSubmit, isImageFile]);
+  }, [selectedFile, selectedFiles, documentText, expertiseLevel, onSubmit, isImageFile]);
 
   // Store experience level when it changes
   React.useEffect(() => {
@@ -276,7 +274,7 @@ CONFIDENTIALITY TERMS:
   }, [expertiseLevel]);
 
   return (
-    <section id="document-upload" className="py-20 relative">
+    <section id="document-upload" className="py-12 relative">
       <div className="container mx-auto px-6">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
@@ -285,26 +283,29 @@ CONFIDENTIALITY TERMS:
           viewport={{ once: true }}
           className="max-w-4xl mx-auto"
         >
-          {/* Section Header */}
-          <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold text-white mb-4">
-              Universal Legal Document Analysis
+          {/* Compact Section Header */}
+          <div className="text-center mb-10">
+            <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
+              Upload & Analyze Your{' '}
+              <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
+                Legal Documents
+              </span>
             </h2>
-            <p className="text-xl text-slate-300 mb-4">
-              Upload single documents, multiple images, or paste text to get AI-powered analysis with risk assessment and plain-language explanations
+            <p className="text-slate-400 mb-6 max-w-2xl mx-auto">
+              Instant AI analysis with risk assessment and plain-language explanations
             </p>
-            <div className="flex items-center justify-center space-x-6 text-sm text-slate-400">
+            <div className="flex flex-wrap items-center justify-center gap-6 text-slate-400 text-sm">
               <div className="flex items-center">
-                <FileText className="w-4 h-4 mr-2" />
-                Single Documents
+                <FileText className="w-4 h-4 mr-2 text-cyan-400" />
+                <span>Documents & PDFs</span>
               </div>
               <div className="flex items-center">
-                <Images className="w-4 h-4 mr-2" />
-                Multiple Images (OCR)
+                <Images className="w-4 h-4 mr-2 text-emerald-400" />
+                <span>Multiple Images (OCR)</span>
               </div>
               <div className="flex items-center">
-                <Camera className="w-4 h-4 mr-2" />
-                Vision AI Analysis
+                <Camera className="w-4 h-4 mr-2 text-purple-400" />
+                <span>Vision AI Analysis</span>
               </div>
             </div>
           </div>
@@ -312,42 +313,48 @@ CONFIDENTIALITY TERMS:
           {/* Main Form */}
           <form
             onSubmit={handleSubmit}
-            className="space-y-8"
+            className="space-y-6"
             aria-label="Legal document analysis form"
             noValidate
           >
-            {/* File Upload Mode Toggle */}
-            <div className="flex items-center justify-center space-x-4 mb-6">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsMultipleMode(false);
-                  setSelectedFiles([]);
-                }}
-                className={cn(
-                  "px-4 py-2 rounded-lg font-medium transition-all",
-                  !isMultipleMode
-                    ? "bg-cyan-500 text-white"
-                    : "bg-slate-700 text-slate-300 hover:bg-slate-600"
-                )}
-              >
-                Single File
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsMultipleMode(true);
-                  setSelectedFile(null);
-                }}
-                className={cn(
-                  "px-4 py-2 rounded-lg font-medium transition-all",
-                  isMultipleMode
-                    ? "bg-cyan-500 text-white"
-                    : "bg-slate-700 text-slate-300 hover:bg-slate-600"
-                )}
-              >
-                Multiple Images
-              </button>
+            {/* Enhanced File Upload Mode Toggle */}
+            <div className="flex items-center justify-center mb-8">
+              <div className="bg-slate-800/30 backdrop-blur-sm p-1 rounded-2xl border border-slate-700/50">
+                <div className="flex space-x-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsMultipleMode(false);
+                      setSelectedFiles([]);
+                    }}
+                    className={cn(
+                      "px-8 py-4 rounded-xl font-semibold transition-all duration-300 flex items-center",
+                      !isMultipleMode
+                        ? "bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg"
+                        : "text-slate-400 hover:text-white"
+                    )}
+                  >
+                    <FileText className="w-5 h-5 mr-2" />
+                    Single Document
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsMultipleMode(true);
+                      setSelectedFile(null);
+                    }}
+                    className={cn(
+                      "px-8 py-4 rounded-xl font-semibold transition-all duration-300 flex items-center",
+                      isMultipleMode
+                        ? "bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg"
+                        : "text-slate-400 hover:text-white"
+                    )}
+                  >
+                    <Images className="w-5 h-5 mr-2" />
+                    Multiple Images
+                  </button>
+                </div>
+              </div>
             </div>
 
             {/* File Upload Area */}
@@ -373,27 +380,42 @@ CONFIDENTIALITY TERMS:
             )}
 
             {/* Text Input */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <label className="text-lg font-semibold text-white">
+            <div className="space-y-6">
+              <div className="text-center">
+                <h3 className="text-2xl font-bold text-white mb-4">
                   Or Paste Document Text
-                </label>
-                <div className="flex items-center space-x-3">
-                  <VoiceInput
-                    onTranscript={(transcript) => {
-                      const newText = documentText + ' ' + transcript;
-                      setDocumentText(newText);
-                      setCharCount(newText.length);
-                    }}
-                    onError={(error) => setErrors({ ...errors, voice: error })}
-                    language="en-US"
-                    forceEnglish={true}
-                    showLanguageSelector={true}
-                    onLanguageChange={(language) => {
-                      console.log('Voice input language changed to:', language);
-                    }}
-                  />
-                  <span className="text-sm text-slate-400">Alternative to file upload</span>
+                </h3>
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                  <button
+                    type="button"
+                    className="group flex items-center bg-gradient-to-r from-cyan-500/20 to-blue-500/20 backdrop-blur-sm px-6 py-3 rounded-2xl border border-cyan-500/30 hover:border-cyan-400/50 hover:from-cyan-500/30 hover:to-blue-500/30 transition-all duration-300 text-cyan-300 hover:text-cyan-200 shadow-lg hover:shadow-cyan-500/25"
+                    title="Use voice input to dictate your document"
+                  >
+                    <VoiceInput
+                      onTranscript={(transcript) => {
+                        const newText = documentText + ' ' + transcript;
+                        setDocumentText(newText);
+                        setCharCount(newText.length);
+                      }}
+                      onError={(error) => setErrors({ ...errors, voice: error })}
+                      language="en-US"
+                      forceEnglish={true}
+                      showLanguageSelector={true}
+                      onLanguageChange={(language) => {
+                        console.log('Voice input language changed to:', language);
+                      }}
+                    />
+                    <span className="text-sm font-semibold ml-3">Voice Input</span>
+                  </button>
+                  
+                  <button
+                    type="button"
+                    className="group flex items-center bg-gradient-to-r from-purple-500/20 to-pink-500/20 backdrop-blur-sm px-6 py-3 rounded-2xl border border-purple-500/30 hover:border-purple-400/50 hover:from-purple-500/30 hover:to-pink-500/30 transition-all duration-300 text-purple-300 hover:text-purple-200 shadow-lg hover:shadow-purple-500/25"
+                    title="Translate document to different languages"
+                  >
+                    <Globe className="w-5 h-5" />
+                    <span className="text-sm font-semibold ml-3">Translate</span>
+                  </button>
                 </div>
               </div>
 
@@ -403,7 +425,7 @@ CONFIDENTIALITY TERMS:
                   value={documentText}
                   onChange={handleTextChange}
                   placeholder="Paste your legal document text here (rental agreement, employment contract, NDA, etc.)..."
-                  className="w-full h-64 px-4 py-3 bg-slate-800/50 border border-slate-600 rounded-xl text-white placeholder-slate-400 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 focus:outline-none resize-none transition-all"
+                  className="w-full h-48 px-6 py-4 bg-slate-800/40 backdrop-blur-sm border border-slate-700/50 rounded-2xl text-white placeholder-slate-400 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 focus:outline-none resize-none transition-all duration-300 hover:bg-slate-800/60"
                   maxLength={50000}
                   id="document-text-input"
                   aria-label="Legal document text input"
@@ -412,20 +434,22 @@ CONFIDENTIALITY TERMS:
                 />
               </div>
 
-              <div className="flex justify-between items-center text-sm">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 text-sm">
                 <span className="text-slate-400" id="text-input-description">
-                  Please ensure you provide the complete legal document for accurate analysis.
+                  💡 Provide complete document for accurate analysis
                 </span>
-                <span
-                  className={cn(
-                    "font-mono",
-                    charCount > 45000 ? "text-red-400" : "text-slate-400"
-                  )}
-                  id="text-char-count"
-                  aria-label={`Character count: ${charCount.toLocaleString()} of 50,000 characters used`}
-                >
-                  {charCount.toLocaleString()} / 50,000 characters
-                </span>
+                <div className="flex items-center space-x-2">
+                  <div className={cn(
+                    "px-3 py-1 rounded-full text-xs font-medium",
+                    charCount > 45000 
+                      ? "bg-red-500/20 text-red-400 border border-red-500/30" 
+                      : charCount > 0 
+                        ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30"
+                        : "bg-slate-700/50 text-slate-400 border border-slate-600/30"
+                  )}>
+                    {charCount.toLocaleString()} / 50,000
+                  </div>
+                </div>
               </div>
 
               {errors.text && (
@@ -443,20 +467,20 @@ CONFIDENTIALITY TERMS:
               )}
             </div>
 
-            {/* Expertise Level */}
+            {/* Enhanced Expertise Level */}
             <fieldset className="space-y-4">
               <legend className="text-lg font-semibold text-white">
                 Your Experience Level (Optional)
               </legend>
-              <div className="grid md:grid-cols-3 gap-4" role="radiogroup" aria-labelledby="expertise-level-description">
+              <div className="grid md:grid-cols-3 gap-4" role="radiogroup">
                 {experienceLevelService.getAvailableLevels().map((levelInfo) => (
                   <label
                     key={levelInfo.level}
                     className={cn(
-                      "flex items-start space-x-3 p-4 rounded-xl border cursor-pointer transition-all focus-within:ring-2 focus-within:ring-cyan-500",
+                      "flex items-start space-x-3 p-4 rounded-xl border cursor-pointer transition-all focus-within:ring-2 focus-within:ring-cyan-500 hover:transform hover:scale-105",
                       expertiseLevel === levelInfo.level
-                        ? "border-cyan-500 bg-cyan-500/10"
-                        : "border-slate-600 bg-slate-800/30 hover:border-slate-500"
+                        ? "border-cyan-500 bg-cyan-500/10 shadow-lg shadow-cyan-500/25"
+                        : "border-slate-600 bg-slate-800/30 hover:border-slate-500 hover:bg-slate-800/50"
                     )}
                   >
                     <input
@@ -466,69 +490,55 @@ CONFIDENTIALITY TERMS:
                       checked={expertiseLevel === levelInfo.level}
                       onChange={(e) => setExpertiseLevel(e.target.value as ExperienceLevel)}
                       className="mt-1 text-cyan-500 focus:ring-cyan-500"
-                      aria-describedby={`expertise-${levelInfo.level}-desc`}
                     />
                     <div>
                       <div className="font-semibold text-white">{levelInfo.label}</div>
-                      <div className="text-sm text-slate-400" id={`expertise-${levelInfo.level}-desc`}>{levelInfo.description}</div>
+                      <div className="text-sm text-slate-400 mt-1">{levelInfo.description}</div>
                     </div>
                   </label>
                 ))}
               </div>
-              <p className="text-sm text-slate-400 flex items-center" id="expertise-level-description">
-                <AlertCircle className="w-4 h-4 mr-2" aria-hidden="true" />
-                AI responses will be intelligently adapted with legal term explanations based on your experience level
+              <p className="text-sm text-slate-400 flex items-center">
+                <AlertCircle className="w-4 h-4 mr-2" />
+                AI responses will be adapted with explanations based on your experience level
               </p>
             </fieldset>
 
-            {/* User Questions */}
-            <div className="space-y-4">
-              <label htmlFor="user-questions-input" className="text-lg font-semibold text-white">
-                Any Specific Questions? (Optional)
-              </label>
-              <textarea
-                id="user-questions-input"
-                value={userQuestions}
-                onChange={(e) => setUserQuestions(e.target.value)}
-                placeholder="e.g., What does this clause mean? Are these terms fair? What are my rights?"
-                className="w-full h-24 px-4 py-3 bg-slate-800/50 border border-slate-600 rounded-xl text-white placeholder-slate-400 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 focus:outline-none resize-none transition-all"
-                aria-describedby="user-questions-description"
-              />
-              <p className="text-sm text-slate-400" id="user-questions-description">
-                Ask any questions about legal terms or specific clauses you're concerned about
-              </p>
-            </div>
 
-            {/* Submit Button */}
+
+            {/* Enhanced Submit Button */}
             <div className="text-center">
               <button
                 type="submit"
                 disabled={!isBackendReady && isBackendChecking}
                 className={cn(
-                  "inline-flex items-center px-8 py-4 text-lg font-semibold text-white rounded-xl transition-all duration-300 transform focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900",
+                  "inline-flex items-center px-10 py-4 text-xl font-bold text-white rounded-2xl transition-all duration-300 transform focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 min-w-[280px]",
                   (!isBackendReady && isBackendChecking)
                     ? "bg-gray-500 cursor-not-allowed opacity-75"
-                    : "bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 hover:scale-105 hover:shadow-lg hover:shadow-cyan-500/25 focus:ring-cyan-500"
+                    : "bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 hover:scale-105 hover:shadow-2xl hover:shadow-cyan-500/25 focus:ring-cyan-500"
                 )}
                 aria-describedby="submit-button-description"
               >
-                <Zap className="w-5 h-5 mr-2" aria-hidden="true" />
+                <Zap className="w-6 h-6 mr-3" aria-hidden="true" />
                 {(!isBackendReady && isBackendChecking)
-                  ? 'Initializing Services...'
+                  ? 'Initializing AI Services...'
                   : selectedFiles.length > 0
-                    ? `Analyze ${selectedFiles.length} Images`
+                    ? `Analyze ${selectedFiles.length} Images with AI`
                     : selectedFile
-                      ? `Analyze ${isImageFile(selectedFile) ? 'Image' : 'Document'}`
-                      : 'Analyze Document'
+                      ? `Analyze ${isImageFile(selectedFile) ? 'Image' : 'Document'} with AI`
+                      : 'Start AI Analysis'
                 }
               </button>
+              <p className="text-slate-500 text-sm mt-4">
+                Free forever • No signup required • Privacy protected
+              </p>
               <p className="sr-only" id="submit-button-description">
                 Submit your document for AI-powered legal analysis
               </p>
             </div>
           </form>
 
-          {/* Demo Mode Section */}
+          {/* Enhanced Demo Section */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -536,69 +546,64 @@ CONFIDENTIALITY TERMS:
             viewport={{ once: true }}
             className="mt-16"
           >
-            <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/30 rounded-2xl p-8">
+            <div className="bg-slate-800/20 backdrop-blur-sm border border-slate-700/30 rounded-3xl p-8">
               <div className="text-center mb-8">
-                <h3 className="text-2xl font-bold text-white mb-2 flex items-center justify-center" id="demo-section-title">
-                  <Play className="w-6 h-6 mr-3" aria-hidden="true" />
-                  Try Our Demo Mode
+                <h3 className="text-3xl font-bold text-white mb-4">
+                  Try Our AI Analysis
                 </h3>
-                <p className="text-slate-300" id="demo-section-description">
-                  Experience our AI analysis with sample documents
+                <p className="text-slate-400">
+                  Experience the power of our AI with real legal document samples
                 </p>
               </div>
 
-              <div className="grid md:grid-cols-3 gap-4 mb-6" role="group" aria-labelledby="demo-section-title" aria-describedby="demo-section-description">
+              <div className="grid md:grid-cols-3 gap-6">
                 <button
                   type="button"
                   onClick={() => loadDemoSample('rental')}
-                  className="p-4 bg-red-500/20 border border-red-500/50 rounded-xl hover:bg-red-500/30 transition-all group focus:outline-none focus:ring-2 focus:ring-red-500"
-                  aria-label="Load rental agreement demo sample with unfavorable lease terms"
+                  className="group p-6 bg-slate-800/30 border border-slate-700/50 rounded-2xl hover:border-red-500/30 hover:bg-red-500/5 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-red-500 hover:transform hover:scale-105"
+                  aria-label="Load rental agreement demo sample"
                 >
                   <div className="text-center">
-                    <div className="w-12 h-12 bg-red-500 rounded-lg flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
-                      <FileText className="w-6 h-6 text-white" aria-hidden="true" />
+                    <div className="w-14 h-14 bg-gradient-to-r from-red-500 to-red-600 rounded-xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300 shadow-lg">
+                      <FileText className="w-7 h-7 text-white" />
                     </div>
-                    <h4 className="font-semibold text-white mb-1">Rental Agreement</h4>
-                    <p className="text-sm text-red-400">Unfavorable lease terms</p>
+                    <h4 className="text-lg font-bold text-white mb-2">Rental Agreement</h4>
+                    <p className="text-red-400 font-medium mb-2">High Risk Document</p>
+                    <p className="text-slate-400 text-sm">Unfavorable lease terms</p>
                   </div>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => loadDemoSample('employment')}
-                  className="p-4 bg-green-500/20 border border-green-500/50 rounded-xl hover:bg-green-500/30 transition-all group focus:outline-none focus:ring-2 focus:ring-green-500"
-                  aria-label="Load employment contract demo sample with standard terms"
+                  className="group p-6 bg-slate-800/30 border border-slate-700/50 rounded-2xl hover:border-green-500/30 hover:bg-green-500/5 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-green-500 hover:transform hover:scale-105"
+                  aria-label="Load employment contract demo sample"
                 >
                   <div className="text-center">
-                    <div className="w-12 h-12 bg-green-500 rounded-lg flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
-                      <FileText className="w-6 h-6 text-white" aria-hidden="true" />
+                    <div className="w-14 h-14 bg-gradient-to-r from-green-500 to-green-600 rounded-xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300 shadow-lg">
+                      <FileText className="w-7 h-7 text-white" />
                     </div>
-                    <h4 className="font-semibold text-white mb-1">Employment Contract</h4>
-                    <p className="text-sm text-green-400">Standard terms</p>
+                    <h4 className="text-lg font-bold text-white mb-2">Employment Contract</h4>
+                    <p className="text-green-400 font-medium mb-2">Low Risk Document</p>
+                    <p className="text-slate-400 text-sm">Standard employment terms</p>
                   </div>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => loadDemoSample('nda')}
-                  className="p-4 bg-yellow-500/20 border border-yellow-500/50 rounded-xl hover:bg-yellow-500/30 transition-all group focus:outline-none focus:ring-2 focus:ring-yellow-500"
-                  aria-label="Load NDA agreement demo sample with overly broad terms"
+                  className="group p-6 bg-slate-800/30 border border-slate-700/50 rounded-2xl hover:border-yellow-500/30 hover:bg-yellow-500/5 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-yellow-500 hover:transform hover:scale-105"
+                  aria-label="Load NDA agreement demo sample"
                 >
                   <div className="text-center">
-                    <div className="w-12 h-12 bg-yellow-500 rounded-lg flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
-                      <FileText className="w-6 h-6 text-white" aria-hidden="true" />
+                    <div className="w-14 h-14 bg-gradient-to-r from-yellow-500 to-yellow-600 rounded-xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300 shadow-lg">
+                      <FileText className="w-7 h-7 text-white" />
                     </div>
-                    <h4 className="font-semibold text-white mb-1">NDA Agreement</h4>
-                    <p className="text-sm text-yellow-400">Overly broad terms</p>
+                    <h4 className="text-lg font-bold text-white mb-2">NDA Agreement</h4>
+                    <p className="text-yellow-400 font-medium mb-2">Medium Risk Document</p>
+                    <p className="text-slate-400 text-sm">Overly broad terms</p>
                   </div>
                 </button>
-              </div>
-
-              <div className="bg-slate-800/50 rounded-xl p-4">
-                <p className="text-sm text-slate-300 text-center">
-                  <AlertCircle className="w-4 h-4 inline mr-2" />
-                  <strong>Demo Benefits:</strong> See real AI analysis • Understand risk levels • Experience plain-language explanations
-                </p>
               </div>
             </div>
           </motion.div>

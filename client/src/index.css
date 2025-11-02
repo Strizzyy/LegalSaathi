@@ -691,3 +691,244 @@ own content styling */
 .markdown-content h3:first-child {
   color: rgb(34 211 238);
 }
+/* Enhanc
+ed home page animations and effects */
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(34, 211, 238, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(34, 211, 238, 0.6);
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 3s ease-in-out infinite;
+}
+
+@keyframes gradient-shift {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+.animate-gradient {
+  background-size: 200% 200%;
+  animation: gradient-shift 6s ease infinite;
+}
+
+/* Enhanced card hover effects */
+.feature-card-enhanced {
+  @apply transition-all duration-500 ease-out;
+  transform-style: preserve-3d;
+}
+
+.feature-card-enhanced:hover {
+  @apply transform scale-105;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(34, 211, 238, 0.3);
+}
+
+/* Improved button styles */
+.btn-primary-enhanced {
+  @apply relative overflow-hidden;
+  background: linear-gradient(135deg, #06b6d4, #3b82f6);
+  transition: all 0.3s ease;
+}
+
+.btn-primary-enhanced::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s;
+}
+
+.btn-primary-enhanced:hover::before {
+  left: 100%;
+}
+
+/* Enhanced text gradients */
+.text-gradient-enhanced {
+  background: linear-gradient(135deg, #06b6d4, #3b82f6, #8b5cf6);
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: gradient-shift 4s ease infinite;
+}
+
+/* Improved glass morphism */
+.glass-morphism {
+  background: rgba(15, 23, 42, 0.7);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+}
+
+/* Enhanced loading states */
+.loading-shimmer {
+  background: linear-gradient(90deg, #374151 25%, #4b5563 50%, #374151 75%);
+  background-size: 200px 100%;
+  animation: shimmer 2s infinite linear;
+}
+
+/* Improved focus states */
+.focus-ring-enhanced {
+  @apply focus:outline-none focus:ring-4 focus:ring-cyan-500/50 focus:ring-offset-2 focus:ring-offset-slate-900;
+}
+
+/* Enhanced home page specific styles */
+.hero-background-enhanced {
+  background: radial-gradient(circle at 30% 40%, rgba(34, 211, 238, 0.15) 0%, transparent 50%),
+              radial-gradient(circle at 70% 60%, rgba(59, 130, 246, 0.1) 0%, transparent 50%),
+              radial-gradient(circle at 50% 80%, rgba(168, 85, 247, 0.08) 0%, transparent 50%),
+              linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+}
+
+.product-card-enhanced {
+  @apply relative overflow-hidden;
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.product-card-enhanced::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, transparent 50%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.product-card-enhanced:hover::before {
+  opacity: 1;
+}
+
+.upload-section-enhanced {
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.8) 100%);
+  backdrop-filter: blur(20px);
+}
+
+/* Responsive enhancements */
+@media (max-width: 768px) {
+  .hero-background-enhanced {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  }
+  
+  .feature-card-enhanced:hover {
+    transform: none;
+    box-shadow: none;
+  }
+}
+
+/* Accessibility improvements */
+@media (prefers-reduced-motion: reduce) {
+  .animate-pulse-glow,
+  .animate-gradient,
+  .feature-card-enhanced,
+  .product-card-enhanced {
+    animation: none;
+    transition: none;
+  }
+}
+
+/* Clean minimalist design enhancements */
+.clean-card {
+  @apply bg-slate-800/20 backdrop-blur-sm border border-slate-700/30 rounded-3xl transition-all duration-500;
+}
+
+.clean-card:hover {
+  @apply border-slate-600/50 bg-slate-800/30;
+}
+
+.clean-button {
+  @apply inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-2xl font-semibold transition-all duration-300 transform hover:scale-105 hover:shadow-2xl hover:shadow-cyan-500/25;
+}
+
+.clean-text-gradient {
+  @apply bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent;
+}
+
+.clean-section {
+  @apply py-24 relative;
+}
+
+.clean-container {
+  @apply container mx-auto px-6 relative z-10;
+}
+
+.clean-heading {
+  @apply text-5xl md:text-6xl font-bold text-white mb-8 leading-tight tracking-tight;
+}
+
+.clean-subheading {
+  @apply text-2xl text-slate-400 leading-relaxed font-light;
+}
+
+.clean-badge {
+  @apply inline-flex items-center px-6 py-3 bg-slate-800/40 backdrop-blur-sm border border-slate-700/50 rounded-full text-slate-300 text-sm font-medium;
+}
+
+/* Subtle animations for clean design */
+@keyframes clean-float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.animate-clean-float {
+  animation: clean-float 6s ease-in-out infinite;
+}
+
+/* Clean focus states */
+.clean-focus {
+  @apply focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:ring-offset-2 focus:ring-offset-slate-900;
+}
+
+/* Clean glass effect */
+.clean-glass {
+  @apply bg-slate-800/20 backdrop-blur-sm border border-slate-700/30;
+}
+
+/* Clean hover effects */
+.clean-hover {
+  @apply transition-all duration-300 hover:transform hover:scale-105;
+}
+
+/* Typography improvements */
+.clean-text {
+  @apply text-slate-400 leading-relaxed;
+}
+
+.clean-text-white {
+  @apply text-white leading-relaxed;
+}
+
+/* Spacing utilities */
+.clean-spacing {
+  @apply space-y-8;
+}
+
+.clean-grid {
+  @apply grid gap-8;
+}
+
+/* Clean shadows */
+.clean-shadow {
+  @apply shadow-2xl shadow-slate-900/50;
+}
+
+.clean-shadow-hover:hover {
+  @apply shadow-2xl shadow-cyan-500/25;
+}

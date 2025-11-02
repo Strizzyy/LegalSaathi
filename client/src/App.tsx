@@ -19,6 +19,7 @@ import { initializeProgressivePreloading } from './utils/preloader';
 import { performanceMonitor } from './utils/performanceMonitor';
 import { lazyComponentManager } from './utils/lazyComponentManager';
 import { ProgressiveEnhancement, ConnectionStatus } from './components/ProgressiveEnhancement';
+import { Robot3DLazy } from './components/Robot3DLazy';
 
 // Lazy-loaded components for code splitting
 const Results = lazy(() => import('./components/Results'));
@@ -672,6 +673,9 @@ function App() {
                 </ErrorBoundary>
               )}
             </main>
+
+            {/* AI Assistant Robot - Available on all pages */}
+            <Robot3DLazy />
 
             <Footer
               onShowPrivacy={handleShowPrivacy}
