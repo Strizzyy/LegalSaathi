@@ -3,17 +3,13 @@ import { motion } from 'framer-motion';
 import { 
   FileText, 
   Lightbulb, 
-  AlertTriangle, 
-  CheckCircle, 
   Loader2, 
   RefreshCw,
   BookOpen,
-  Target,
-  Shield,
   Languages
 } from 'lucide-react';
 import { summarizationService, type SummaryData } from '../services/summarizationService';
-import { MarkdownRenderer, TranslatedContentRenderer } from '../utils/markdownRenderer';
+import { TranslatedContentRenderer } from '../utils/markdownRenderer';
 import GlobalTranslationPanel from './GlobalTranslationPanel';
 import type { DocumentSummaryContent } from '../services/documentSummaryTranslationService';
 
@@ -25,8 +21,7 @@ interface DocumentSummaryProps {
 }
 
 export function DocumentSummary({ analysis, className = '' }: DocumentSummaryProps) {
-  const [expandedSection, setExpandedSection] = useState<string | null>(null);
-  const [allExpanded, setAllExpanded] = useState(true);
+
   const [summary, setSummary] = useState<SummaryData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showTranslation, setShowTranslation] = useState(false);
@@ -107,19 +102,7 @@ export function DocumentSummary({ analysis, className = '' }: DocumentSummaryPro
     }
   };
 
-  const toggleSection = (section: string) => {
-    if (allExpanded) {
-      setAllExpanded(false);
-      setExpandedSection(section);
-    } else {
-      setExpandedSection(expandedSection === section ? null : section);
-    }
-  };
 
-  const toggleAllSections = () => {
-    setAllExpanded(!allExpanded);
-    setExpandedSection(null);
-  };
 
   const handleTranslationComplete = (translatedContent: DocumentSummaryContent, language: string) => {
     setTranslatedSummary(translatedContent);
@@ -205,8 +188,9 @@ export function DocumentSummary({ analysis, className = '' }: DocumentSummaryPro
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 30 }}
       animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.6, delay: 0.35 }}
       className={`document-summary ${className}`}
     >
       <div className="bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border border-blue-500/30 rounded-2xl p-6">

@@ -550,6 +550,14 @@ graph TB
 | **Speech-to-Text** | Voice accessibility | Inclusive document input | Legal terminology recognition, punctuation |
 | **Text-to-Speech** | Audio accessibility | Inclusive result delivery | Neural voices, adjustable parameters |
 | **Natural Language AI** | Entity extraction | Legal entity recognition | Confidence scoring, sentiment analysis |
+| **Vertex AI** | Semantic search & RAG | Advanced document similarity and context retrieval | Intelligent document comparison, precedent analysis |
+
+### Additional Infrastructure Integration
+
+| Service | Where Used | Why Chosen | Value Added |
+|---------|------------|------------|-------------|
+| **Firebase Gmail OAuth2** | Email delivery system | Secure, professional email communication | Expert notifications, report delivery, user engagement |
+| **Neo4j Graph Database** | Legal knowledge graph | Complex relationship modeling | Entity relationships, precedent analysis, pattern discovery |
 
 ### Data Flow Architecture
 
@@ -664,6 +672,9 @@ OCR: Document AI + Vision API
 Translation: Google Translate (50+ languages)
 Speech: Speech-to-Text + Text-to-Speech
 NLP: Natural Language AI (Entity extraction)
+Semantic Search: Vertex AI (Embeddings & RAG)
+Email: Firebase Gmail OAuth2 (Professional delivery)
+Knowledge Graph: Neo4j (Legal relationships)
 ```
 
 ### Infrastructure & DevOps
@@ -927,7 +938,7 @@ Authentication: Firebase secure token system
 - **Service Degradation**: Graceful feature reduction when services unavailable
 
 #### ✅ Effective Use of Google's AI Tools
-**6 Google AI Services Integrated Creatively:**
+**8 Google AI Services + Additional Infrastructure Integrated Creatively:**
 
 | Service | Creative Implementation | Real Value Added |
 |---------|------------------------|------------------|
@@ -937,6 +948,15 @@ Authentication: Firebase secure token system
 | **Translation API** | Legal context preservation across 50+ languages | Global accessibility with legal terminology accuracy |
 | **Speech-to-Text** | Legal terminology recognition | Inclusive document input for accessibility |
 | **Text-to-Speech** | Neural voices for legal content | Audio accessibility for visually impaired users |
+| **Natural Language AI** | Legal entity extraction and sentiment analysis | Enhanced document insights, confidence scoring |
+| **Vertex AI** | Semantic search and RAG for legal precedents | Document similarity, precedent matching, enhanced context |
+
+**Additional Infrastructure Services:**
+
+| Service | Creative Implementation | Real Value Added |
+|---------|------------------------|------------------|
+| **Firebase Gmail OAuth2** | Secure professional email delivery system | Expert notifications, report delivery, user engagement |
+| **Neo4j Graph Database** | Legal knowledge graph for relationship mapping | Entity relationships, precedent analysis, pattern discovery |
 
 **Creative AI Orchestration:**
 - **Privacy-First Processing**: PII masking before any cloud AI processing

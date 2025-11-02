@@ -28,6 +28,7 @@ class FirebaseService:
             # Check if Firebase is already initialized
             if firebase_admin._apps:
                 logger.info("Firebase Admin SDK already initialized")
+                self._firebase_available = True
                 return
             
             # Get Firebase credentials from environment

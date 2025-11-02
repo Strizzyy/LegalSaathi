@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { AlertTriangle, Brain, Shield, Clock, CheckCircle, XCircle, Info } from 'lucide-react';
 import { Modal } from './Modal';
@@ -110,7 +110,7 @@ export function LowConfidencePopup({
                 
                 {/* Component Confidences */}
                 <div className="space-y-2">
-                  {Object.entries(confidenceBreakdown.component_weights).map(([component, weight]) => {
+                  {Object.entries(confidenceBreakdown.component_weights).map(([component, _weight]) => {
                     const componentConf = confidenceBreakdown.clause_confidences[component] || 0;
                     const confPercentage = Math.round(componentConf * 100);
                     

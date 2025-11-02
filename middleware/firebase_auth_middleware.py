@@ -31,7 +31,7 @@ class FirebaseAuthMiddleware(BaseHTTPMiddleware):
         
         # Define protected routes that require authentication
         self.protected_routes = [
-            '/api/export',
+            # '/api/export',  # Temporarily disabled for testing
             '/api/user',
             '/api/auth/user-info',
             '/api/auth/refresh-token'

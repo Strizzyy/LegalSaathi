@@ -1,0 +1,100 @@
+# Multi-stage build for Google Cloud Run - Optimized for fast startup and small size
+
+# Stage 1: Node.js builder for React frontend
+FROM node:18-alpine as client-builder
+
+WORKDIR /app/client
+
+# Copy package files
+COPY client/package*.json ./
+
+# Install dependencies with cache optimization
+RUN npm ci --only=production --no-audit --no-fund
+
+# Copy source code
+COPY client/ ./
+
+# Build the React application
+RUN npm run build
+
+# Stage 2: Python backend stage - optimized for Cloud Run
+FROM python:3.11-slim
+
+# Set environment variables for Cloud Run optimization
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV GOOGLE_CLOUD_DEPLOYMENT=true
+ENV PORT=8080
+ENV TRANSFORMERS_OFFLINE=1
+ENV HF_HUB_OFFLINE=1
+ENV PIP_NO_CACHE_DIR=1
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# Install system dependencies (minimal for faster build)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    g++ \
+    libc6-dev \
+    curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean \
+    && apt-get autoremove -y
+
+# Set working directory
+WORKDIR /app
+
+# Copy optimized requirements and install Python dependencies
+COPY requirements-cloudrun.txt ./requirements.txt
+RUN pip install --no-cache-dir --compile -r requirements.txt \
+    && rm -rf /root/.cache/pip \
+    && rm requirements.txt
+
+# Copy only necessary application files
+COPY main.py ./
+COPY controllers/ ./controllers/
+COPY models/ ./models/
+COPY services/ ./services/
+COPY middleware/ ./middleware/
+
+# Copy built client from previous stage with proper structure
+COPY --from=client-builder /app/client/dist ./client/dist
+
+# Verify client build was copied correctly and show structure
+RUN ls -la client/dist/ && \
+    test -f client/dist/index.html || (echo "ERROR: index.html not found" && exit 1) && \
+    echo "✅ Client build verification successful" && \
+    echo "📁 Client dist contents:" && \
+    find client/dist -type f -name "*.html" -o -name "*.js" -o -name "*.css" | head -10
+
+# Create necessary directories with proper permissions
+RUN mkdir -p logs temp \
+    && chmod 755 logs temp \
+    && chmod -R 755 client/dist
+
+# Remove unnecessary files to reduce image size
+RUN find . -type f -name "*.pyc" -delete \
+    && find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+
+# Create non-root user for security
+RUN useradd --create-home --shell /bin/bash app \
+    && chown -R app:app /app
+USER app
+
+# Expose port
+EXPOSE 8080
+
+# Optimized health check for Cloud Run
+HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
+    CMD curl -f http://localhost:8080/health || exit 1
+
+# Start command optimized for Cloud Run with performance tuning
+CMD exec uvicorn main:app \
+    --host 0.0.0.0 \
+    --port $PORT \
+    --workers 1 \
+    --timeout-keep-alive 30 \
+    --timeout-graceful-shutdown 10 \
+    --max-requests 1000 \
+    --max-requests-jitter 100 \
+    --access-log \
+    --log-level info

@@ -27,12 +27,12 @@ import { HumanSupport } from './HumanSupport';
 import { TranslationModal } from './TranslationModal';
 import { StatusModal } from './StatusModal';
 import { DocumentSummary } from './DocumentSummary';
-import { DocumentComparison } from './DocumentComparison';
+import { InlineDocumentComparison } from './InlineDocumentComparison';
 import { EmailModal } from './EmailModal';
 import { PaginatedClauseAnalysis } from './PaginatedClauseAnalysis';
 import { LowConfidencePopup } from './LowConfidencePopup';
 import { ExpertDashboardPopup } from './ExpertDashboardPopup';
-import { ActionableInsights } from './ActionableInsights';
+
 import { expertQueueService } from '../services/expertQueueService';
 import { MarkdownRenderer } from '../utils/markdownRenderer';
 import GlobalTranslationPanel from './GlobalTranslationPanel';
@@ -61,7 +61,7 @@ export const Results = React.memo(function Results({ analysis, fileInfo, classif
   const [currentLanguage, setCurrentLanguage] = useState('en');
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isHumanSupportOpen, setIsHumanSupportOpen] = useState(false);
-  const [isComparisonOpen, setIsComparisonOpen] = useState(false);
+
   const [isTranslationOpen, setIsTranslationOpen] = useState(false);
   const [isStatusOpen, setIsStatusOpen] = useState(false);
   const [translationText, setTranslationText] = useState('');
@@ -178,7 +178,7 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
           summary: analysis.summary,
           clause_assessments: analysis.analysis_results,
           overall_risk: analysis.overall_risk,
-          recommendations: analysis.recommendations,
+          recommendations: analysis.analysis_results?.flatMap(result => result.recommendations || []) || [],
           enhanced_insights: analysis.enhanced_insights
         },
         user_email: userEmail,
@@ -303,17 +303,29 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
         notificationService.exportSuccess('PDF');
       } else {
         featureAvailabilityService.recordFeatureError('export_pdf');
-        notificationService.exportError('PDF', () => {
-          const fallbackData: any = { analysis };
-          if (fileInfo) fallbackData.file_info = fileInfo;
-          if (classification) fallbackData.classification = classification;
-          exportService.exportAsText(fallbackData);
-        });
+        
+        // Check if it's an authentication error
+        if (result.error && result.error.includes('sign in')) {
+          notificationService.error(result.error);
+        } else {
+          notificationService.exportError('PDF', () => {
+            const fallbackData: any = { analysis };
+            if (fileInfo) fallbackData.file_info = fileInfo;
+            if (classification) fallbackData.classification = classification;
+            exportService.exportAsText(fallbackData);
+          });
+        }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Export error:', error);
       featureAvailabilityService.recordFeatureError('export_pdf', error as Error);
-      notificationService.error('Export failed. Please try again or use the text export option.');
+      
+      // Check if it's an authentication error
+      if (error.message && error.message.includes('Authentication required')) {
+        notificationService.error('Please sign in to export PDF documents. Click the "Sign In" button in the top navigation.');
+      } else {
+        notificationService.error('Export failed. Please try again or use the text export option.');
+      }
     } finally {
       setIsExporting(prev => ({ ...prev, pdf: false }));
     }
@@ -399,85 +411,11 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
 
 
 
-          {/* AI Analysis Transparency */}
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-            className="bg-gradient-to-r from-blue-500/10 via-cyan-500/10 to-purple-500/10 border border-blue-500/30 rounded-2xl p-8 mb-10 shadow-xl backdrop-blur-sm"
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-white flex items-center">
-                <Zap className="w-5 h-5 mr-2" />
-                AI Analysis Transparency
-              </h2>
-              <div className="google-cloud-badge">
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z" />
-                </svg>
-                <span>Powered by Google Cloud AI</span>
-              </div>
-            </div>
-
-            <div className="grid md:grid-cols-2 gap-6">
-              <div>
-                <h3 className="font-semibold text-white mb-3">Google Cloud AI Integration</h3>
-                <div className="space-y-2">
-                  <div className="ai-processing-indicator">
-                    <CheckCircle className="w-4 h-4 text-green-400" />
-                    <span>Advanced NLP Analysis Complete</span>
-                  </div>
-                  <div className="ai-processing-indicator">
-                    <Shield className="w-4 h-4 text-green-400" />
-                    <span>Risk Pattern Recognition Applied</span>
-                  </div>
-                  <div className="ai-processing-indicator">
-                    <Globe className="w-4 h-4 text-blue-400" />
-                    <span>Plain Language Translation Generated</span>
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <h3 className="font-semibold text-white mb-3">Analysis Confidence Metrics</h3>
-                <div className="space-y-3">
-                  <div>
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="text-sm text-slate-300">Overall Analysis:</span>
-                      <span className="text-sm text-slate-400">{analysis.overall_risk.confidence_percentage}%</span>
-                    </div>
-                    <div className="h-2.5 bg-slate-800 rounded-full overflow-hidden">
-                      <div
-                        className={cn(
-                          "h-full rounded-full transition-all duration-500 shadow-lg",
-                          getConfidenceColor(analysis.overall_risk.confidence_percentage)
-                        )}
-                        style={{ width: `${analysis.overall_risk.confidence_percentage}%` }}
-                      />
-                    </div>
-                    <div className="flex justify-between text-xs text-slate-400 mt-1.5">
-                      <span>Low</span>
-                      <span>Medium</span>
-                      <span>High</span>
-                    </div>
-                  </div>
-
-                  {analysis.overall_risk.low_confidence_warning && (
-                    <div className="variability-warning">
-                      <AlertTriangle className="w-4 h-4" />
-                      <span className="text-sm">Results may vary - consider professional review for critical decisions</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </motion.div>
-
           {/* Overall Risk Assessment */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.3 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
             className={cn(
               "border-2 rounded-2xl p-8 mb-10 shadow-xl backdrop-blur-sm",
               analysis.overall_risk.level === 'RED' ? "border-red-500/50 bg-gradient-to-r from-red-500/10 to-red-600/5" :
@@ -587,9 +525,35 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
             )}
           </motion.div>
 
+          {/* Paginated Clause Analysis */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.3 }}
+          >
+            <PaginatedClauseAnalysis
+              analysisId={analysis.analysis_id}
+              onOpenChat={openChat}
+              onOpenHumanSupport={openHumanSupport}
+              className="mb-8"
+            />
+          </motion.div>
+
           {/* Document Summary */}
           <DocumentSummary
             analysis={analysis}
+            className="mb-8"
+          />
+
+          {/* Document Comparison Section */}
+          <InlineDocumentComparison
+            currentDocument={{
+              text: analysis.document_text || analysis.analysis_results.map(clause => clause.clause_text).join('\n\n') || '',
+              type: analysis.document_type || 'general_contract'
+            }}
+            isExpanded={true}
+            onToggleExpanded={() => {}}
+            showExpandToggle={false}
             className="mb-8"
           />
 
@@ -598,7 +562,7 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
             <motion.div
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.4 }}
+              transition={{ duration: 0.6, delay: 0.5 }}
               className="bg-yellow-500/10 border border-yellow-500/30 rounded-2xl p-6 mb-8"
             >
               <h2 className="text-xl font-bold text-white mb-4 flex items-center">
@@ -620,37 +584,11 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
             </motion.div>
           )}
 
-          {/* Paginated Clause Analysis */}
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.5 }}
-          >
-            <PaginatedClauseAnalysis
-              analysisId={analysis.analysis_id}
-              onOpenChat={openChat}
-              onOpenHumanSupport={openHumanSupport}
-              className="mb-8"
-            />
-          </motion.div>
-
-          {/* Actionable Insights */}
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.55 }}
-          >
-            <ActionableInsights
-              analysisId={analysis.analysis_id}
-              className="mb-8"
-            />
-          </motion.div>
-
           {/* Interactive AI Features */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.6 }}
+            transition={{ duration: 0.6, delay: 0.7 }}
             className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6 mb-8"
           >
             <div className="mb-6">
@@ -761,23 +699,7 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
                 </div>
               </div>
 
-              {/* Document Comparison */}
-              <div className="feature-card p-4">
-                <h3 className="font-semibold text-white mb-2 flex items-center">
-                  <FileText className="w-4 h-4 mr-2" />
-                  Document Comparison
-                </h3>
-                <p className="text-slate-400 text-sm mb-3">Compare this document with another for risk differences.</p>
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => setIsComparisonOpen(true)}
-                    className="inline-flex items-center px-3 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-lg hover:from-cyan-400 hover:to-blue-400 transition-all text-sm"
-                  >
-                    <FileText className="w-4 h-4 mr-2" />
-                    Compare Documents
-                  </button>
-                </div>
-              </div>
+
 
               {/* Google Cloud AI Services */}
               <div className="feature-card p-4">
@@ -882,11 +804,13 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
             )}
           </motion.div>
 
+
+
           {/* Enhanced Export & Share */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.7 }}
+            transition={{ duration: 0.6, delay: 0.8 }}
             className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6 mb-8"
           >
             <div className="mb-6">
@@ -972,7 +896,7 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.8 }}
+            transition={{ duration: 0.6, delay: 0.9 }}
             className="flex flex-wrap gap-4 justify-center"
           >
             <button
@@ -1013,16 +937,7 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
         onClose={() => setIsStatusOpen(false)}
       />
 
-      {analysis && (
-        <DocumentComparison
-          isOpen={isComparisonOpen}
-          onClose={() => setIsComparisonOpen(false)}
-          currentDocument={{
-            text: analysis.document_text || analysis.analysis_results.map(clause => clause.clause_text).join('\n\n') || '',
-            type: analysis.document_type || 'general_contract'
-          }}
-        />
-      )}
+
 
       {/* Email Modal */}
       <EmailModal
@@ -1037,7 +952,7 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
       />
 
       {/* Low Confidence Popup */}
-      {analysis.overall_confidence !== undefined && (
+      {analysis.overall_confidence !== undefined && analysis.confidence_breakdown && (
         <LowConfidencePopup
           isVisible={showConfidencePopup}
           confidence={analysis.overall_confidence}

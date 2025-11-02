@@ -56,10 +56,16 @@ class ComparisonService:
             
         except asyncio.TimeoutError:
             logger.error(f"Document comparison timed out after 45 seconds: {comparison_id}")
-            raise Exception("Document comparison timed out. Please try again with smaller documents or contact support.")
+            logger.info("Falling back to lightweight comparison...")
+            return await self._perform_fallback_comparison(request, comparison_id, start_time)
         except Exception as e:
             logger.error(f"Document comparison failed: {e}")
-            raise Exception(f"Comparison failed: {str(e)}")
+            logger.info("Falling back to lightweight comparison...")
+            try:
+                return await self._perform_fallback_comparison(request, comparison_id, start_time)
+            except Exception as fallback_error:
+                logger.error(f"Fallback comparison also failed: {fallback_error}")
+                raise Exception(f"Comparison failed: {str(e)}")
     
     async def compare_documents_with_progress(self, request: DocumentComparisonRequest) -> DocumentComparisonResponse:
         """OPTIMIZED: Compare two legal documents with performance improvements and timeout"""
@@ -1448,6 +1454,91 @@ class ComparisonService:
         except:
             pass
         return None
+
+    async def _perform_fallback_comparison(self, request: DocumentComparisonRequest, comparison_id: str, start_time: float) -> DocumentComparisonResponse:
+        """Fallback comparison method that doesn't require full document analysis"""
+        try:
+            logger.info(f"🔄 Starting fallback document comparison: {comparison_id}")
+            
+            # Validate document content
+            if not request.document1_text or not request.document1_text.strip():
+                raise ValueError("Document 1 is empty or contains no text")
+            
+            if not request.document2_text or not request.document2_text.strip():
+                raise ValueError("Document 2 is empty or contains no text")
+            
+            # Extract meaningful text content
+            doc1_text = self._extract_document_text(request.document1_text)
+            doc2_text = self._extract_document_text(request.document2_text)
+            
+            if not doc1_text or not doc2_text:
+                raise ValueError("Unable to extract meaningful text from one or both documents")
+            
+            # Perform lightweight analysis
+            logger.info("⚡ Performing lightweight document analysis...")
+            doc1_analysis = await self._lightweight_document_analysis(request.document1_text, request.document1_type)
+            doc2_analysis = await self._lightweight_document_analysis(request.document2_text, request.document2_type)
+            
+            # Basic risk comparison
+            overall_risk_comparison = {
+                "risk_score_difference": doc1_analysis['overall_risk'].score - doc2_analysis['overall_risk'].score,
+                "verdict": self._get_risk_verdict(doc1_analysis['overall_risk'].score - doc2_analysis['overall_risk'].score),
+                "document1_risk": doc1_analysis['overall_risk'].score,
+                "document2_risk": doc2_analysis['overall_risk'].score
+            }
+            
+            # Identify key differences
+            key_differences = await self._identify_lightweight_differences(doc1_analysis, doc2_analysis)
+            
+            # Compare clauses
+            clause_comparisons = await self._compare_clauses_lightweight(
+                doc1_analysis['clauses'], 
+                doc2_analysis['clauses']
+            )
+            
+            # Generate summary
+            recommendation_summary = self._generate_fast_summary(doc1_analysis, doc2_analysis)
+            
+            # Determine safer document
+            safer_document = self._determine_safer_document(
+                doc1_analysis['overall_risk'], 
+                doc2_analysis['overall_risk']
+            )
+            
+            # Create response
+            response = DocumentComparisonResponse(
+                comparison_id=comparison_id,
+                document1_summary={
+                    "type": request.document1_type,
+                    "overall_risk": doc1_analysis['overall_risk'],
+                    "clause_count": len(doc1_analysis['clauses']),
+                    "key_clauses": doc1_analysis['clauses'][:5]
+                },
+                document2_summary={
+                    "type": request.document2_type,
+                    "overall_risk": doc2_analysis['overall_risk'],
+                    "clause_count": len(doc2_analysis['clauses']),
+                    "key_clauses": doc2_analysis['clauses'][:5]
+                },
+                overall_risk_comparison=overall_risk_comparison,
+                key_differences=key_differences,
+                clause_comparisons=clause_comparisons,
+                recommendation_summary=recommendation_summary,
+                safer_document=safer_document,
+                comparison_timestamp=datetime.now(),
+                processing_time=time.time() - start_time,
+                comparison_focus=request.comparison_focus,
+                confidence_score=0.75  # Lower confidence for fallback method
+            )
+            
+            total_time = time.time() - start_time
+            logger.info(f"✅ Fallback document comparison completed in {total_time:.2f}s")
+            
+            return response
+            
+        except Exception as e:
+            logger.error(f"Fallback comparison failed: {e}")
+            raise Exception(f"Fallback comparison failed: {str(e)}")
 
     async def export_comparison_report(
         self, 

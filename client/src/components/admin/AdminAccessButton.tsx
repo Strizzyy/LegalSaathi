@@ -51,7 +51,6 @@ const AdminAccessButton: React.FC = () => {
             className="flex items-center space-x-2 px-3 py-2 text-sm bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
             title="Admin Cost Monitoring Dashboard"
         >
-            <span>🔒</span>
             <span>Admin</span>
         </button>
     );

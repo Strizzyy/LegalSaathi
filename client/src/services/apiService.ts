@@ -503,12 +503,16 @@ class APIService {
       formData.append('language_code', languageCode);
       formData.append('enable_punctuation', 'true');
 
+      const token = await this.getAuthToken();
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const response = await fetch('/api/speech/speech-to-text', {
         method: 'POST',
         body: formData,
-        headers: {
-          'Authorization': `Bearer ${this.getAuthToken()}`
-        }
+        headers
       });
 
       const result = await this.handleResponse<any>(response);
@@ -535,12 +539,17 @@ class APIService {
     speakingRate?: number;
   }): Promise<Blob | null> {
     try {
+      const token = await this.getAuthToken();
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const response = await fetch('/api/speech/text-to-speech', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.getAuthToken()}`
-        },
+        headers,
         body: JSON.stringify({
           text,
           language_code: options?.languageCode || 'en-US',
@@ -565,11 +574,15 @@ class APIService {
 
   async getSpeechUsageStats(): Promise<{ success: boolean; data?: any; error?: string }> {
     try {
+      const token = await this.getAuthToken();
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const response = await fetch('/api/speech/usage-stats', {
         method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${this.getAuthToken()}`
-        }
+        headers
       });
 
       const result = await this.handleResponse<any>(response);
@@ -587,10 +600,34 @@ class APIService {
     }
   }
 
-  private getAuthToken(): string {
-    // This should get the Firebase auth token from your auth context
-    // For now, return empty string - you'll need to implement this based on your auth setup
-    return '';
+  private async getAuthToken(): Promise<string | null> {
+    try {
+      const { getAuth } = await import('firebase/auth');
+      const { getIdToken } = await import('firebase/auth');
+      const auth = getAuth();
+      
+      console.log('Auth Debug:', {
+        authExists: !!auth,
+        currentUser: !!auth.currentUser,
+        userEmail: auth.currentUser?.email,
+        userUid: auth.currentUser?.uid
+      });
+      
+      if (auth.currentUser) {
+        const token = await getIdToken(auth.currentUser);
+        console.log('Token retrieved:', {
+          tokenExists: !!token,
+          tokenLength: token?.length,
+          tokenStart: token?.substring(0, 20) + '...'
+        });
+        return token;
+      } else {
+        console.warn('No current user found in Firebase auth');
+      }
+    } catch (error) {
+      console.error('Error getting authentication token:', error);
+    }
+    return null;
   }
 
   async getSupportedLanguages(): Promise<{ success: boolean; languages?: any[]; error?: string }> {
@@ -1290,18 +1327,32 @@ class APIService {
     analysis: AnalysisResult;
   }): Promise<Blob | null> {
     try {
+      const token = await this.getAuthToken();
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/pdf',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+        console.log('PDF Export: Token added to headers');
+      } else {
+        console.warn('PDF Export: No token available - request will be unauthenticated');
+      }
+
       const response = await fetch('/api/export/pdf', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/pdf',
-        },
+        headers,
         body: JSON.stringify(data),
       });
 
       if (!response.ok) {
         const errorText = await response.text();
         console.error('PDF export failed:', response.status, errorText);
+        
+        if (response.status === 401) {
+          throw new Error('Authentication required. Please sign in to export PDF documents.');
+        }
+        
         throw new Error(`PDF export failed: ${response.status} - ${errorText}`);
       }
 
@@ -1331,12 +1382,18 @@ class APIService {
     analysis: AnalysisResult;
   }): Promise<Blob | null> {
     try {
+      const token = await this.getAuthToken();
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const response = await fetch('/api/export/word', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        },
+        headers,
         body: JSON.stringify(data),
       });
 

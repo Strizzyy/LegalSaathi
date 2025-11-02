@@ -25,7 +25,7 @@ interface LazyImageProps {
   loading?: 'lazy' | 'eager';
   crossOrigin?: 'anonymous' | 'use-credentials';
   decoding?: 'async' | 'sync' | 'auto';
-  referrerPolicy?: string;
+  referrerPolicy?: React.HTMLAttributeReferrerPolicy;
   style?: React.CSSProperties;
   threshold?: number;
   rootMargin?: string;
@@ -165,7 +165,7 @@ export const LazyImage: React.FC<LazyImageProps> = ({
     if (imageState.isInView && imageState.currentSrc && imageState.currentSrc !== placeholder && imageState.currentSrc !== blurDataURL) {
       const img = new Image();
       img.onload = handleImageLoad;
-      img.onerror = handleImageError;
+      img.onerror = (event) => handleImageError(event as Event);
       img.src = imageState.currentSrc;
       
       // Set additional attributes for better loading
@@ -269,9 +269,9 @@ export const LazyImage: React.FC<LazyImageProps> = ({
 
 // Higher-order component for lazy loading any image
 export const withLazyLoading = <P extends object>(
-  Component: React.ComponentType<P & { src: string; alt: string }>
+  _Component: React.ComponentType<P & { src: string; alt: string }>
 ) => {
-  return React.forwardRef<HTMLElement, P & LazyImageProps>((props, ref) => {
+  return React.forwardRef<HTMLElement, P & LazyImageProps>((props, _ref) => {
     return <LazyImage {...props} />;
   });
 };

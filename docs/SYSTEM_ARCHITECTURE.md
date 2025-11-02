@@ -54,6 +54,14 @@ graph TB
         AA[Speech-to-Text - Voice Input]
         BB[Text-to-Speech - Audio Output]
         CC[Natural Language AI - Entities]
+        DD[Vertex AI - Semantic Search & RAG]
+    end
+    
+    subgraph "Additional Infrastructure"
+        EE[Firebase Gmail OAuth2]
+        FF[Neo4j Graph Database]
+        GG[Legal Knowledge Graph]
+        HH[Email Notification System]
     end
     
     subgraph "Human-in-the-Loop System"
@@ -126,6 +134,13 @@ graph TB
     L --> AA
     L --> BB
     Q --> CC
+    Q --> DD
+    
+    %% Additional Infrastructure Connections
+    GG --> EE
+    EE --> HH
+    DD --> FF
+    FF --> GG
     
     %% Human-in-the-Loop Connections
     S --> DD
@@ -160,8 +175,10 @@ graph TB
     style AA fill:#ff6d01,color:#fff
     style BB fill:#9c27b0,color:#fff
     style CC fill:#00bcd4,color:#fff
+    style DD fill:#ff9800,color:#fff
     style II fill:#f44336,color:#fff
-    style EE fill:#ff9800,color:#fff
+    style EE fill:#2196f3,color:#fff
+    style FF fill:#68bc00,color:#fff
 ```
 
 ## Service Organization
@@ -248,6 +265,45 @@ LegalSaathi leverages 6 Google Cloud AI services in a coordinated architecture:
   - Content classification for document types
 - **Why Chosen**: Deep text understanding beyond basic analysis
 - **Value Added**: Enhanced insights, entity relationship mapping
+
+#### 8. Google Vertex AI (`services/vertex_ai_service.py`)
+- **Primary Role**: Semantic search and advanced document similarity analysis
+- **Implementation**: Vector embeddings and RAG (Retrieval Augmented Generation)
+- **Features**:
+  - Document similarity scoring using vector embeddings
+  - Semantic search across legal clause databases
+  - Advanced RAG capabilities for enhanced context
+  - Legal precedent matching and comparison
+  - Clause relationship mapping through embeddings
+- **Why Chosen**: Superior semantic understanding for legal document relationships
+- **Value Added**: Intelligent document comparison, precedent analysis, enhanced context retrieval
+
+### Additional Infrastructure Services
+
+#### Firebase Gmail OAuth2 Integration (`services/gmail_service.py`)
+- **Primary Role**: Secure email delivery and professional user communication
+- **Implementation**: OAuth2-authenticated Gmail API with secure token management
+- **Features**:
+  - Professional email delivery for analysis reports
+  - Expert review notifications and status updates
+  - Secure PDF attachment handling
+  - User consent-based email communication
+  - Email template management for different notification types
+- **Why Chosen**: Reliable, secure email delivery with user authentication and professional appearance
+- **Value Added**: Professional communication, expert review coordination, user engagement
+
+#### Neo4j Graph Database (`services/neo4j_service.py`)
+- **Primary Role**: Legal knowledge graph and complex relationship mapping
+- **Implementation**: Graph-based storage for legal entities, clauses, and precedents
+- **Features**:
+  - Legal entity relationship mapping (parties, contracts, clauses)
+  - Contract clause dependency tracking and analysis
+  - Legal precedent and case law connections
+  - Advanced Cypher query capabilities for legal research
+  - Graph-based recommendation engine for similar cases
+  - Relationship discovery and pattern analysis
+- **Why Chosen**: Optimal for modeling complex legal relationships and dependencies
+- **Value Added**: Enhanced legal insights, relationship discovery, precedent analysis, pattern recognition
 
 ### AI Service Coordination Architecture
 
@@ -844,17 +900,30 @@ Development Tools:
 
 ### Database & Storage
 ```yaml
-Data Storage:
+Primary Databases:
   - Firebase Database: User authentication and profile data
+  - Neo4j Graph Database: Legal knowledge graph and entity relationships
   - Local File System: Temporary document processing
   - Session Storage: Client-side temporary data
   - Cache Storage: Multi-level caching system
+
+Graph Database Features:
+  - Legal Entity Relationships: Parties, contracts, clauses, precedents
+  - Cypher Query Language: Advanced relationship queries
+  - Pattern Recognition: Legal document similarity patterns
+  - Precedent Analysis: Case law and legal precedent connections
 
 File Processing:
   - Temporary File Handling: Secure upload and processing
   - Format Support: PDF, DOC, DOCX, TXT, Images (JPEG, PNG, WEBP, BMP, GIF)
   - Size Limits: 20MB for documents, 10MB for audio
   - Cleanup Procedures: Automatic temporary file removal
+
+Email Infrastructure:
+  - Firebase Gmail OAuth2: Secure email authentication
+  - Professional Email Templates: Branded communication
+  - Attachment Handling: Secure PDF report delivery
+  - Delivery Tracking: Email status monitoring
 ```
 
 ### Performance & Scalability

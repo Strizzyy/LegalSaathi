@@ -33,7 +33,7 @@ export function useLazyComponent<T = React.ComponentType<any>>(
     retryDelay = 1000,
     timeout = 10000,
     preloadOnIdle = false,
-    preloadOnHover = false
+    preloadOnHover: _preloadOnHover = false
   } = options;
 
   const [Component, setComponent] = useState<T | null>(null);
@@ -88,7 +88,7 @@ export function useLazyComponent<T = React.ComponentType<any>>(
       const startTime = performance.now();
       
       const module = await importFn();
-      const LoadedComponent = 'default' in module ? module.default : module;
+      const LoadedComponent = 'default' in (module as object) ? (module as any).default : module;
       
       const loadTime = performance.now() - startTime;
       
@@ -159,6 +159,7 @@ export function useLazyComponent<T = React.ComponentType<any>>(
         cancelIdleCallback(idleCallback);
       };
     }
+    return undefined;
   }, [preload, preloadOnIdle]);
 
   // Cleanup on unmount

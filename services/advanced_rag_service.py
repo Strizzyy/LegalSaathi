@@ -37,14 +37,26 @@ class AdvancedRAGService:
         self.conversation_memory = []
         self.feedback_scores = {}
         
+        # Cloud Run optimization
+        self.is_cloud_run = os.getenv('GOOGLE_CLOUD_DEPLOYMENT', 'false').lower() == 'true'
+        self.use_lightweight_services = os.getenv('USE_LIGHTWEIGHT_SERVICES', 'false').lower() == 'true'
+        self.disable_heavy_models = (
+            os.getenv('DISABLE_SENTENCE_TRANSFORMERS', 'false').lower() == 'true' or
+            self.is_cloud_run or self.use_lightweight_services
+        )
+        
         # Configuration - Ultra-optimized for speed
         self.embedding_dim = 384  # all-MiniLM-L6-v2 dimension
         self.max_chunks_per_retrieval = 10  # Further reduced for speed
         self.reranking_top_k = 5  # Further reduced for speed
         self.final_top_k = 3  # Further reduced for speed
         
-        # Initialize models
-        self._initialize_models()
+        # Initialize models (skip heavy models in Cloud Run)
+        if not self.disable_heavy_models:
+            self._initialize_models()
+        else:
+            logger.info("🚀 Skipping heavy ML models for Cloud Run lightweight deployment")
+            self._initialize_lightweight_mode()
         
     def _initialize_models(self):
         """Initialize embedding and reranking models with offline fallback"""
@@ -98,24 +110,49 @@ class AdvancedRAGService:
                     self.cross_encoder = None
                     logger.info("⚠️ Cross-encoder skipped due to embedding model unavailability")
             except Exception as e:
-                logger.warning(f"Cross-encoder loading failed: {e}, using fallback scoring")
+                logger.error(f"Failed to initialize cross-encoder: {e}")
                 self.cross_encoder = None
-            
-            # Initialize FAISS vector store only if embedding model is available
-            if self.embedding_model is not None:
-                self.vector_store = faiss.IndexFlatIP(self.embedding_dim)
-                logger.info("✅ FAISS vector store initialized")
-            else:
-                self.vector_store = None
-                logger.info("⚠️ FAISS vector store skipped - running in text-only mode")
-            
+                
         except Exception as e:
             logger.error(f"Failed to initialize RAG models: {e}")
-            logger.info("🔄 RAG service will continue in minimal mode")
-            # Don't raise - allow service to continue in degraded mode
             self.embedding_model = None
             self.cross_encoder = None
-            self.vector_store = None
+    
+    def _initialize_lightweight_mode(self):
+        """Initialize RAG service in lightweight mode for Cloud Run"""
+        logger.info("🚀 Initializing RAG service in lightweight mode for Cloud Run")
+        
+        # Skip heavy ML models
+        self.embedding_model = None
+        self.cross_encoder = None
+        self.vector_store = None
+        
+        # Use simple text-based retrieval instead
+        self.bm25_retriever = None
+        
+        # Set up basic knowledge base without embeddings
+        self.legal_knowledge_base = {
+            'contract_clauses': [
+                'termination clause',
+                'payment terms',
+                'liability limitation',
+                'intellectual property rights',
+                'confidentiality agreement',
+                'force majeure',
+                'governing law',
+                'dispute resolution'
+            ],
+            'risk_indicators': [
+                'unlimited liability',
+                'automatic renewal',
+                'broad termination rights',
+                'exclusive dealing',
+                'non-compete restrictions'
+            ]
+        }
+        
+        logger.info("✅ RAG service initialized in lightweight mode - using rule-based retrieval")
+
     
     async def build_knowledge_base(self, documents: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Build vector store and BM25 index from legal documents"""

@@ -1,0 +1,24 @@
+# Google Cloud Build configuration
+steps:
+  # Build and deploy to Cloud Run
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'legal-saathi'
+      - '--source=.'
+      - '--dockerfile=Dockerfile.cloudrun'
+      - '--region=us-central1'
+      - '--allow-unauthenticated'
+      - '--memory=2Gi'
+      - '--cpu=2'
+      - '--max-instances=10'
+      - '--timeout=300'
+      - '--set-env-vars=GOOGLE_CLOUD_DEPLOYMENT=true'
+
+# Service account with necessary permissions
+serviceAccount: 'projects/$PROJECT_ID/serviceAccounts/cloud-run-sa@$PROJECT_ID.iam.gserviceaccount.com'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: 'E2_HIGHCPU_8'
