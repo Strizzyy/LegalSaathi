@@ -676,6 +676,83 @@ async def export_analysis(analysis_id: str, format: str = "pdf"):
     return await controller.export_analysis(analysis_id, format)
 
 
+# Document text extraction endpoint for comparison feature
+@app.post("/api/upload")
+@limiter.limit("10/minute")
+async def extract_text_from_document(
+    request: Request,
+    file: UploadFile = File(...)
+):
+    """Extract text from uploaded document for comparison purposes"""
+    try:
+        # Validate file type
+        allowed_types = [
+            'application/pdf',
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'text/plain'
+        ]
+        
+        if file.content_type not in allowed_types:
+            raise HTTPException(
+                status_code=400, 
+                detail="Unsupported file type. Please upload PDF, Word document, or text file."
+            )
+        
+        # Validate file size (10MB limit)
+        content = await file.read()
+        if len(content) > 10 * 1024 * 1024:
+            raise HTTPException(status_code=400, detail="File size must be less than 10MB")
+        
+        # Extract text based on file type
+        extracted_text = ""
+        
+        if file.content_type == 'text/plain':
+            # For text files, just decode the content
+            extracted_text = content.decode('utf-8')
+        else:
+            # For PDF and Word documents, use Google Document AI service
+            from services.google_document_ai_service import document_ai_service
+            
+            try:
+                result = document_ai_service.process_legal_document(content, file.content_type)
+                extracted_text = result.get('text', '')
+                
+                if not extracted_text:
+                    raise HTTPException(
+                        status_code=400, 
+                        detail="Could not extract text from document. Please ensure the document contains readable text."
+                    )
+                    
+            except Exception as e:
+                logger.error(f"Document processing failed: {e}")
+                raise HTTPException(
+                    status_code=500, 
+                    detail="Failed to process document. Please try again or use a different file."
+                )
+        
+        # Validate extracted text length
+        if len(extracted_text.strip()) < 100:
+            raise HTTPException(
+                status_code=400, 
+                detail="Document must contain at least 100 characters of text"
+            )
+        
+        return {
+            "success": True,
+            "text": extracted_text.strip(),
+            "filename": file.filename,
+            "file_type": file.content_type,
+            "character_count": len(extracted_text.strip())
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Text extraction failed: {e}")
+        raise HTTPException(status_code=500, detail="Failed to extract text from document")
+
+
 # Vision API endpoints for image processing
 @app.post("/api/vision/extract-text")
 @limiter.limit("10/minute")
@@ -1333,19 +1410,33 @@ async def clear_conversation_history():
 @limiter.limit("5/minute")
 async def compare_documents(request: Request, comparison_request: DocumentComparisonRequest):
     """Compare two legal documents"""
-    return await comparison_controller.compare_documents(comparison_request)
+    controller = get_initialized_controller('comparison')
+    if not controller:
+        raise HTTPException(status_code=503, detail="Document comparison service not available")
+    
+    try:
+        return await controller.compare_documents(comparison_request)
+    except Exception as e:
+        logger.error(f"Document comparison failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Document comparison failed: {str(e)}")
 
 
 @app.get("/api/compare/{comparison_id}/summary", response_model=ComparisonSummaryResponse)
 async def get_comparison_summary(comparison_id: str):
     """Get summary of a previous comparison"""
-    return await comparison_controller.get_comparison_summary(comparison_id)
+    controller = get_initialized_controller('comparison')
+    if not controller:
+        raise HTTPException(status_code=503, detail="Document comparison service not available")
+    return await controller.get_comparison_summary(comparison_id)
 
 
 @app.get("/api/compare/export/formats")
 async def get_comparison_export_formats():
     """Get available export formats for comparison reports"""
-    return await comparison_controller.get_export_formats()
+    controller = get_initialized_controller('comparison')
+    if not controller:
+        raise HTTPException(status_code=503, detail="Document comparison service not available")
+    return await controller.get_export_formats()
 
 
 @app.post("/api/compare/export/{format}")
@@ -1359,7 +1450,11 @@ async def export_comparison_report(
     
     try:
         # Export the report
-        exported_data = await comparison_controller.export_comparison_report(
+        controller = get_initialized_controller('comparison')
+        if not controller:
+            raise HTTPException(status_code=503, detail="Document comparison service not available")
+        
+        exported_data = await controller.export_comparison_report(
             comparison_data, format
         )
         
