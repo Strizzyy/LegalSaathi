@@ -10,17 +10,19 @@ const loadingMessages = [
 ];
 
 export function LoadingOverlay() {
-  const [progress, setProgress] = useState(0);
+  const [progress, setProgress] = useState(3);
   const [messageIndex, setMessageIndex] = useState(0);
 
   useEffect(() => {
     // Simple, smooth progress animation that doesn't get stuck
     const progressInterval = setInterval(() => {
       setProgress(prev => {
-        // Smooth increment that slows down as it approaches 100%
-        const remaining = 100 - prev;
-        const increment = Math.max(0.2, remaining * 0.02); // Slower as it gets closer to 100%
-        return Math.min(prev + increment, 99.5); // Cap at 99.5% to avoid getting stuck
+        // Smooth increment that slows down as it approaches 99%
+        const remaining = 99 - prev;
+        const increment = Math.max(0.5, remaining * 0.03); // Slightly faster increment
+        const newProgress = Math.min(prev + increment, 99); // Cap at 99% maximum to provide realistic progress feedback
+
+        return newProgress;
       });
     }, 150);
 
@@ -82,24 +84,30 @@ export function LoadingOverlay() {
               <span className="text-sm text-slate-400 font-medium">Analysis Progress</span>
               <span className="text-sm text-cyan-400 font-semibold">{Math.round(progress)}%</span>
             </div>
-            <div className="relative w-full h-3 bg-slate-700/50 rounded-full overflow-hidden">
-              <motion.div
-                className="h-full bg-gradient-to-r from-cyan-500 to-blue-500"
-                initial={{ width: 0 }}
-                animate={{ width: `${progress}%` }}
-                transition={{ duration: 0.3, ease: "easeOut" }}
+            <div 
+              className="relative w-full h-3 rounded-full border overflow-hidden"
+              style={{
+                backgroundColor: '#1e293b',
+                borderColor: '#475569',
+                boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.3)'
+              }}
+            >
+              <div 
+                className="h-full rounded-full transition-all duration-500 ease-out"
+                style={{ 
+                  width: `${Math.max(progress, 3)}%`,
+                  background: 'linear-gradient(90deg, #22d3ee 0%, #3b82f6 100%)',
+                  boxShadow: '0 0 10px rgba(34, 211, 238, 0.5)'
+                }}
               />
-
-              {/* Simple shine effect */}
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-shimmer" />
             </div>
 
             {/* Progress indicators */}
             <div className="flex justify-between mt-2 text-xs text-slate-500">
-              <span className={progress >= 25 ? 'text-cyan-400' : ''}>Start</span>
-              <span className={progress >= 50 ? 'text-cyan-400' : ''}>Halfway</span>
-              <span className={progress >= 75 ? 'text-cyan-400' : ''}>Almost</span>
-              <span className={progress >= 100 ? 'text-cyan-400' : ''}>Done</span>
+              <span className={progress >= 25 ? 'text-cyan-400 font-medium' : ''}>Start</span>
+              <span className={progress >= 50 ? 'text-cyan-400 font-medium' : ''}>Halfway</span>
+              <span className={progress >= 75 ? 'text-cyan-400 font-medium' : ''}>Almost</span>
+              <span className={progress >= 99 ? 'text-cyan-400 font-medium' : ''}>Ready</span>
             </div>
           </div>
 
@@ -128,14 +136,16 @@ export function LoadingOverlay() {
                 progress < 40 ? 'Processing Document' :
                   progress < 60 ? 'Analyzing Content' :
                     progress < 80 ? 'Generating Insights' :
-                      'Finalizing Results'}
+                      progress < 95 ? 'Finalizing Results' :
+                        'Almost Ready'}
             </div>
             <div className="text-slate-400 text-sm">
               {progress < 20 ? 'Setting up AI models and preparing analysis...' :
                 progress < 40 ? 'Our AI is carefully examining your document...' :
                   progress < 60 ? 'Identifying key clauses and risk factors...' :
                     progress < 80 ? 'Creating actionable insights and recommendations...' :
-                      'Almost ready! Preparing your results...'}
+                      progress < 95 ? 'Preparing your comprehensive analysis...' :
+                        'Processing complete, preparing results...'}
             </div>
           </motion.div>
 

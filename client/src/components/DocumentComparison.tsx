@@ -444,22 +444,7 @@ export function DocumentComparison({ isOpen, onClose, currentDocument }: Documen
         </button>
       </div>
 
-      {/* Progress Indicator */}
-      {isComparing && (
-        <div className="mt-6 p-4 bg-slate-800 rounded-lg border border-slate-600">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-white font-medium">Comparison Progress</span>
-            <span className="text-cyan-400 text-sm">{Math.round(comparisonProgress)}%</span>
-          </div>
-          <div className="w-full bg-slate-700 rounded-full h-2 mb-2">
-            <div 
-              className="bg-gradient-to-r from-cyan-500 to-blue-500 h-2 rounded-full transition-all duration-300"
-              style={{ width: `${comparisonProgress}%` }}
-            />
-          </div>
-          <p className="text-slate-400 text-sm">{comparisonMessage}</p>
-        </div>
-      )}
+
     </div>
   );
 
@@ -858,7 +843,7 @@ export function DocumentComparison({ isOpen, onClose, currentDocument }: Documen
 
   return (
     <Modal isOpen={isOpen} onClose={handleClose} title="Document Comparison" maxWidth="4xl">
-      <div className="min-h-[600px]">
+      <div className="min-h-[600px] relative">
         <AnimatePresence mode="wait">
           {step === 'input' && (
             <motion.div
@@ -882,6 +867,66 @@ export function DocumentComparison({ isOpen, onClose, currentDocument }: Documen
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Full-screen Loading Overlay for Document Comparison - positioned to cover entire modal */}
+      <AnimatePresence>
+        {isComparing && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-slate-900/95 backdrop-blur-sm z-[60] flex items-center justify-center"
+          >
+            <div className="text-center max-w-md mx-auto px-6">
+              {/* Animated Spinner */}
+              <motion.div
+                className="w-16 h-16 border-4 border-cyan-500/30 border-t-cyan-500 rounded-full mx-auto mb-6"
+                animate={{ rotate: 360 }}
+                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+              />
+
+              {/* Progress Information */}
+              <div className="mb-6">
+                <h3 className="text-xl font-bold text-white mb-2">Comparing Documents</h3>
+                <p className="text-slate-300 mb-4">{comparisonMessage}</p>
+                
+                {/* Progress Bar */}
+                <div className="w-full max-w-xs mx-auto">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm text-slate-400">Progress</span>
+                    <span className="text-sm text-cyan-400 font-semibold">{Math.round(comparisonProgress)}%</span>
+                  </div>
+                  <div className="relative w-full h-2 bg-slate-700 rounded-full border border-slate-600">
+                    <div
+                      className="h-full bg-gradient-to-r from-cyan-400 to-blue-500 rounded-full transition-all duration-300 ease-out"
+                      style={{ width: `${Math.min(comparisonProgress, 99)}%` }}
+                    />
+                    
+                    {/* Shine effect */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer rounded-full" />
+                  </div>
+                </div>
+              </div>
+
+              {/* AI Processing Indicator */}
+              <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-600/50">
+                <div className="flex items-center justify-center space-x-2 text-sm text-slate-300">
+                  <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse" />
+                  <span>AI is analyzing document differences...</span>
+                </div>
+              </div>
+
+              {/* Google Cloud AI Badge */}
+              <div className="mt-4 flex items-center justify-center space-x-2 text-xs text-slate-400">
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z" />
+                </svg>
+                <span>Powered by Google Cloud AI</span>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       </div>
     </Modal>
   );

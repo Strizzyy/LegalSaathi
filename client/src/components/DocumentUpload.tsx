@@ -5,7 +5,6 @@ import {
   AlertCircle,
   Play,
   Zap,
-  Shield,
   Globe,
   Images,
   Camera
@@ -306,26 +305,6 @@ CONFIDENTIALITY TERMS:
               <div className="flex items-center">
                 <Camera className="w-4 h-4 mr-2" />
                 Vision AI Analysis
-              </div>
-            </div>
-          </div>
-
-          {/* Problem Statement */}
-          <div className="bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border border-cyan-500/30 rounded-2xl p-6 mb-8">
-            <div className="flex items-start space-x-4">
-              <div className="w-12 h-12 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-xl flex items-center justify-center flex-shrink-0">
-                <Shield className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h3 className="text-xl font-bold text-cyan-400 mb-2">
-                  Bridging the Legal Literacy Gap
-                </h3>
-                <p className="text-slate-300 mb-2">
-                  <strong>The Problem:</strong> 78% of people struggle to understand legal documents, leading to unfavorable agreements and financial losses.
-                </p>
-                <p className="text-slate-300">
-                  <strong>Our Solution:</strong> AI-powered analysis that transforms complex legal language into clear, actionable insights - making legal protection accessible to everyone.
-                </p>
               </div>
             </div>
           </div>

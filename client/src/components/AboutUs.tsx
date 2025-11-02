@@ -37,7 +37,7 @@ export function AboutUs({ onClose }: AboutUsProps) {
       role: "Lead Developer & Project Manager",
       email: "rohan.singh@legalsaathi.com",
       linkedin: "https://linkedin.com/in/rohan-singh",
-      phone: "+91-XXXX-XXXX-XX",
+      phone: "+91-9968054999",
       github: "https://github.com/rohan-singh",
       bio: "Passionate about leveraging AI to make legal services accessible to everyone. Experienced in full-stack development and project management.",
       avatar: "/api/placeholder/150/150"
@@ -47,7 +47,7 @@ export function AboutUs({ onClose }: AboutUsProps) {
       role: "AI/ML Engineer",
       email: "shubh.sharma@legalsaathi.com",
       linkedin: "https://linkedin.com/in/shubh-sharma",
-      phone: "+91-XXXX-XXXX-XX",
+      phone: "+91-9968054999",
       github: "https://github.com/shubh-sharma",
       bio: "Specializes in natural language processing and machine learning algorithms for legal document analysis and risk assessment.",
       avatar: "/api/placeholder/150/150"
@@ -57,7 +57,7 @@ export function AboutUs({ onClose }: AboutUsProps) {
       role: "Frontend Developer & UX Designer",
       email: "swez.bhardwaj@legalsaathi.com",
       linkedin: "https://linkedin.com/in/swez-bhardwaj",
-      phone: "+91-XXXX-XXXX-XX",
+      phone: "+91-9968054999",
       github: "https://github.com/swez-bhardwaj",
       bio: "Creates intuitive user experiences and responsive interfaces. Focuses on accessibility and user-centered design principles.",
       avatar: "/api/placeholder/150/150"
@@ -67,7 +67,7 @@ export function AboutUs({ onClose }: AboutUsProps) {
       role: "Backend Developer & DevOps Engineer",
       email: "harsh.mishra@legalsaathi.com",
       linkedin: "https://linkedin.com/in/harsh-mishra",
-      phone: "+91-XXXX-XXXX-XX",
+      phone: "+91-9968054999",
       github: "https://github.com/harsh-mishra",
       bio: "Builds scalable backend systems and manages cloud infrastructure. Ensures security and performance optimization.",
       avatar: "/api/placeholder/150/150"

@@ -82,6 +82,10 @@ export default {
           "0%, 100%": { boxShadow: "0 0 20px rgba(34, 211, 238, 0.4)" },
           "50%": { boxShadow: "0 0 40px rgba(34, 211, 238, 0.8)" },
         },
+        "shimmer": {
+          "0%": { transform: "translateX(-100%)" },
+          "100%": { transform: "translateX(100%)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -90,6 +94,7 @@ export default {
         "slide-in-up": "slide-in-up 0.6s ease-out",
         "float": "float 3s ease-in-out infinite",
         "glow": "glow 2s ease-in-out infinite",
+        "shimmer": "shimmer 2s ease-in-out infinite",
       },
     },
   },
