@@ -553,8 +553,7 @@ CONFIDENTIALITY TERMS:
                 </p>
               </div>
             </form>
-
-          </form>
+          </motion.div>
         </div>
       </section>
 
