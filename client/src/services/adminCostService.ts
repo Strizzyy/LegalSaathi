@@ -34,8 +34,12 @@ class AdminCostService {
   ): Promise<T> {
     try {
       const headers = await this.getAuthHeaders();
+      const url = `${API_BASE_URL}${endpoint}`;
       
-      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      console.log('Admin API request:', url);
+      console.log('Headers:', { ...headers, Authorization: '[REDACTED]' });
+      
+      const response = await fetch(url, {
         ...options,
         headers: {
           ...headers,
@@ -43,14 +47,19 @@ class AdminCostService {
         },
       });
 
+      console.log('Admin API response status:', response.status);
+
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Admin API error response:', errorText);
+        
         if (response.status === 401) {
           throw new Error('Authentication required');
         }
         if (response.status === 403) {
           throw new Error('Admin access required');
         }
-        throw new Error(`Request failed: ${response.statusText}`);
+        throw new Error(`Request failed: ${response.status} ${response.statusText} - ${errorText}`);
       }
 
       return await response.json();
@@ -98,9 +107,38 @@ class AdminCostService {
    */
   async checkAdminAccess(): Promise<boolean> {
     try {
-      await this.getHealthStatus();
-      return true;
+      // First check if user is authenticated
+      const user = auth.currentUser;
+      if (!user) {
+        console.log('Admin check failed: No authenticated user');
+        return false;
+      }
+
+      console.log('Admin check: User authenticated:', user.email);
+      
+      // Check if user email is in admin list (client-side check for quick feedback)
+      const adminEmails = ['23cd3034@rgipt.ac.in', 'admin@legalsaathi.com', 'k.sharmashubh123@gmail.com', '23mc3055@rgipt.ac.in'];
+      if (!adminEmails.includes(user.email || '')) {
+        console.log('Admin check: User email not in admin list');
+        return false;
+      }
+      
+      // Try the verification endpoint (doesn't throw errors)
+      try {
+        const verifyResponse = await this.makeAuthenticatedRequest<{is_admin: boolean, message: string}>('/api/admin/verify');
+        console.log('Admin verify response:', verifyResponse);
+        return verifyResponse.is_admin;
+      } catch (error) {
+        console.error('Admin server verification failed:', error);
+        // In development mode, allow access if user is in admin list
+        if (import.meta.env.DEV) {
+          console.log('Development mode: Allowing admin access despite server error');
+          return true;
+        }
+        return false;
+      }
     } catch (error) {
+      console.error('Admin access check failed:', error);
       return false;
     }
   }

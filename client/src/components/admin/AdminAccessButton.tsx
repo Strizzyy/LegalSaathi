@@ -16,15 +16,19 @@ const AdminAccessButton: React.FC = () => {
     useEffect(() => {
         const checkAdminAccess = async () => {
             if (!user) {
+                console.log('Admin button: No user authenticated');
                 setIsAdmin(false);
                 return;
             }
 
+            console.log('Admin button: Checking access for user:', user.email);
             setChecking(true);
             try {
                 const hasAccess = await adminCostService.checkAdminAccess();
+                console.log('Admin button: Access check result:', hasAccess);
                 setIsAdmin(hasAccess);
             } catch (error) {
+                console.error('Admin button: Access check error:', error);
                 setIsAdmin(false);
             } finally {
                 setChecking(false);

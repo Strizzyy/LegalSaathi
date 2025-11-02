@@ -1244,6 +1244,38 @@ async def test_admin_access(authorization: str = Header(None)):
         "timestamp": datetime.now().isoformat()
     }
 
+@app.get("/api/admin/verify")
+async def verify_admin_access_endpoint(authorization: str = Header(None)):
+    """Simple admin access verification - Returns status without throwing errors"""
+    logger.info(f"Admin verification request - Authorization header: {authorization is not None}")
+    
+    if not authorization or not authorization.startswith("Bearer "):
+        return {
+            "is_admin": False,
+            "error": "No authorization token provided",
+            "timestamp": datetime.now().isoformat()
+        }
+    
+    token = authorization.replace("Bearer ", "")
+    logger.info(f"Admin verification - Token length: {len(token)}")
+    
+    try:
+        admin_access = await _verify_admin_access(token)
+        logger.info(f"Admin verification result: {admin_access}")
+        
+        return {
+            "is_admin": admin_access,
+            "message": "Admin access granted" if admin_access else "Admin access denied",
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Admin verification error: {e}")
+        return {
+            "is_admin": False,
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
+        }
+
 @app.post("/api/admin/costs/optimize")
 @limiter.limit("20/minute")
 async def optimize_request(request: Request, request_data: dict, authorization: str = Header(None)):
