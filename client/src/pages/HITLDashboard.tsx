@@ -42,18 +42,12 @@ const HITLDashboard: React.FC = () => {
       setLoading(true);
       setError(null);
       
-      console.log('Fetching queue data...');
-      
       // Fetch queue statistics
-      console.log('Fetching queue stats...');
       const stats = await expertQueueService.getQueueStats();
-      console.log('Queue stats received:', stats);
       setQueueStats(stats);
       
       // Fetch queue items (pending reviews only)
-      console.log('Fetching queue items...');
       const queueResponse = await expertQueueService.getExpertRequests('pending', undefined, 1, 20);
-      console.log('Queue items received:', queueResponse);
       
       // Apply optimistic updates to the fetched items
       const itemsWithOptimisticUpdates = (queueResponse.items || []).map(item => {
@@ -89,10 +83,7 @@ const HITLDashboard: React.FC = () => {
     const refreshInterval = setInterval(() => {
       // Only auto-refresh if there are no pending optimistic updates
       if (optimisticUpdates.size === 0 && assigningItems.size === 0) {
-        console.log('Auto-refreshing queue data...');
         fetchQueueData();
-      } else {
-        console.log('Skipping auto-refresh due to pending updates');
       }
     }, 30000);
     
@@ -123,8 +114,6 @@ const HITLDashboard: React.FC = () => {
 
   // Optimistic update management
   const applyOptimisticUpdate = (reviewId: string, status: string, expertId: string) => {
-    console.log(`Applying optimistic update: ${reviewId} -> ${status} (expert: ${expertId})`);
-    
     setOptimisticUpdates(prev => new Map(prev.set(reviewId, {
       status,
       expertId,
@@ -179,8 +168,6 @@ const HITLDashboard: React.FC = () => {
       for (const [reviewId, update] of prev.entries()) {
         if (now - update.timestamp < 60000) { // Keep updates less than 60 seconds old
           newMap.set(reviewId, update);
-        } else {
-          console.log(`Cleaning up old optimistic update for ${reviewId}`);
         }
       }
       return newMap;
@@ -257,9 +244,7 @@ const HITLDashboard: React.FC = () => {
       setLastRefresh(new Date());
 
       // Make the API call
-      console.log(`Making API call to assign ${assigningReviewId} to expert ${expertId}`);
-      const assignmentResult = await expertQueueService.assignToExpert(assigningReviewId, expertId);
-      console.log('Assignment API result:', assignmentResult);
+      await expertQueueService.assignToExpert(assigningReviewId, expertId);
       
       // Remove from assigning set
       setAssigningItems(prev => {
@@ -274,21 +259,14 @@ const HITLDashboard: React.FC = () => {
       // Keep the optimistic update for longer to ensure it's visible
       setTimeout(() => {
         // Don't clear the optimistic update immediately, let it persist
-        console.log(`Assignment completed for ${assigningReviewId}, keeping optimistic update`);
       }, 1000);
       
       // Refresh the queue data to sync with server after a longer delay
       setTimeout(() => {
-        console.log('Refreshing queue data after assignment');
         fetchQueueData();
       }, 5000);
     } catch (error: any) {
       console.error('Failed to assign to expert:', error);
-      console.error('Error details:', {
-        message: error.message,
-        status: error.status,
-        response: error.response
-      });
       
       // Rollback optimistic update
       rollbackOptimisticUpdate(assigningReviewId);
@@ -310,7 +288,7 @@ const HITLDashboard: React.FC = () => {
         errorMessage = error.message;
       }
       
-      notificationService.error(`${errorMessage} (Check console for details)`);
+      notificationService.error(errorMessage);
     }
   };
 
@@ -375,26 +353,14 @@ const HITLDashboard: React.FC = () => {
               Auto-refreshes every 30 seconds • Last updated: {lastRefresh.toLocaleTimeString()}
             </p>
           </div>
-          <div className="flex space-x-2">
-            <button
-              onClick={fetchQueueData}
-              disabled={loading}
-              className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-colors flex items-center disabled:opacity-50"
-            >
-              <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-              Refresh Now
-            </button>
-            <button
-              onClick={() => {
-                setOptimisticUpdates(new Map());
-                setAssigningItems(new Set());
-                fetchQueueData();
-              }}
-              className="px-4 py-2 bg-red-600 text-white hover:bg-red-700 rounded-lg transition-colors flex items-center text-sm"
-            >
-              Clear Cache
-            </button>
-          </div>
+          <button
+            onClick={fetchQueueData}
+            disabled={loading}
+            className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-colors flex items-center disabled:opacity-50"
+          >
+            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            Refresh Now
+          </button>
         </div>
 
         {error && (
@@ -484,8 +450,6 @@ const HITLDashboard: React.FC = () => {
                   const isAssigning = assigningItems.has(item.review_id);
                   const displayStatus = optimisticUpdate ? optimisticUpdate.status : item.status;
                   const displayExpertId = optimisticUpdate ? optimisticUpdate.expertId : item.assigned_expert_id;
-                  
-                  console.log(`Rendering item ${item.review_id}: status=${displayStatus}, optimistic=${!!optimisticUpdate}, assigning=${isAssigning}`);
                   
                   return (
                     <div key={item.review_id} className={`bg-gradient-to-r from-slate-700/50 to-slate-600/50 rounded-lg p-6 border border-slate-600 ${isAssigning ? 'opacity-75' : ''}`}>
