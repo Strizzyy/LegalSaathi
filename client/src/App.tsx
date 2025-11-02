@@ -10,7 +10,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import { AuthModal } from './components/auth/AuthModal';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { UserProfile } from './components/auth/UserProfile';
-import { ProductSection } from './components/ProductSection';
+
 import { apiService } from './services/apiService';
 import { notificationService } from './services/notificationService';
 import BackendStatusIndicator from './components/BackendStatusIndicator';
@@ -376,12 +376,6 @@ function App() {
                         <DocumentUpload onSubmit={handleAnalysisSubmit} />
                       </ProtectedRoute>
                     </ErrorBoundary>
-                    <ProductSection
-                      onNavigateToDocumentSummary={handleNavigateToDocumentSummary}
-                      onNavigateToRiskAssessment={handleNavigateToRiskAssessment}
-                      onNavigateToClauseAnalysis={handleNavigateToClauseAnalysis}
-                      onNavigateToMultipleImages={handleNavigateToMultipleImages}
-                    />
                   </>
                 ) : currentView === 'profile' ? (
                   <div className="min-h-screen bg-slate-900 flex items-center justify-center pt-24 pb-8 px-4">
