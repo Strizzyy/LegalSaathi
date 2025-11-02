@@ -691,8 +691,8 @@ own content styling */
 .markdown-content h3:first-child {
   color: rgb(34 211 238);
 }
-/* Enhanc
-ed home page animations and effects */
+
+/* Enhanced home page animations and effects */
 @keyframes pulse-glow {
   0%, 100% {
     box-shadow: 0 0 20px rgba(34, 211, 238, 0.3);
@@ -931,4 +931,41 @@ ed home page animations and effects */
 
 .clean-shadow-hover:hover {
   @apply shadow-2xl shadow-cyan-500/25;
+}
+
+/* Email display utilities for HITL dashboard */
+.email-container {
+  @apply min-w-0 max-w-full;
+}
+
+.email-text {
+  @apply truncate overflow-hidden text-ellipsis whitespace-nowrap cursor-help;
+  word-break: break-all;
+  overflow-wrap: anywhere;
+}
+
+.email-tooltip {
+  @apply absolute z-20 px-3 py-2 bg-slate-900 text-white text-xs rounded-lg shadow-xl border border-slate-600 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none;
+  word-break: break-all;
+  max-width: min(300px, 90vw);
+}
+
+.email-tooltip-arrow {
+  @apply absolute w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-slate-900;
+}
+
+/* Responsive email display */
+@media (max-width: 640px) {
+  .email-tooltip {
+    max-width: calc(100vw - 2rem);
+    @apply text-xs;
+  }
+}
+
+/* Email text wrapping for modal displays */
+.email-modal-text {
+  @apply break-words hyphens-auto;
+  word-break: break-all;
+  overflow-wrap: anywhere;
+  line-height: 1.4;
 }

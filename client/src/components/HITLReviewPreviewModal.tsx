@@ -113,10 +113,22 @@ export const HITLReviewPreviewModal: React.FC<HITLReviewPreviewModalProps> = ({
           ) : review ? (
             <div className="space-y-6">
               {/* Basic Info */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-slate-900 rounded-lg p-4">
-                  <div className="text-sm text-slate-400">User</div>
-                  <div className="text-white font-medium">{review.user_email}</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="bg-slate-900 rounded-lg p-4 email-container">
+                  <div className="text-sm text-slate-400 mb-1">User</div>
+                  <div className="relative group min-w-0">
+                    <div className="text-white font-medium email-modal-text cursor-help" 
+                         title={review.user_email}>
+                      {review.user_email}
+                    </div>
+                    {/* Show tooltip if email is long */}
+                    {review.user_email.length > 20 && (
+                      <div className="email-tooltip bottom-full left-1/2 transform -translate-x-1/2 mb-2 bg-slate-800 border-slate-600">
+                        {review.user_email}
+                        <div className="email-tooltip-arrow top-full left-1/2 transform -translate-x-1/2 border-t-slate-800"></div>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div className="bg-slate-900 rounded-lg p-4">
                   <div className="text-sm text-slate-400">Confidence</div>

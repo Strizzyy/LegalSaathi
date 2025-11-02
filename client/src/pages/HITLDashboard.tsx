@@ -28,6 +28,8 @@ const HITLDashboard: React.FC = () => {
   const [assigningReviewId, setAssigningReviewId] = useState<string>('');
   const [expertId, setExpertId] = useState<string>('');
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+  const [optimisticUpdates, setOptimisticUpdates] = useState<Map<string, { status: string; expertId: string; timestamp: number }>>(new Map());
+  const [assigningItems, setAssigningItems] = useState<Set<string>>(new Set());
 
   const handleBackToApp = () => {
     // Navigate back to the main application
@@ -40,19 +42,29 @@ const HITLDashboard: React.FC = () => {
       setLoading(true);
       setError(null);
       
-      console.log('Fetching queue data...');
-      
       // Fetch queue statistics
-      console.log('Fetching queue stats...');
       const stats = await expertQueueService.getQueueStats();
-      console.log('Queue stats received:', stats);
       setQueueStats(stats);
       
       // Fetch queue items (pending reviews only)
-      console.log('Fetching queue items...');
       const queueResponse = await expertQueueService.getExpertRequests('pending', undefined, 1, 20);
-      console.log('Queue items received:', queueResponse);
-      setQueueItems(queueResponse.items || []);
+      
+      // Apply optimistic updates to the fetched items
+      const itemsWithOptimisticUpdates = (queueResponse.items || []).map(item => {
+        const optimisticUpdate = optimisticUpdates.get(item.review_id);
+        if (optimisticUpdate) {
+          return {
+            ...item,
+            status: optimisticUpdate.status as any,
+            assigned_expert_id: optimisticUpdate.expertId,
+            assigned_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          };
+        }
+        return item;
+      });
+      
+      setQueueItems(itemsWithOptimisticUpdates);
       
     } catch (err) {
       console.error('Failed to fetch queue data:', err);
@@ -68,13 +80,23 @@ const HITLDashboard: React.FC = () => {
     fetchQueueData();
     
     // Set up auto-refresh every 30 seconds
-    const interval = setInterval(() => {
-      console.log('Auto-refreshing queue data...');
-      fetchQueueData();
+    const refreshInterval = setInterval(() => {
+      // Only auto-refresh if there are no pending optimistic updates
+      if (optimisticUpdates.size === 0 && assigningItems.size === 0) {
+        fetchQueueData();
+      }
     }, 30000);
     
-    return () => clearInterval(interval);
-  }, []);
+    // Set up cleanup of old optimistic updates every 10 seconds
+    const cleanupInterval = setInterval(() => {
+      cleanupOldOptimisticUpdates();
+    }, 10000);
+    
+    return () => {
+      clearInterval(refreshInterval);
+      clearInterval(cleanupInterval);
+    };
+  }, [optimisticUpdates, assigningItems]);
 
   const formatTimeAgo = (dateString: string) => {
     const date = new Date(dateString);
@@ -84,9 +106,72 @@ const HITLDashboard: React.FC = () => {
     const diffHours = Math.floor(diffMins / 60);
     const diffDays = Math.floor(diffHours / 24);
 
+    if (diffMins < 1) return "just now";
     if (diffMins < 60) return `${diffMins}m ago`;
     if (diffHours < 24) return `${diffHours}h ago`;
     return `${diffDays}d ago`;
+  };
+
+  // Optimistic update management
+  const applyOptimisticUpdate = (reviewId: string, status: string, expertId: string) => {
+    setOptimisticUpdates(prev => new Map(prev.set(reviewId, {
+      status,
+      expertId,
+      timestamp: Date.now()
+    })));
+    
+    // Update the queue item status immediately for better UX
+    setQueueItems(prev => prev.map(item => 
+      item.review_id === reviewId 
+        ? { 
+            ...item, 
+            status: status as any, 
+            assigned_expert_id: expertId,
+            assigned_at: new Date().toISOString(), // Update assignment time
+            updated_at: new Date().toISOString()   // Update last modified time
+          }
+        : item
+    ));
+  };
+
+  const rollbackOptimisticUpdate = (reviewId: string) => {
+    setOptimisticUpdates(prev => {
+      const newMap = new Map(prev);
+      newMap.delete(reviewId);
+      return newMap;
+    });
+    
+    // Restore the item to pending status
+    setQueueItems(prev => prev.map(item => 
+      item.review_id === reviewId 
+        ? { ...item, status: 'pending', assigned_expert_id: undefined }
+        : item
+    ));
+    
+    // Also refresh queue data to restore accurate state
+    fetchQueueData();
+  };
+
+  const clearOptimisticUpdate = (reviewId: string) => {
+    setOptimisticUpdates(prev => {
+      const newMap = new Map(prev);
+      newMap.delete(reviewId);
+      return newMap;
+    });
+  };
+
+  // Clean up old optimistic updates (older than 60 seconds)
+  const cleanupOldOptimisticUpdates = () => {
+    const now = Date.now();
+    setOptimisticUpdates(prev => {
+      const newMap = new Map();
+      for (const [reviewId, update] of prev.entries()) {
+        if (now - update.timestamp < 60000) { // Keep updates less than 60 seconds old
+          newMap.set(reviewId, update);
+        }
+      }
+      return newMap;
+    });
   };
 
   const getPriorityColor = (priority: string) => {
@@ -143,13 +228,56 @@ const HITLDashboard: React.FC = () => {
         return;
       }
 
-      await expertQueueService.assignToExpert(assigningReviewId, expertId);
-      notificationService.success(`Review assigned to expert ${expertId} successfully`);
+      // Add to assigning items set to show loading state
+      setAssigningItems(prev => new Set(prev.add(assigningReviewId)));
+      
+      // Apply optimistic update immediately
+      applyOptimisticUpdate(assigningReviewId, 'in_review', expertId);
+      
+      // Close modal immediately to show responsive UI
       handleCloseAssignModal();
-      // Refresh the queue data
-      await fetchQueueData();
+      
+      // Show immediate success feedback
+      notificationService.success(`Assigning review to expert ${expertId}...`);
+      
+      // Force a re-render to ensure the status change is visible
+      setLastRefresh(new Date());
+
+      // Make the API call
+      await expertQueueService.assignToExpert(assigningReviewId, expertId);
+      
+      // Remove from assigning set
+      setAssigningItems(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(assigningReviewId);
+        return newSet;
+      });
+      
+      // Show final success message
+      notificationService.success(`Review assigned to expert ${expertId} successfully`);
+      
+      // Keep the optimistic update for longer to ensure it's visible
+      setTimeout(() => {
+        // Don't clear the optimistic update immediately, let it persist
+      }, 1000);
+      
+      // Refresh the queue data to sync with server after a longer delay
+      setTimeout(() => {
+        fetchQueueData();
+      }, 5000);
     } catch (error: any) {
       console.error('Failed to assign to expert:', error);
+      
+      // Rollback optimistic update
+      rollbackOptimisticUpdate(assigningReviewId);
+      
+      // Remove from assigning set
+      setAssigningItems(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(assigningReviewId);
+        return newSet;
+      });
+      
       let errorMessage = 'Failed to assign review to expert';
       
       if (error.message.includes('Review not found or not available')) {
@@ -161,9 +289,6 @@ const HITLDashboard: React.FC = () => {
       }
       
       notificationService.error(errorMessage);
-      
-      // Refresh queue data to show current state
-      await fetchQueueData();
     }
   };
 
@@ -320,27 +445,45 @@ const HITLDashboard: React.FC = () => {
               </div>
             ) : (
               <div className="space-y-4">
-                {queueItems.map((item) => (
-                  <div key={item.review_id} className="bg-gradient-to-r from-slate-700/50 to-slate-600/50 rounded-lg p-6 border border-slate-600">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center space-x-4">
-                        <div className="w-3 h-3 bg-yellow-400 rounded-full animate-pulse"></div>
-                        <div>
-                          <h4 className="font-semibold text-white text-lg">Document Analysis Review</h4>
-                          <p className="text-sm text-slate-400">Review ID: {item.review_id}</p>
+                {queueItems.map((item) => {
+                  const optimisticUpdate = optimisticUpdates.get(item.review_id);
+                  const isAssigning = assigningItems.has(item.review_id);
+                  const displayStatus = optimisticUpdate ? optimisticUpdate.status : item.status;
+                  const displayExpertId = optimisticUpdate ? optimisticUpdate.expertId : item.assigned_expert_id;
+                  
+                  return (
+                    <div key={item.review_id} className={`bg-gradient-to-r from-slate-700/50 to-slate-600/50 rounded-lg p-6 border border-slate-600 ${isAssigning ? 'opacity-75' : ''}`}>
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center space-x-4">
+                          <div className={`w-3 h-3 rounded-full ${
+                            displayStatus === 'in_review' ? 'bg-orange-400' : 
+                            displayStatus === 'completed' ? 'bg-emerald-400' : 
+                            'bg-yellow-400 animate-pulse'
+                          }`}></div>
+                          <div>
+                            <h4 className="font-semibold text-white text-lg">Document Analysis Review</h4>
+                            <p className="text-sm text-slate-400">Review ID: {item.review_id}</p>
+                            {isAssigning && (
+                              <p className="text-xs text-blue-400 animate-pulse">Assigning to expert...</p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-3">
+                          <span className={`inline-flex px-3 py-1 text-sm font-medium rounded-full border ${
+                            displayStatus === 'in_review' ? 'bg-orange-900/50 text-orange-400 border-orange-700' :
+                            displayStatus === 'completed' ? 'bg-emerald-900/50 text-emerald-400 border-emerald-700' :
+                            'bg-yellow-900/50 text-yellow-400 border-yellow-700'
+                          } ${optimisticUpdate ? 'animate-pulse' : ''}`}>
+                            {displayStatus.replace('_', ' ').toUpperCase()}
+                            {optimisticUpdate && <span className="ml-1 text-xs opacity-75">⟳</span>}
+                          </span>
+                          <span className={`inline-flex px-3 py-1 text-sm font-medium rounded-full ${getPriorityColor(item.priority)}`}>
+                            {item.priority.toUpperCase()} Priority
+                          </span>
                         </div>
                       </div>
-                      <div className="flex items-center space-x-3">
-                        <span className="inline-flex px-3 py-1 text-sm font-medium rounded-full bg-yellow-900/50 text-yellow-400 border border-yellow-700">
-                          {item.status.replace('_', ' ').toUpperCase()}
-                        </span>
-                        <span className={`inline-flex px-3 py-1 text-sm font-medium rounded-full ${getPriorityColor(item.priority)}`}>
-                          {item.priority.toUpperCase()} Priority
-                        </span>
-                      </div>
-                    </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6">
                       <div className="bg-slate-800/50 rounded-lg p-4">
                         <div className="flex items-center mb-2">
                           <AlertTriangle className="w-4 h-4 text-red-400 mr-2" />
@@ -355,25 +498,47 @@ const HITLDashboard: React.FC = () => {
                           <FileText className="w-4 h-4 text-blue-400 mr-2" />
                           <span className="text-sm font-medium text-slate-300">Document Type</span>
                         </div>
-                        <p className="text-lg font-semibold text-white">{item.document_type || 'General Contract'}</p>
+                        <p className="text-lg font-semibold text-white break-words">{item.document_type || 'General Contract'}</p>
                         <p className="text-xs text-slate-500">Legal document</p>
                       </div>
                       
                       <div className="bg-slate-800/50 rounded-lg p-4">
                         <div className="flex items-center mb-2">
                           <Clock className="w-4 h-4 text-yellow-400 mr-2" />
-                          <span className="text-sm font-medium text-slate-300">Submitted</span>
+                          <span className="text-sm font-medium text-slate-300">
+                            {displayStatus === 'in_review' ? 'Assigned' : 
+                             displayStatus === 'completed' ? 'Completed' : 'Submitted'}
+                          </span>
                         </div>
-                        <p className="text-lg font-semibold text-white">{formatTimeAgo(item.created_at)}</p>
-                        <p className="text-xs text-slate-500">Time in queue</p>
+                        <p className="text-lg font-semibold text-white">
+                          {displayStatus === 'in_review' && item.assigned_at ? 
+                            formatTimeAgo(item.assigned_at) :
+                           displayStatus === 'completed' && item.completed_at ?
+                            formatTimeAgo(item.completed_at) :
+                            formatTimeAgo(item.created_at)}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          {displayStatus === 'in_review' ? 'Time since assignment' :
+                           displayStatus === 'completed' ? 'Time since completion' : 'Time in queue'}
+                        </p>
                       </div>
                       
-                      <div className="bg-slate-800/50 rounded-lg p-4">
+                      <div className="bg-slate-800/50 rounded-lg p-4 email-container">
                         <div className="flex items-center mb-2">
-                          <Users className="w-4 h-4 text-emerald-400 mr-2" />
+                          <Users className="w-4 h-4 text-emerald-400 mr-2 flex-shrink-0" />
                           <span className="text-sm font-medium text-slate-300">User Email</span>
                         </div>
-                        <p className="text-sm font-semibold text-white truncate">{item.user_email}</p>
+                        <div className="relative group min-w-0">
+                          <p className="text-sm font-semibold text-white email-text" 
+                             title={item.user_email}>
+                            {item.user_email}
+                          </p>
+                          {/* Tooltip for full email on hover - positioned to avoid overflow */}
+                          <div className="email-tooltip bottom-full left-1/2 transform -translate-x-1/2 mb-2">
+                            {item.user_email}
+                            <div className="email-tooltip-arrow top-full left-1/2 transform -translate-x-1/2"></div>
+                          </div>
+                        </div>
                         <p className="text-xs text-slate-500">Requesting user</p>
                       </div>
                     </div>
@@ -390,7 +555,7 @@ const HITLDashboard: React.FC = () => {
                           <Eye className="w-4 h-4" />
                           <span>View Details</span>
                         </button>
-                        {item.status === 'pending' ? (
+                        {displayStatus === 'pending' && !isAssigning ? (
                           <button 
                             onClick={() => handleAssignToExpert(item.review_id)}
                             className="px-4 py-2 bg-emerald-600 text-white hover:bg-emerald-700 rounded-lg transition-colors text-sm flex items-center space-x-2"
@@ -398,16 +563,21 @@ const HITLDashboard: React.FC = () => {
                             <UserPlus className="w-4 h-4" />
                             <span>Assign to Expert</span>
                           </button>
+                        ) : isAssigning ? (
+                          <div className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm flex items-center space-x-2">
+                            <RefreshCw className="w-4 h-4 animate-spin" />
+                            <span className="text-xs">Assigning...</span>
+                          </div>
                         ) : (
                           <div className="px-4 py-2 bg-slate-600 text-slate-300 rounded-lg text-sm flex items-center space-x-2">
                             <span className="text-xs">
-                              {item.status === 'in_review' ? 'In Review' : 
-                               item.status === 'completed' ? 'Completed' : 
-                               item.status.replace('_', ' ').toUpperCase()}
+                              {displayStatus === 'in_review' ? 'In Review' : 
+                               displayStatus === 'completed' ? 'Completed' : 
+                               displayStatus.replace('_', ' ').toUpperCase()}
                             </span>
-                            {item.assigned_expert_id && (
+                            {displayExpertId && (
                               <span className="text-xs text-slate-400">
-                                ({item.assigned_expert_id})
+                                ({displayExpertId})
                               </span>
                             )}
                           </div>
@@ -415,7 +585,8 @@ const HITLDashboard: React.FC = () => {
                       </div>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
