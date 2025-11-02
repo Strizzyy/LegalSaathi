@@ -1231,25 +1231,113 @@ class DocumentService:
             risk_score = overall_risk.get('score', 0.0)
             confidence = overall_risk.get('confidence_percentage', 0)
             
-            # Create simple document context summary (5-6 lines max)
+            # Create comprehensive summary with document overview and risk assessment
             summary_parts = []
             
-            # Simple document overview
-            summary_parts.append(f"This is a {doc_name.lower()} containing {len(clause_assessments)} clauses that have been analyzed.")
-            summary_parts.append(f"The document has been assessed as {risk_level.lower()} risk overall.")
-            summary_parts.append(f"This analysis covers the key terms, obligations, and provisions within the document.")
-            if confidence >= 80:
-                summary_parts.append(f"The AI analysis provides good confidence ({confidence}%) in this assessment.")
-            else:
-                summary_parts.append(f"Consider professional review as the analysis has {confidence}% confidence.")
-            summary_parts.append(f"This summary gives you an overview of the document's content and risk profile.")
+            # Risk Assessment Summary
+            summary_parts.append(f"This {doc_name.lower()} has been assessed as {risk_level.lower()} risk overall with {len(clause_assessments)} clauses analyzed.")
             
+            if risk_counts['RED'] > 0:
+                summary_parts.append(f"The document contains {risk_counts['RED']} high-risk clauses that require immediate attention.")
+            elif risk_counts['YELLOW'] > 0:
+                summary_parts.append(f"The document contains {risk_counts['YELLOW']} medium-risk clauses that should be reviewed carefully.")
+            else:
+                summary_parts.append(f"The document appears to have standard terms with {risk_counts['GREEN']} low-risk clauses.")
+            
+            # Add confidence indicator
+            if confidence >= 80:
+                summary_parts.append(f"This analysis has high confidence ({confidence}%) in the risk assessment.")
+            else:
+                summary_parts.append(f"Consider professional legal review as this analysis has moderate confidence ({confidence}%).")
+            
+            # What this document is about section (5-6 lines)
+            summary_parts.append("\n\n**What this document is about:**\n")
+            
+            document_about = self._generate_document_about_section(document_type, clause_assessments)
+            summary_parts.append(document_about)
             
             return " ".join(summary_parts)
             
         except Exception as e:
             logger.error(f"Failed to create structured summary: {e}")
             return self._create_enhanced_fallback_summary(risk_analysis, document_type)
+    
+    def _generate_document_about_section(self, document_type: str, clause_assessments: List[Dict]) -> str:
+        """Generate a 5-6 line description of what the document is about"""
+        
+        # Document type specific descriptions
+        document_descriptions = {
+            'rental_agreement': [
+                "This is a rental agreement that establishes the legal relationship between a landlord and tenant.",
+                "The document covers rental terms including monthly payments, lease duration, and property usage rules.",
+                "It includes provisions for security deposits, maintenance responsibilities, and termination conditions.",
+                "The agreement outlines tenant obligations such as rent payment schedules and property care requirements.",
+                "This contract serves as legal protection for both parties in the rental arrangement.",
+                "The document establishes clear expectations and procedures for the rental relationship."
+            ],
+            'employment_contract': [
+                "This is an employment contract that defines the working relationship between an employer and employee.",
+                "The document covers job responsibilities, compensation, benefits, and working conditions.",
+                "It includes provisions for termination, confidentiality, and intellectual property rights.",
+                "The contract outlines employee duties, performance expectations, and company policies.",
+                "This agreement serves as legal framework for the employment relationship.",
+                "The document establishes mutual obligations and protections for both employer and employee."
+            ],
+            'service_agreement': [
+                "This is a service agreement that governs the provision of services between parties.",
+                "The document covers service specifications, payment terms, and delivery schedules.",
+                "It includes provisions for performance standards, liability limitations, and dispute resolution.",
+                "The agreement outlines service provider obligations and client responsibilities.",
+                "This contract serves as legal framework for the service relationship.",
+                "The document establishes clear expectations for service delivery and compensation."
+            ],
+            'purchase_agreement': [
+                "This is a purchase agreement that governs the sale and transfer of goods or property.",
+                "The document covers purchase price, payment terms, and delivery conditions.",
+                "It includes provisions for warranties, inspections, and risk of loss transfer.",
+                "The agreement outlines buyer and seller obligations throughout the transaction.",
+                "This contract serves as legal protection for both parties in the sale.",
+                "The document establishes clear terms for the purchase and transfer process."
+            ],
+            'partnership_agreement': [
+                "This is a partnership agreement that establishes a business relationship between partners.",
+                "The document covers profit sharing, management responsibilities, and decision-making processes.",
+                "It includes provisions for capital contributions, partner duties, and dissolution procedures.",
+                "The agreement outlines each partner's rights, obligations, and ownership interests.",
+                "This contract serves as the foundation for the business partnership.",
+                "The document establishes governance structure and operational guidelines for the partnership."
+            ],
+            'loan_agreement': [
+                "This is a loan agreement that governs the lending of money between parties.",
+                "The document covers loan amount, interest rates, and repayment schedules.",
+                "It includes provisions for collateral, default conditions, and enforcement rights.",
+                "The agreement outlines borrower obligations and lender protections.",
+                "This contract serves as legal framework for the lending relationship.",
+                "The document establishes clear terms for borrowing, repayment, and default scenarios."
+            ],
+            'nda': [
+                "This is a non-disclosure agreement that protects confidential information between parties.",
+                "The document covers what information is considered confidential and how it must be protected.",
+                "It includes provisions for permitted uses, return of information, and breach consequences.",
+                "The agreement outlines obligations to maintain secrecy and prevent unauthorized disclosure.",
+                "This contract serves as legal protection for sensitive business information.",
+                "The document establishes clear boundaries for information sharing and confidentiality."
+            ],
+            'general_contract': [
+                "This is a legal contract that establishes binding obligations between the parties involved.",
+                "The document covers the main terms, conditions, and requirements that each party must fulfill.",
+                "It includes provisions for performance standards, payment terms, and dispute resolution procedures.",
+                "The agreement outlines the rights, responsibilities, and expectations of all parties.",
+                "This contract serves as legal framework governing the relationship and transactions between parties.",
+                "The document establishes clear guidelines for performance, compliance, and enforcement of the agreement."
+            ]
+        }
+        
+        # Get description for document type, fallback to general contract
+        descriptions = document_descriptions.get(document_type, document_descriptions['general_contract'])
+        
+        # Return first 5-6 lines as a single paragraph
+        return " ".join(descriptions[:6])
 
     def _create_enhanced_fallback_summary(self, risk_analysis: Dict, document_type: str) -> str:
         """Create enhanced fallback summary using actual analysis data"""

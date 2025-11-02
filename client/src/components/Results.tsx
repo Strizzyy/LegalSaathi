@@ -16,7 +16,12 @@ import {
   Activity,
   Users,
   Loader2,
-  Mail
+  Mail,
+  Volume2,
+  VolumeX,
+  Play,
+  Pause,
+  Settings
 } from 'lucide-react';
 import { cn, formatPercentage, getRiskColor, getRiskBadgeColor, getConfidenceColor } from '../utils';
 import { exportService } from '../services/exportService';
@@ -26,7 +31,7 @@ import { AIChat } from './AIChat';
 import { HumanSupport } from './HumanSupport';
 import { TranslationModal } from './TranslationModal';
 import { StatusModal } from './StatusModal';
-import { DocumentSummary } from './DocumentSummary';
+
 import { InlineDocumentComparison } from './InlineDocumentComparison';
 import { EmailModal } from './EmailModal';
 import { PaginatedClauseAnalysis } from './PaginatedClauseAnalysis';
@@ -35,7 +40,7 @@ import { ExpertDashboardPopup } from './ExpertDashboardPopup';
 
 import { expertQueueService } from '../services/expertQueueService';
 import { MarkdownRenderer } from '../utils/markdownRenderer';
-import GlobalTranslationPanel from './GlobalTranslationPanel';
+import { apiService } from '../services/apiService';
 import type { DocumentSummaryContent } from '../services/documentSummaryTranslationService';
 import type { AnalysisResult, FileInfo, Classification } from '../App';
 import type { ClauseContext, DocumentContext } from '../types/chat';
@@ -56,7 +61,19 @@ export const Results = React.memo(function Results({ analysis, fileInfo, classif
   // Overall Risk Assessment translation state
   const [showRiskTranslation, setShowRiskTranslation] = useState(false);
   const [translatedRiskSummary, setTranslatedRiskSummary] = useState<string>('');
+  const [translatedDocumentAbout, setTranslatedDocumentAbout] = useState<string>('');
   const [riskCurrentLanguage, setRiskCurrentLanguage] = useState('en');
+
+  // Text-to-Speech state
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [speechSupported, setSpeechSupported] = useState(false);
+  const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
+  const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [speechRate, setSpeechRate] = useState(1);
+  const [currentSpeechSection, setCurrentSpeechSection] = useState<'risk' | 'about' | null>(null);
+
+  // Document translation state
+  const [isTranslating, setIsTranslating] = useState(false);
 
   const [currentLanguage, setCurrentLanguage] = useState('en');
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -76,6 +93,83 @@ export const Results = React.memo(function Results({ analysis, fileInfo, classif
   
   // Expert dashboard popup state
   const [showExpertDashboardPopup, setShowExpertDashboardPopup] = useState(false);
+
+  // Initialize Text-to-Speech
+  React.useEffect(() => {
+    if ('speechSynthesis' in window) {
+      setSpeechSupported(true);
+      
+      const loadVoices = () => {
+        try {
+          const voices = window.speechSynthesis.getVoices();
+          setAvailableVoices(voices);
+          
+          if (voices.length === 0) {
+            // Voices might not be loaded yet, try again after a delay
+            setTimeout(loadVoices, 100);
+            return;
+          }
+          
+          // Set default voice (prefer English voices)
+          const englishVoice = voices.find(voice => voice.lang.startsWith('en'));
+          if (englishVoice) {
+            setSelectedVoice(englishVoice);
+          } else if (voices.length > 0) {
+            setSelectedVoice(voices[0]);
+          }
+        } catch (error) {
+          console.error('Error loading voices:', error);
+          setSpeechSupported(false);
+        }
+      };
+
+      loadVoices();
+      window.speechSynthesis.onvoiceschanged = loadVoices;
+      
+      // Cleanup function to stop speech when component unmounts
+      return () => {
+        if (window.speechSynthesis) {
+          window.speechSynthesis.cancel();
+        }
+      };
+    }
+  }, []);
+
+  // Cleanup speech when component unmounts or analysis changes
+  React.useEffect(() => {
+    return () => {
+      if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+        setIsSpeaking(false);
+        setCurrentSpeechSection(null);
+      }
+    };
+  }, [analysis]);
+
+  // Keyboard shortcuts for TTS
+  React.useEffect(() => {
+    const handleKeyPress = (event: KeyboardEvent) => {
+      // Ctrl/Cmd + Shift + S to start/stop speech
+      if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key === 'S') {
+        event.preventDefault();
+        if (isSpeaking) {
+          stopSpeech();
+        } else {
+          speakRiskAssessment();
+        }
+      }
+      // Escape to stop speech
+      if (event.key === 'Escape' && isSpeaking) {
+        event.preventDefault();
+        stopSpeech();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyPress);
+    return () => {
+      document.removeEventListener('keydown', handleKeyPress);
+    };
+  }, [isSpeaking]);
 
   // Debug: Log the analysis data to see what we're receiving
   React.useEffect(() => {
@@ -239,14 +333,225 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
     setIsHumanSupportOpen(true);
   };
 
-  // Risk Assessment translation handlers
+  // Document translation handlers
+  const handleLanguageChange = (language: string) => {
+    setRiskCurrentLanguage(language);
+    updateVoiceForLanguage(language);
+    
+    // Clear existing translations when language changes
+    if (language === 'en') {
+      setTranslatedRiskSummary('');
+      setTranslatedDocumentAbout('');
+    }
+  };
+
+  const translateDocument = async () => {
+    if (isTranslating || riskCurrentLanguage === 'en' || !analysis) return;
+
+    setIsTranslating(true);
+    
+    try {
+      // Get the original content sections
+      const originalContent = analysis.summary;
+      const sections = originalContent.split('**What this document is about:**');
+      const riskSection = sections[0].trim();
+      const aboutSection = sections.length > 1 ? sections[1].trim() : '';
+
+      // Translate risk assessment section
+      const riskResult = await apiService.translateText(riskSection, riskCurrentLanguage, 'en');
+      if (riskResult.success && riskResult.translated_text) {
+        setTranslatedRiskSummary(riskResult.translated_text);
+      }
+
+      // Translate document about section if it exists
+      if (aboutSection) {
+        const aboutResult = await apiService.translateText(aboutSection, riskCurrentLanguage, 'en');
+        if (aboutResult.success && aboutResult.translated_text) {
+          setTranslatedDocumentAbout(aboutResult.translated_text);
+        }
+      }
+
+      // Update voice for the new language
+      updateVoiceForLanguage(riskCurrentLanguage);
+      
+      const languageNames: { [key: string]: string } = {
+        'es': 'Spanish',
+        'fr': 'French', 
+        'de': 'German',
+        'it': 'Italian',
+        'pt': 'Portuguese',
+        'hi': 'Hindi',
+        'zh': 'Chinese',
+        'ar': 'Arabic',
+        'ru': 'Russian',
+        'ja': 'Japanese',
+        'ko': 'Korean'
+      };
+      
+      notificationService.success(`Document translated to ${languageNames[riskCurrentLanguage] || riskCurrentLanguage}`);
+      
+    } catch (error) {
+      console.error('Translation error:', error);
+      notificationService.error('Translation failed. Please try again.');
+    } finally {
+      setIsTranslating(false);
+    }
+  };
+
+  // Legacy handler for compatibility (can be removed later)
   const handleRiskTranslationComplete = (translatedContent: DocumentSummaryContent, language: string) => {
-    // Extract the risk summary from translated content
+    // This is kept for compatibility but the new system handles translation differently
     const riskSummary = translatedContent.risk_assessment || 
                        translatedContent.what_this_document_means || 
                        analysis.summary;
-    setTranslatedRiskSummary(riskSummary);
+    
+    const sections = riskSummary.split('**What this document is about:**');
+    setTranslatedRiskSummary(sections[0].trim());
+    
+    if (sections.length > 1) {
+      setTranslatedDocumentAbout(sections[1].trim());
+    }
+    
     setRiskCurrentLanguage(language);
+    updateVoiceForLanguage(language);
+  };
+
+  // Text-to-Speech functions
+  const updateVoiceForLanguage = (language: string) => {
+    if (!speechSupported || availableVoices.length === 0) return;
+    
+    const languageMap: { [key: string]: string } = {
+      'en': 'en',
+      'hi': 'hi',
+      'es': 'es',
+      'fr': 'fr',
+      'de': 'de',
+      'zh': 'zh',
+      'ar': 'ar',
+      'pt': 'pt',
+      'it': 'it',
+      'ru': 'ru',
+      'ja': 'ja',
+      'ko': 'ko'
+    };
+    
+    const targetLang = languageMap[language] || 'en';
+    const voice = availableVoices.find(v => v.lang.startsWith(targetLang));
+    if (voice) {
+      setSelectedVoice(voice);
+    } else {
+      // Fallback to any available voice if target language not found
+      const fallbackVoice = availableVoices.find(v => v.lang.startsWith('en')) || availableVoices[0];
+      if (fallbackVoice) {
+        setSelectedVoice(fallbackVoice);
+      }
+    }
+  };
+
+  const speakText = (text: string, section: 'risk' | 'about') => {
+    if (!speechSupported || !('speechSynthesis' in window)) {
+      notificationService.error('Text-to-speech is not supported in your browser');
+      return;
+    }
+
+    if (!selectedVoice) {
+      notificationService.error('No voice selected for text-to-speech');
+      return;
+    }
+
+    if (!text || text.trim().length === 0) {
+      notificationService.error('No content available to read');
+      return;
+    }
+
+    try {
+      // Stop any current speech
+      window.speechSynthesis.cancel();
+    } catch (error) {
+      console.error('Error stopping speech synthesis:', error);
+    }
+
+    // Clean text for speech (remove markdown and special characters)
+    const cleanText = text
+      .replace(/\*\*([^*]+)\*\*/g, '$1') // Remove bold markdown
+      .replace(/\*([^*]+)\*/g, '$1') // Remove italic markdown
+      .replace(/#{1,6}\s/g, '') // Remove headers
+      .replace(/\n+/g, '. ') // Replace line breaks with pauses
+      .replace(/\s+/g, ' ') // Normalize spaces
+      .replace(/[^\w\s.,!?;:()\-]/g, '') // Remove special characters
+      .trim();
+
+    if (cleanText.length === 0) {
+      notificationService.error('No readable content found');
+      return;
+    }
+
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    utterance.voice = selectedVoice;
+    utterance.rate = speechRate;
+    utterance.pitch = 1;
+    utterance.volume = 1;
+
+    utterance.onstart = () => {
+      setIsSpeaking(true);
+      setCurrentSpeechSection(section);
+      const sectionName = section === 'risk' ? 'Risk Assessment' : 'Document Overview';
+      notificationService.success(`Started reading ${sectionName}`);
+    };
+
+    utterance.onend = () => {
+      setIsSpeaking(false);
+      setCurrentSpeechSection(null);
+      const sectionName = section === 'risk' ? 'Risk Assessment' : 'Document Overview';
+      notificationService.success(`Finished reading ${sectionName}`);
+    };
+
+    utterance.onerror = (event) => {
+      setIsSpeaking(false);
+      setCurrentSpeechSection(null);
+      console.error('Speech synthesis error:', event);
+      
+      // Handle specific TTS errors
+      if (event.error === 'network') {
+        notificationService.error('Network error during speech synthesis. Please check your connection.');
+      } else if (event.error === 'synthesis-failed') {
+        notificationService.error('Speech synthesis failed. Please try a different voice or text.');
+      } else if (event.error === 'language-not-supported') {
+        notificationService.error('Selected language not supported for speech synthesis.');
+      } else {
+        notificationService.error('Speech synthesis failed. Please try again.');
+      }
+    };
+
+    try {
+      window.speechSynthesis.speak(utterance);
+    } catch (error) {
+      setIsSpeaking(false);
+      setCurrentSpeechSection(null);
+      console.error('Failed to start speech synthesis:', error);
+      notificationService.error('Failed to start text-to-speech');
+    }
+  };
+
+  const stopSpeech = () => {
+    if (speechSupported && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+      setCurrentSpeechSection(null);
+      notificationService.success('Speech stopped');
+    }
+  };
+
+  const speakRiskAssessment = () => {
+    const content = getRiskAssessmentContent();
+    speakText(content, 'risk');
+  };
+
+  const speakDocumentAbout = () => {
+    const content = getDocumentAboutContent();
+    if (content) {
+      speakText(content, 'about');
+    }
   };
 
   const toggleRiskTranslationPanel = () => {
@@ -259,6 +564,47 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
       return analysis.summary;
     }
     return translatedRiskSummary;
+  };
+
+  // Parse and get risk assessment content (everything before "What this document is about")
+  const getRiskAssessmentContent = () => {
+    if (riskCurrentLanguage === 'en' || !translatedRiskSummary) {
+      const content = analysis.summary;
+      const sections = content.split('**What this document is about:**');
+      return sections[0].trim();
+    }
+    return translatedRiskSummary;
+  };
+
+  // Parse and get document about content (everything after "What this document is about")
+  const getDocumentAboutContent = () => {
+    if (riskCurrentLanguage === 'en' || !translatedDocumentAbout) {
+      const content = analysis.summary;
+      const sections = content.split('**What this document is about:**');
+      if (sections.length > 1) {
+        return sections[1].trim();
+      }
+      return null;
+    }
+    return translatedDocumentAbout;
+  };
+
+  // Get display name for language
+  const getLanguageDisplayName = (languageCode: string) => {
+    const languageNames: { [key: string]: string } = {
+      'es': 'Spanish (Español)',
+      'fr': 'French (Français)', 
+      'de': 'German (Deutsch)',
+      'it': 'Italian (Italiano)',
+      'pt': 'Portuguese (Português)',
+      'hi': 'Hindi (हिंदी)',
+      'zh': 'Chinese (中文)',
+      'ar': 'Arabic (العربية)',
+      'ru': 'Russian (Русский)',
+      'ja': 'Japanese (日本語)',
+      'ko': 'Korean (한국어)'
+    };
+    return languageNames[languageCode] || languageCode.toUpperCase();
   };
 
   // Create document context for chat
@@ -411,7 +757,7 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
 
 
 
-          {/* Overall Risk Assessment */}
+          {/* Overall Risk Assessment & Document Summary */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
@@ -430,11 +776,11 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
                   getRiskColor(analysis.overall_risk.level)
                 )} />
                 <div>
-                  <h2 className="text-2xl font-bold text-white">Overall Risk Assessment</h2>
+                  <h2 className="text-2xl font-bold text-white">Overall Risk Assessment & Summary</h2>
                   <p className="text-slate-400">
                     {riskCurrentLanguage === 'en' 
-                      ? 'Complete document analysis summary' 
-                      : `Translated to ${riskCurrentLanguage.toUpperCase()}`
+                      ? 'Comprehensive document analysis and risk evaluation' 
+                      : `Translated to ${getLanguageDisplayName(riskCurrentLanguage)}`
                     }
                   </p>
                 </div>
@@ -453,6 +799,25 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
                   Translate
                 </button>
 
+                {speechSupported && (
+                  <button
+                    onClick={isSpeaking ? stopSpeech : speakRiskAssessment}
+                    className={`inline-flex items-center px-3 py-2 rounded-lg transition-colors text-sm ${
+                      isSpeaking && currentSpeechSection === 'risk'
+                        ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
+                        : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                    }`}
+                    disabled={isSpeaking && currentSpeechSection !== 'risk'}
+                  >
+                    {isSpeaking && currentSpeechSection === 'risk' ? (
+                      <Pause className="w-4 h-4 mr-2" />
+                    ) : (
+                      <Volume2 className="w-4 h-4 mr-2" />
+                    )}
+                    {isSpeaking && currentSpeechSection === 'risk' ? 'Stop' : 'Listen'}
+                  </button>
+                )}
+
                 {analysis.overall_risk.low_confidence_warning && (
                   <div className={cn(
                     "px-3 py-1 rounded-full border text-sm",
@@ -465,7 +830,7 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
               </div>
             </div>
 
-            {/* Risk Assessment Translation Panel */}
+            {/* Document Translation Panel */}
             {showRiskTranslation && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
@@ -473,27 +838,247 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
                 exit={{ opacity: 0, height: 0 }}
                 className="mb-6"
               >
-                <GlobalTranslationPanel
-                  summaryContent={{
-                    risk_assessment: analysis.summary,
-                    what_this_document_means: analysis.summary
-                  }}
-                  onTranslationComplete={handleRiskTranslationComplete}
-                />
+                <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-600/30">
+                  <div className="flex items-center justify-between mb-4">
+                    <h5 className="text-sm font-semibold text-white flex items-center">
+                      <Globe className="w-4 h-4 mr-2" />
+                      Translate Document Summary
+                    </h5>
+                    <div className="text-xs text-slate-400">
+                      All sections will be translated
+                    </div>
+                  </div>
+                  
+                  {/* Language Selection */}
+                  <div className="flex items-center space-x-3 mb-4">
+                    <label htmlFor="document-language-select" className="text-sm text-slate-300">
+                      Select language to translate all sections:
+                    </label>
+                    <select
+                      id="document-language-select"
+                      value={riskCurrentLanguage}
+                      onChange={(e) => handleLanguageChange(e.target.value)}
+                      className="px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:border-cyan-500 focus:outline-none"
+                    >
+                      <option value="en">🇺🇸 English</option>
+                      <option value="es">🇪🇸 Español</option>
+                      <option value="fr">🇫🇷 Français</option>
+                      <option value="de">🇩🇪 Deutsch</option>
+                      <option value="it">🇮🇹 Italiano</option>
+                      <option value="pt">🇵🇹 Português</option>
+                      <option value="hi">🇮🇳 हिंदी</option>
+                      <option value="zh">🇨🇳 中文</option>
+                      <option value="ar">🇸🇦 العربية</option>
+                      <option value="ru">🇷🇺 Русский</option>
+                      <option value="ja">🇯🇵 日本語</option>
+                      <option value="ko">🇰🇷 한국어</option>
+                    </select>
+                    
+                    <button
+                      onClick={translateDocument}
+                      disabled={isTranslating || riskCurrentLanguage === 'en'}
+                      className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-lg hover:from-blue-400 hover:to-cyan-400 transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isTranslating ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Translating...
+                        </>
+                      ) : (
+                        <>
+                          <Globe className="w-4 h-4 mr-2" />
+                          Translate
+                        </>
+                      )}
+                    </button>
+
+                    {riskCurrentLanguage !== 'en' && (translatedRiskSummary || translatedDocumentAbout) && (
+                      <button
+                        onClick={() => handleLanguageChange('en')}
+                        className="inline-flex items-center px-3 py-2 bg-slate-600 text-slate-300 rounded-lg hover:bg-slate-500 transition-all text-sm"
+                      >
+                        <ArrowLeft className="w-4 h-4 mr-2" />
+                        Back to English
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Translation Status */}
+                  {(translatedRiskSummary || translatedDocumentAbout) && riskCurrentLanguage !== 'en' && (
+                    <div className="flex items-center space-x-2 p-3 bg-green-500/10 border border-green-500/30 rounded-lg mb-4">
+                      <CheckCircle className="w-4 h-4 text-green-400" />
+                      <span className="text-green-400 text-sm">
+                        Translation Complete
+                      </span>
+                      <div className="flex items-center space-x-4 ml-auto">
+                        <div className="text-xs text-slate-400">
+                          {[translatedRiskSummary, translatedDocumentAbout].filter(Boolean).length} Sections Translated
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Legal Context Preserved Notice */}
+                  <div className="text-xs text-slate-500 mb-4">
+                    💡 Legal context preserved • 1-hour caching • Rate limited
+                  </div>
+                
+                  {/* Text-to-Speech Settings */}
+                  {speechSupported && (
+                    <div className="mt-4 pt-4 border-t border-slate-600/30">
+                      <div className="flex items-center justify-between mb-3">
+                        <h6 className="text-sm font-semibold text-white flex items-center">
+                          <Settings className="w-4 h-4 mr-2" />
+                          Text-to-Speech Settings
+                        </h6>
+                        <div className="text-xs text-slate-400">
+                          Shortcuts: Ctrl+Shift+S (play/stop), Esc (stop)
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Voice Selection */}
+                        <div>
+                          <label className="block text-xs text-slate-400 mb-1">Voice</label>
+                          <select
+                            value={selectedVoice?.name || ''}
+                            onChange={(e) => {
+                              const voice = availableVoices.find(v => v.name === e.target.value);
+                              if (voice) setSelectedVoice(voice);
+                            }}
+                            className="w-full px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs"
+                          >
+                            {availableVoices
+                              .filter(voice => voice.lang.startsWith(riskCurrentLanguage) || voice.lang.startsWith('en'))
+                              .map(voice => (
+                                <option key={voice.name} value={voice.name}>
+                                  {voice.name} ({voice.lang})
+                                </option>
+                              ))}
+                          </select>
+                        </div>
+                        
+                        {/* Speech Rate */}
+                        <div>
+                          <label className="block text-xs text-slate-400 mb-1">
+                            Speed: {speechRate}x
+                          </label>
+                          <input
+                            type="range"
+                            min="0.5"
+                            max="2"
+                            step="0.1"
+                            value={speechRate}
+                            onChange={(e) => setSpeechRate(parseFloat(e.target.value))}
+                            className="w-full"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </motion.div>
             )}
 
+            {/* Document Summary Content */}
             <div className={cn(
-              "rounded-xl p-4 mb-6 border",
+              "rounded-xl p-6 mb-6 border",
               analysis.overall_risk.level === 'RED' ? "bg-red-500/10 border-red-500/30" :
                 analysis.overall_risk.level === 'YELLOW' ? "bg-yellow-500/10 border-yellow-500/30" :
                   "bg-green-500/10 border-green-500/30"
             )}>
-              <div className="text-lg leading-relaxed">
-                <MarkdownRenderer text={getRiskDisplayContent()} />
+              <div className="mb-4">
+                <h3 className="text-lg font-semibold text-white mb-2 flex items-center">
+                  <FileText className="w-5 h-5 mr-2" />
+                  Document Summary
+                </h3>
+              </div>
+              
+              {/* Risk Assessment Section */}
+              <div className={cn(
+                "text-lg leading-relaxed mb-6 transition-all duration-300",
+                isSpeaking && currentSpeechSection === 'risk' && "bg-blue-500/10 border border-blue-500/30 rounded-lg p-4"
+              )}>
+                <MarkdownRenderer text={getRiskAssessmentContent()} />
+                {isSpeaking && currentSpeechSection === 'risk' && (
+                  <div className="flex items-center mt-3 text-blue-400 text-sm">
+                    <Volume2 className="w-4 h-4 mr-2 animate-pulse" />
+                    Reading risk assessment... (Press Esc to stop)
+                  </div>
+                )}
+              </div>
+              
+              {/* What this document is about Section */}
+              {getDocumentAboutContent() && (
+                <div className="mb-6">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-md font-semibold text-white flex items-center">
+                      <Info className="w-4 h-4 mr-2" />
+                      What this document is about
+                    </h4>
+                    
+                    {speechSupported && (
+                      <button
+                        onClick={isSpeaking && currentSpeechSection === 'about' ? stopSpeech : speakDocumentAbout}
+                        className={`inline-flex items-center px-2 py-1 rounded-lg transition-colors text-xs ${
+                          isSpeaking && currentSpeechSection === 'about'
+                            ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
+                            : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                        }`}
+                        disabled={isSpeaking && currentSpeechSection !== 'about'}
+                      >
+                        {isSpeaking && currentSpeechSection === 'about' ? (
+                          <Pause className="w-3 h-3 mr-1" />
+                        ) : (
+                          <Play className="w-3 h-3 mr-1" />
+                        )}
+                        {isSpeaking && currentSpeechSection === 'about' ? 'Stop' : 'Listen'}
+                      </button>
+                    )}
+                  </div>
+                  <div className={cn(
+                    "text-base leading-relaxed text-slate-300 bg-slate-800/30 rounded-lg p-4 border border-slate-600/30 transition-all duration-300",
+                    isSpeaking && currentSpeechSection === 'about' && "bg-blue-500/10 border-blue-500/30"
+                  )}>
+                    <MarkdownRenderer text={getDocumentAboutContent()} />
+                    {isSpeaking && currentSpeechSection === 'about' && (
+                      <div className="flex items-center mt-3 text-blue-400 text-sm">
+                        <Volume2 className="w-4 h-4 mr-2 animate-pulse" />
+                        Reading document overview... (Press Esc to stop)
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+              
+              {/* Document Statistics */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-slate-600/30">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-white">{analysis.analysis_results.length}</div>
+                  <div className="text-sm text-slate-400">Total Clauses</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-white">
+                    {analysis.analysis_results.filter(r => r.risk_level.level === 'RED').length}
+                  </div>
+                  <div className="text-sm text-slate-400">High Risk</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-white">
+                    {analysis.analysis_results.filter(r => r.risk_level.level === 'YELLOW').length}
+                  </div>
+                  <div className="text-sm text-slate-400">Medium Risk</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-white">
+                    {analysis.analysis_results.filter(r => r.risk_level.level === 'GREEN').length}
+                  </div>
+                  <div className="text-sm text-slate-400">Low Risk</div>
+                </div>
               </div>
             </div>
 
+            {/* Risk Category Breakdown */}
             {analysis.overall_risk.risk_categories && (
               <div>
                 <h3 className="font-semibold text-white mb-4 flex items-center">
@@ -539,11 +1124,7 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
             />
           </motion.div>
 
-          {/* Document Summary */}
-          <DocumentSummary
-            analysis={analysis}
-            className="mb-8"
-          />
+
 
           {/* Document Comparison Section */}
           <InlineDocumentComparison
