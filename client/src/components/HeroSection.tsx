@@ -19,24 +19,23 @@ export function HeroSection() {
       </div>
 
       <div className="container mx-auto px-6 relative z-10">
-        <div className="text-center max-w-6xl mx-auto">
+        <div className="flex flex-col items-center justify-center text-center max-w-6xl mx-auto">
 
-
-          {/* Clean Main Heading */}
+          {/* Clean Main Heading - Perfectly Centered */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
-            className="mb-16"
+            className="mb-16 flex flex-col items-center justify-center"
           >
-            <h1 className="text-6xl md:text-8xl font-bold text-white mb-8 leading-tight tracking-tight">
+            <h1 className="text-6xl md:text-8xl font-bold text-white mb-8 leading-tight tracking-tight text-center">
               Transform{' '}
               <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
                 Legal Documents
               </span>{' '}
               with AI
             </h1>
-            <p className="text-xl md:text-2xl text-slate-400 leading-relaxed max-w-3xl mx-auto font-light">
+            <p className="text-xl md:text-2xl text-slate-400 leading-relaxed max-w-3xl mx-auto font-light text-center">
               Transform complex legal language into clear insights
             </p>
           </motion.div>
