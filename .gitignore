@@ -162,6 +162,8 @@ jspm_packages/
 legal_saathi.log
 uploads/
 temp/
+cost_monitoring.db
+.env.cloudrun
 
 # Kiro IDE configuration and specs
 .kiro/

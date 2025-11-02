@@ -18,7 +18,7 @@ import {
   Loader2,
   Mail,
   Volume2,
-  VolumeX,
+
   Play,
   Pause,
   Settings
@@ -41,7 +41,7 @@ import { ExpertDashboardPopup } from './ExpertDashboardPopup';
 import { expertQueueService } from '../services/expertQueueService';
 import { MarkdownRenderer } from '../utils/markdownRenderer';
 import { apiService } from '../services/apiService';
-import type { DocumentSummaryContent } from '../services/documentSummaryTranslationService';
+
 import type { AnalysisResult, FileInfo, Classification } from '../App';
 import type { ClauseContext, DocumentContext } from '../types/chat';
 
@@ -133,6 +133,9 @@ export const Results = React.memo(function Results({ analysis, fileInfo, classif
         }
       };
     }
+    
+    // Return empty cleanup function if speechSynthesis is not available
+    return () => {};
   }, []);
 
   // Cleanup speech when component unmounts or analysis changes
@@ -398,23 +401,7 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
     }
   };
 
-  // Legacy handler for compatibility (can be removed later)
-  const handleRiskTranslationComplete = (translatedContent: DocumentSummaryContent, language: string) => {
-    // This is kept for compatibility but the new system handles translation differently
-    const riskSummary = translatedContent.risk_assessment || 
-                       translatedContent.what_this_document_means || 
-                       analysis.summary;
-    
-    const sections = riskSummary.split('**What this document is about:**');
-    setTranslatedRiskSummary(sections[0].trim());
-    
-    if (sections.length > 1) {
-      setTranslatedDocumentAbout(sections[1].trim());
-    }
-    
-    setRiskCurrentLanguage(language);
-    updateVoiceForLanguage(language);
-  };
+
 
   // Text-to-Speech functions
   const updateVoiceForLanguage = (language: string) => {
@@ -509,15 +496,18 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
     utterance.onerror = (event) => {
       setIsSpeaking(false);
       setCurrentSpeechSection(null);
-      console.error('Speech synthesis error:', event);
+      console.error('Speech synthesis error:', event.error, event.type);
       
       // Handle specific TTS errors
       if (event.error === 'network') {
         notificationService.error('Network error during speech synthesis. Please check your connection.');
       } else if (event.error === 'synthesis-failed') {
         notificationService.error('Speech synthesis failed. Please try a different voice or text.');
-      } else if (event.error === 'language-not-supported') {
+      } else if (event.error === 'language-unavailable') {
         notificationService.error('Selected language not supported for speech synthesis.');
+      } else if (event.error === 'interrupted') {
+        // Don't show error for interrupted speech (user stopped it)
+        console.log('Speech synthesis was interrupted');
       } else {
         notificationService.error('Speech synthesis failed. Please try again.');
       }
@@ -558,13 +548,7 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
     setShowRiskTranslation(!showRiskTranslation);
   };
 
-  // Get the content to display (translated or original)
-  const getRiskDisplayContent = () => {
-    if (riskCurrentLanguage === 'en' || !translatedRiskSummary) {
-      return analysis.summary;
-    }
-    return translatedRiskSummary;
-  };
+
 
   // Parse and get risk assessment content (everything before "What this document is about")
   const getRiskAssessmentContent = () => {
@@ -1040,7 +1024,7 @@ ${index + 1}. ${result.risk_level.level} Risk (${formatPercentage(result.risk_le
                     "text-base leading-relaxed text-slate-300 bg-slate-800/30 rounded-lg p-4 border border-slate-600/30 transition-all duration-300",
                     isSpeaking && currentSpeechSection === 'about' && "bg-blue-500/10 border-blue-500/30"
                   )}>
-                    <MarkdownRenderer text={getDocumentAboutContent()} />
+                    <MarkdownRenderer text={getDocumentAboutContent() || ''} />
                     {isSpeaking && currentSpeechSection === 'about' && (
                       <div className="flex items-center mt-3 text-blue-400 text-sm">
                         <Volume2 className="w-4 h-4 mr-2 animate-pulse" />

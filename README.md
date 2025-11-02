@@ -1,60 +1,128 @@
-# LegalSaathi Document Advisor
+# Legal Saathi Document Advisor
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-green.svg)](https://fastapi.tiangolo.com/)
 [![React](https://img.shields.io/badge/React-18+-blue.svg)](https://reactjs.org/)
+[![Google Cloud AI](https://img.shields.io/badge/Google%20Cloud%20AI-Powered-4285f4.svg)](https://cloud.google.com/ai)
+[![Google Cloud Run](https://img.shields.io/badge/Google%20Cloud%20Run-Deployed-4285f4.svg)](https://cloud.google.com/run)
 
-> **Empowering everyone to understand legal documents through AI**
+**Empowering everyone to understand legal documents through AI**
 
-LegalSaathi is a comprehensive AI-powered platform that transforms complex legal documents into clear, accessible guidance. Built for Google Cloud's AI competition, it leverages multiple Google Cloud AI services to democratize legal understanding for everyday citizens and small business owners.
+Legal Saathi is a comprehensive AI-powered platform that transforms complex legal documents into clear, accessible guidance. Built with multiple Google Cloud AI services and deployed on Google Cloud Run, it democratizes legal understanding for everyday citizens and small business owners.
 
-## 🌟 Key Features
+**Live Application**: [https://legal-saathi-432423686849.us-central1.run.app](https://legal-saathi-432423686849.us-central1.run.app)
 
-### 🔍 **Intelligent Document Analysis**
+## Complete Application Workflow
+
+### Authentication & User Management
+Firebase Authentication provides secure email/password login, user registration, and profile management. All API endpoints are protected with Firebase middleware, and the system implements user-based rate limiting with different limits for authenticated vs anonymous users.
+
+### Document Input Methods
+The platform supports multiple input methods including direct text paste/typing, file uploads (PDF, DOC, DOCX, TXT), image uploads (JPEG, PNG, WEBP, BMP, GIF) using Google Cloud Vision API, speech-to-text conversion using Google Cloud Speech-to-Text, and batch processing of multiple document images.
+
+### Privacy-First Processing
+The system includes a comprehensive data masking service that automatically detects and masks PII (names, emails, phone numbers, addresses, SSNs). Privacy compliance validation ensures GDPR compliance before cloud processing. All cloud AI services receive only masked data, and results are unmasked for user display while maintaining complete audit trails.
+
+### AI-Powered Document Analysis
+**Google Cloud AI Services Integration:**
+Document AI provides OCR and structured document processing, while Cloud Vision API handles text extraction from images with preprocessing. Natural Language AI performs entity extraction, sentiment analysis, and legal insights. Gemini AI delivers advanced document analysis and risk assessment, Groq API serves as the fast primary AI service, and Vertex AI enables semantic search across documents.
+
+**Analysis Pipeline:**
+The system provides comprehensive risk assessment with RED/YELLOW/GREEN classification and confidence scores. Individual clauses receive detailed breakdown with plain language explanations. The platform identifies potential legal consequences and provides actionable advice based on risk levels, enhanced by advanced RAG (Retrieval Augmented Generation) integration.
+
+### Multi-Language Support
+Google Cloud Translate supports 50+ languages with legal context-aware translation that preserves legal terminology accuracy. The system provides complete document summary translation and clause-level translation with proper legal context preservation.
+
+### Voice Accessibility
+Google Cloud Speech-to-Text enables document input via voice, while Google Cloud Text-to-Speech provides audio explanations. The platform offers neural voice options with adjustable parameters across multiple languages and maintains full WCAG 2.1 AA compliance for accessibility.
+
+### Confidence Calculation & Human-in-the-Loop
+**AI Confidence Assessment:**
+The system uses weighted confidence scoring that combines clause analysis (40%), document summary (30%), and risk assessment (30%). Individual confidence thresholds are set for each analysis component, with overall confidence calculated as a weighted average with penalties for missing components.
+
+**Expert Review Routing:**
+Documents with less than 60% confidence are automatically routed to experts through a threshold-based routing system. The expert queue system maintains a database-persistent queue with FIFO ordering, priority management (HIGH/MEDIUM/LOW), and complete status tracking through PENDING → IN_REVIEW → COMPLETED → DELIVERED workflow.
+
+### Advanced Features
+**Document Comparison:**
+The platform enables side-by-side analysis to compare multiple documents, with change tracking that provides version history and difference highlighting, plus impact assessment analyzing changes between document versions.
+
+**Interactive AI Assistant:**
+Context-aware Q&A powered by Gemini AI includes conversation memory and clause-specific chat functionality. The system adapts explanations based on user experience level (Beginner/Intermediate/Expert) and provides smart follow-up question recommendations.
+
+**Advanced RAG Integration:**
+The system maintains a knowledge base of legal precedents and standard clauses, providing enhanced insights through context-aware recommendations and similarity matching against known legal patterns.
+
+### Export & Services
+The platform provides enhanced PDF export with professional reports featuring risk visualization, charts, and branding. Word document export delivers structured analysis in DOCX format. Email integration through Gmail API and SMTP handles notifications and report delivery, while cost monitoring provides internal usage tracking and quota management for administrators.
+
+### Performance & Optimization
+Multi-level caching includes response caching, embedding caching, and translation caching. The system uses parallel processing for concurrent clause analysis and API calls, implements user-based and service-based rate limiting, includes circuit breakers for automatic failover between AI services, and provides load balancing with multiple API keys and automatic rotation.
+
+### Quality Assurance
+Response validation ensures quality checks for AI-generated content. Multiple fallback layers handle service failures, comprehensive error handling provides user-friendly messages, and complete audit logging maintains trails for privacy and compliance requirements.
+
+## Complete User Journey
+1. **Login** → Firebase Authentication
+2. **Upload Document** → Text/File/Image/Speech input
+3. **Privacy Protection** → Automatic PII masking
+4. **AI Analysis** → Multi-service AI processing with masked data
+5. **Risk Assessment** → Confidence calculation and expert routing decision
+6. **Results Display** → Unmasked results with interactive features
+7. **Translation (optional)** → Multi-language support
+8. **Voice Output (optional)** → Text-to-speech explanations
+9. **Expert Review (if needed)** → Human-in-the-loop for low confidence
+10. **Export** → PDF/Word reports with professional formatting
+
+This workflow ensures privacy-first processing, high-quality AI analysis, accessibility compliance, and expert oversight when needed, making legal documents accessible to everyone while maintaining professional standards.
+
+## Key Features
+
+### Intelligent Document Analysis
 - Upload PDFs, DOCs, DOCX, TXT, and images
 - AI-powered extraction of key clauses and terms using Google Document AI
 - Plain-language explanations of complex legal jargon
 - Risk assessment with severity levels and recommendations
 - Fairness and complexity scoring with Google Natural Language AI
 
-### 🌐 **Multi-Language Translation**
+### Multi-Language Translation
 - Support for 50+ languages using Google Cloud Translate
 - Legal context-aware translation with cultural adaptation
 - Bidirectional translation with confidence scoring
 - Clause-level translation for precise legal understanding
 
-### 🎤 **Voice Accessibility**
+### Voice Accessibility
 - Speech-to-text for document input using Google Cloud Speech-to-Text
 - Text-to-speech for audio explanations using Google Cloud Text-to-Speech
 - Neural voice options with multiple languages
 - Adjustable speaking rate and pitch for legal content
 - Full accessibility compliance (WCAG 2.1 AA)
 
-### 📊 **Document Comparison**
+### Document Comparison
 - Side-by-side contract analysis with AI-powered insights
 - Change tracking and impact assessment
 - Version history management
 - Similarity scoring and difference highlighting
 
-### 🤖 **AI Assistant**
+### AI Assistant
 - Interactive Q&A powered by Google Gemini AI
 - Context-aware clarifications with conversation memory
 - Follow-up question suggestions
 - Conversation analytics and learning patterns
 
-### 👨‍💼 **Expert Integration**
+### Expert Integration
 - Direct connection to legal professionals
 - Expert verification of AI analysis
 - Consultation scheduling and referral system
 
-### 🔐 **Authentication & Security**
+### Authentication & Security
 - Firebase authentication with email/password
 - User registration and profile management
 - Protected routes and API endpoints
 - Session management and token refresh
 
-## 🏗️ Architecture
+## Architecture
 
 ### System Overview
 ```mermaid
@@ -117,7 +185,7 @@ graph TB
 - **Text-to-Speech** - Natural voice synthesis
 - **Natural Language AI** - Text analysis and understanding
 
-## 🏗️ Architecture Overview
+## Architecture Overview
 
 ### Service Organization
 ```
@@ -170,7 +238,7 @@ LegalSaathi/
 - **Type Safety**: Pydantic models ensure data validation and type safety
 - **Caching Strategy**: Multi-level caching for improved response times
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 - Python 3.8+
@@ -275,7 +343,7 @@ The application will be available at:
 - **Backend API**: http://localhost:8000
 - **API Documentation**: http://localhost:8000/docs
 
-## 🔧 Available Commands
+## Available Commands
 
 ### Makefile Commands
 ```bash
@@ -305,7 +373,7 @@ python main.py                       # Start backend server
 uv run install-frontend            # Install frontend dependencies only
 ```
 
-## 🏗️ Project Structure
+## Project Structure
 
 ```
 legal-saathi-document-advisor/
@@ -336,18 +404,11 @@ legal-saathi-document-advisor/
     └── INSTALLATION.md       # Detailed installation guide
 ```
 
-## 🔐 Authentication Features
+## Authentication Features
 
-- ✅ User registration with email/password
-- ✅ User login with email/password  
-- ✅ Password reset functionality
-- ✅ Automatic token refresh
-- ✅ Protected routes and API endpoints
-- ✅ User profile management
-- ✅ User-based rate limiting
-- ✅ Session management
+The platform includes comprehensive authentication features: user registration with email/password, user login with email/password, password reset functionality, automatic token refresh, protected routes and API endpoints, user profile management, user-based rate limiting, and session management.
 
-## 🛠️ Troubleshooting
+## Troubleshooting
 
 ### Common Issues
 
@@ -420,13 +481,13 @@ npm install
 4. Check that all dependencies are installed
 5. Review the setup guides in the `docs/` directory
 
-## 📚 Documentation
+## Documentation
 
 - [Firebase Setup Guide](FIREBASE_SETUP.md) - Complete Firebase configuration
 - [Installation Guide](INSTALLATION.md) - Detailed installation instructions
 - [API Documentation](http://localhost:8000/docs) - Interactive API docs (when running)
 
-## 🧪 Testing
+## Testing
 
 ```bash
 # Run Python tests
@@ -439,7 +500,7 @@ cd client && npm test
 make test
 ```
 
-## 🚀 Production Deployment
+## Production Deployment
 
 ### Backend
 1. Set environment variables in your hosting platform
@@ -454,7 +515,7 @@ npm run build
 ```
 Deploy the `client/dist/` directory to your static hosting service.
 
-## 🤝 Contributing
+## Contributing
 
 1. Fork the repository
 2. Create a feature branch
@@ -462,11 +523,11 @@ Deploy the `client/dist/` directory to your static hosting service.
 4. Run tests
 5. Submit a pull request
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License.
 
-## 🆘 Support
+## Support
 
 If you encounter issues:
 1. Check the troubleshooting section above
@@ -474,7 +535,7 @@ If you encounter issues:
 3. Check existing issues in the repository
 4. Create a new issue with detailed error information
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - **Google Cloud AI** for providing powerful AI services
 - **Firebase** for authentication and user management
@@ -486,8 +547,8 @@ If you encounter issues:
 
 <div align="center">
 
-**Made with ❤️ for a more accessible legal world**
+**Made for a more accessible legal world**
 
-[Website](https://legalsaathi-document-advisor.onrender.com) • [Documentation](docs/) • [API](https://legalsaathi-document-advisor.onrender.com/docs) • [Support](mailto:support@legalsaathi.com)
+[Website](https://legal-saathi-432423686849.us-central1.run.app) • [Documentation](docs/) • [API](https://legal-saathi-432423686849.us-central1.run.app/docs)
 
 </div>

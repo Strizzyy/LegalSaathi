@@ -5,8 +5,8 @@
 
 LegalSaathi is a comprehensive AI-powered legal document analysis platform that transforms complex legal documents into clear, accessible guidance. The system leverages multiple Google Cloud AI services, implements privacy-first processing, and includes a human-in-the-loop system for quality assurance. Built with modern web technologies, it provides end-to-end document analysis, multi-language support, voice accessibility, and expert review capabilities.
 
-**Live Demo**: [https://legalsaathi-document-advisor.onrender.com](https://legalsaathi-document-advisor.onrender.com)
-**GitHub Repository**: [Legal Saathi Document Advisor](https://github.com/your-repo/legal-saathi-document-advisor)
+**Live Application**: [https://legalsaathi-document-advisor.onrender.com](https://legalsaathi-document-advisor.onrender.com)
+**API Documentation**: [https://legalsaathi-document-advisor.onrender.com/docs](https://legalsaathi-document-advisor.onrender.com/docs)
 
 ## Complete System Architecture
 

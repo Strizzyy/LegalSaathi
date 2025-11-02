@@ -1,6 +1,6 @@
 
 import { motion } from 'framer-motion';
-import { Shield, Globe, Users, ArrowDown, Sparkles, Zap, CheckCircle } from 'lucide-react';
+import { Shield, Globe, Users, ArrowDown, Zap } from 'lucide-react';
 import { Robot3DLazy } from './Robot3DLazy';
 
 export function HeroSection() {

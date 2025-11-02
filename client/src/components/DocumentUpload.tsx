@@ -3,7 +3,6 @@ import { motion } from 'framer-motion';
 import {
   FileText,
   AlertCircle,
-  Play,
   Zap,
   Globe,
   Images,

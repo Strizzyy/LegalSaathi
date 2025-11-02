@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { FileText, Shield, Search, Images, ArrowRight, Sparkles, Clock, Target } from 'lucide-react';
+import { FileText, Shield, Search, Images, ArrowRight } from 'lucide-react';
 
 interface ProductSectionProps {
   onNavigateToDocumentSummary: () => void;

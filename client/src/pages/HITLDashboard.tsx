@@ -142,23 +142,19 @@ const HITLDashboard: React.FC = () => {
     });
     
     // Restore the item to pending status
-    setQueueItems(prev => prev.map(item => 
-      item.review_id === reviewId 
-        ? { ...item, status: 'pending', assigned_expert_id: undefined }
-        : item
-    ));
+    setQueueItems(prev => prev.map(item => {
+      if (item.review_id === reviewId) {
+        const { assigned_expert_id, ...rest } = item;
+        return { ...rest, status: 'pending' as const };
+      }
+      return item;
+    }));
     
     // Also refresh queue data to restore accurate state
     fetchQueueData();
   };
 
-  const clearOptimisticUpdate = (reviewId: string) => {
-    setOptimisticUpdates(prev => {
-      const newMap = new Map(prev);
-      newMap.delete(reviewId);
-      return newMap;
-    });
-  };
+
 
   // Clean up old optimistic updates (older than 60 seconds)
   const cleanupOldOptimisticUpdates = () => {
