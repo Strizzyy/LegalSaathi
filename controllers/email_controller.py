@@ -290,12 +290,12 @@ class EmailController:
                 <html>
                 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
                     <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-                        <h2 style="color: #0ea5e9;">🧪 LegalSaathi Email Test</h2>
+                        <h2 style="color: #0ea5e9;">LegalSaathi Email Test</h2>
                         <p>This is a test email from LegalSaathi to verify email functionality.</p>
                         <p>If you received this email, the SMTP email service is working correctly!</p>
                         
                         <div style="background-color: #f0fdf4; border: 1px solid #10b981; border-radius: 8px; padding: 15px; margin: 20px 0;">
-                            <p style="margin: 0; color: #065f46;"><strong>✅ Email Configuration Status:</strong></p>
+                            <p style="margin: 0; color: #065f46;"><strong>Email Configuration Status:</strong></p>
                             <ul style="margin: 10px 0; color: #065f46;">
                                 <li>SMTP Server: Gmail (smtp.gmail.com:587)</li>
                                 <li>Authentication: App Password</li>

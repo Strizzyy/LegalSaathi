@@ -1,6 +1,6 @@
 
 import { motion } from 'framer-motion';
-import { Shield, Zap, Globe, Users, ArrowDown } from 'lucide-react';
+import { Shield, Globe, Users, ArrowDown } from 'lucide-react';
 import { Robot3DLazy } from './Robot3DLazy';
 
 export function HeroSection() {
@@ -37,39 +37,6 @@ export function HeroSection() {
             <p className="text-xl md:text-2xl text-slate-300 leading-relaxed">
               AI-powered analysis that transforms complex legal language into clear, actionable insights
             </p>
-          </motion.div>
-
-          {/* Problem & Solution */}
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.2 }}
-            className="mb-12"
-          >
-            <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-8 border border-slate-700">
-              <div className="grid md:grid-cols-2 gap-8 items-center">
-                <div className="text-left">
-                  <h3 className="text-2xl font-bold text-red-400 mb-4 flex items-center">
-                    <Shield className="w-6 h-6 mr-3" />
-                    The Problem
-                  </h3>
-                  <p className="text-slate-300 text-lg">
-                    <strong>78% of people</strong> struggle to understand legal documents, 
-                    leading to unfavorable agreements and financial losses.
-                  </p>
-                </div>
-                <div className="text-left">
-                  <h3 className="text-2xl font-bold text-cyan-400 mb-4 flex items-center">
-                    <Zap className="w-6 h-6 mr-3" />
-                    Our Solution
-                  </h3>
-                  <p className="text-slate-300 text-lg">
-                    AI-powered analysis that makes legal protection accessible to everyone 
-                    through plain-language explanations and risk assessment.
-                  </p>
-                </div>
-              </div>
-            </div>
           </motion.div>
 
           {/* Key Features */}

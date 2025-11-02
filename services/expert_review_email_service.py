@@ -75,7 +75,7 @@ class ExpertReviewEmailService:
                 'current_year': datetime.now().year
             }
             
-            subject = "🔍 Your Document is Being Reviewed by a Legal Expert"
+            subject = "Your Document is Being Reviewed by a Legal Expert"
             html_content = self.templates['review_queued'].render(**template_vars)
             text_content = self._generate_review_queued_text(**template_vars)
             
@@ -125,7 +125,7 @@ class ExpertReviewEmailService:
                 'current_year': datetime.now().year
             }
             
-            subject = "✅ Expert Legal Analysis Complete - Your Document Review"
+            subject = "Expert Legal Analysis Complete - Your Document Review"
             html_content = self.templates['expert_results'].render(**template_vars)
             text_content = self._generate_expert_results_text(**template_vars)
             
@@ -190,7 +190,7 @@ class ExpertReviewEmailService:
                 'current_year': datetime.now().year
             }
             
-            subject = f"📋 Review Status Update - {review_id}"
+            subject = f"Review Status Update - {review_id}"
             html_content = self.templates['review_status_update'].render(**template_vars)
             text_content = self._generate_status_update_text(**template_vars)
             
@@ -366,21 +366,21 @@ class ExpertReviewEmailService:
 <body>
     <div class="container">
         <div class="header">
-            <h1>🔍 Expert Review Requested</h1>
+            <h1>Expert Review Requested</h1>
             <p>Your Document is Being Reviewed by Legal Professionals</p>
         </div>
         
         <div class="content">
-            <p>Hello,</p>
-            <p>Thank you for using LegalSaathi. Due to the complexity of your document (AI confidence: {{ confidence_score }}%), we've queued it for review by one of our qualified legal experts to ensure you receive the most accurate analysis possible.</p>
+            <p>Dear Client,</p>
+            <p>Thank you for choosing LegalSaathi for your document analysis needs. Due to the complexity of your document, we have assigned it to one of our qualified legal experts for professional review to ensure you receive the most accurate and comprehensive analysis possible.</p>
             
             <div class="expert-badge">
-                <h2>🎓 Expert Review in Progress</h2>
+                <h2>Expert Review in Progress</h2>
                 <p>Your document will be reviewed by a certified legal professional</p>
             </div>
             
             <div class="review-info">
-                <h3>📋 Review Details</h3>
+                <h3>Review Details</h3>
                 <div class="info-row">
                     <span class="info-label">Review ID:</span>
                     <span class="info-value">{{ review_id }}</span>
@@ -400,7 +400,7 @@ class ExpertReviewEmailService:
             </div>
             
             <div class="timeline">
-                <h3>⏱️ What Happens Next</h3>
+                <h3>What Happens Next</h3>
                 <div class="timeline-item">Your document is assigned to the next available expert</div>
                 <div class="timeline-item">Expert conducts thorough legal analysis</div>
                 <div class="timeline-item">Analysis is reviewed and certified</div>
@@ -408,32 +408,32 @@ class ExpertReviewEmailService:
             </div>
             
             <div class="tracking-section">
-                <h3>📍 Track Your Review</h3>
+                <h3>Track Your Review</h3>
                 <p>You can check the status of your review at any time using your Review ID.</p>
                 <a href="{{ tracking_url }}" class="tracking-link">Track Review Status</a>
             </div>
             
             <p><strong>Why Expert Review?</strong></p>
             <ul>
-                <li>🎯 <strong>Higher Accuracy:</strong> Human experts catch nuances AI might miss</li>
-                <li>🔍 <strong>Complex Analysis:</strong> Professional interpretation of legal language</li>
-                <li>✅ <strong>Quality Assurance:</strong> Double-checked results you can trust</li>
-                <li>📜 <strong>Expert Certification:</strong> Analysis backed by legal professionals</li>
+                <li><strong>Higher Accuracy:</strong> Human experts catch nuances AI might miss</li>
+                <li><strong>Complex Analysis:</strong> Professional interpretation of legal language</li>
+                <li><strong>Quality Assurance:</strong> Double-checked results you can trust</li>
+                <li><strong>Expert Certification:</strong> Analysis backed by legal professionals</li>
             </ul>
             
-            <p>You'll receive your comprehensive expert-reviewed analysis via email once the review is complete. No need to check back - we'll notify you immediately when it's ready.</p>
+            <p>You will receive your comprehensive expert-reviewed analysis via email once the review is complete. We will notify you immediately when your professional analysis is ready.</p>
             
-            <p>Best regards,<br>
-            <strong>LegalSaathi Expert Review Team</strong></p>
+            <p>Sincerely,<br>
+            <strong>The LegalSaathi Expert Review Team</strong></p>
         </div>
         
         <div class="footer">
             <p><strong>LegalSaathi Document Advisor</strong></p>
-            <p>AI-Powered Legal Analysis with Human Expert Oversight</p>
+            <p>Professional Legal Analysis with Expert Human Oversight</p>
             <div class="disclaimer">
                 Expert reviews are conducted by qualified legal professionals. This service provides 
-                legal analysis for informational purposes and does not constitute attorney-client 
-                relationship or legal advice. Consult with a licensed attorney for specific legal matters.
+                legal analysis for informational purposes and does not constitute an attorney-client 
+                relationship or legal advice. Please consult with a licensed attorney for specific legal matters.
             </div>
         </div>
     </div>
@@ -481,22 +481,22 @@ class ExpertReviewEmailService:
 <body>
     <div class="container">
         <div class="header">
-            <h1>✅ Expert Analysis Complete</h1>
+            <h1>Expert Analysis Complete</h1>
             <p>Your Document Has Been Professionally Reviewed</p>
         </div>
         
         <div class="content">
-            <p>Excellent news!</p>
-            <p>Your legal document analysis has been completed by our expert legal team. The comprehensive review is now ready and attached to this email.</p>
+            <p>Dear Client,</p>
+            <p>We are pleased to inform you that your legal document analysis has been completed by our expert legal team. The comprehensive professional review is now ready and attached to this email.</p>
             
             <div class="expert-certification">
-                <h2>🎓 Expert Certified Analysis</h2>
+                <h2>Expert Certified Analysis</h2>
                 <p>Reviewed and approved by qualified legal professionals</p>
-                <div class="certification-badge">✓ EXPERT VERIFIED</div>
+                <div class="certification-badge">EXPERT VERIFIED</div>
             </div>
             
             <div class="review-summary">
-                <h3>📊 Review Summary</h3>
+                <h3>Review Summary</h3>
                 <div class="summary-row">
                     <span class="summary-label">Review ID:</span>
                     <span class="summary-value">{{ review_id }}</span>
@@ -516,49 +516,49 @@ class ExpertReviewEmailService:
             </div>
             
             <div class="attachment-info">
-                <h3>📎 Expert-Certified Report Attached</h3>
+                <h3>Expert-Certified Report Attached</h3>
                 <p>Your comprehensive legal analysis is attached as a professionally formatted PDF document.</p>
                 <div class="attachment-features">
                     <strong>This expert-reviewed report includes:</strong>
                     <ul>
-                        <li>✅ Expert-verified clause analysis with professional insights</li>
-                        <li>🔍 Enhanced risk assessment with legal precedent context</li>
-                        <li>📋 Detailed recommendations from legal professionals</li>
-                        <li>🎯 Improved accuracy and confidence ratings</li>
-                        <li>📜 Expert certification and review credentials</li>
-                        <li>⚖️ Professional legal opinion and guidance</li>
+                        <li>Expert-verified clause analysis with professional insights</li>
+                        <li>Enhanced risk assessment with legal precedent context</li>
+                        <li>Detailed recommendations from legal professionals</li>
+                        <li>Improved accuracy and confidence ratings</li>
+                        <li>Expert certification and review credentials</li>
+                        <li>Professional legal opinion and guidance</li>
                     </ul>
                 </div>
             </div>
             
             <p><strong>What Makes This Different?</strong></p>
             <ul>
-                <li>🧠 <strong>Human Expertise:</strong> Reviewed by qualified legal professionals</li>
-                <li>🎯 <strong>Enhanced Accuracy:</strong> {{ confidence_improvement }}% improvement in analysis confidence</li>
-                <li>📚 <strong>Legal Context:</strong> Professional interpretation with legal precedent</li>
-                <li>✅ <strong>Quality Assured:</strong> Double-checked and certified by experts</li>
+                <li><strong>Human Expertise:</strong> Reviewed by qualified legal professionals</li>
+                <li><strong>Enhanced Accuracy:</strong> {{ confidence_improvement }}% improvement in analysis confidence</li>
+                <li><strong>Legal Context:</strong> Professional interpretation with legal precedent</li>
+                <li><strong>Quality Assured:</strong> Double-checked and certified by experts</li>
             </ul>
             
             <div class="feedback-section">
-                <h3>💬 Help Us Improve</h3>
+                <h3>Help Us Improve</h3>
                 <p>Your feedback helps us provide better expert review services.</p>
                 <a href="{{ feedback_url }}" class="feedback-link">Rate This Review</a>
             </div>
             
-            <p>If you have any questions about this expert analysis or need further clarification on any aspect of the review, please don't hesitate to contact our support team.</p>
+            <p>Should you have any questions regarding this expert analysis or require further clarification on any aspect of the review, please feel free to contact our professional support team.</p>
             
-            <p>Thank you for choosing LegalSaathi's expert review service!</p>
+            <p>Thank you for choosing LegalSaathi's expert review service.</p>
             
-            <p>Best regards,<br>
-            <strong>LegalSaathi Expert Review Team</strong></p>
+            <p>Sincerely,<br>
+            <strong>The LegalSaathi Expert Review Team</strong></p>
         </div>
         
         <div class="footer">
             <p><strong>LegalSaathi Document Advisor</strong></p>
-            <p>AI-Powered Legal Analysis with Expert Human Oversight</p>
+            <p>Professional Legal Analysis with Expert Human Oversight</p>
             <div class="disclaimer">
                 This expert analysis is provided by qualified legal professionals for informational 
-                purposes and does not constitute attorney-client relationship or legal advice. 
+                purposes and does not constitute an attorney-client relationship or legal advice. 
                 For specific legal matters requiring professional representation, please consult 
                 with a licensed attorney in your jurisdiction.
             </div>
@@ -597,7 +597,7 @@ class ExpertReviewEmailService:
 <body>
     <div class="container">
         <div class="header">
-            <h1>📋 Review Status Update</h1>
+            <h1>Review Status Update</h1>
             <p>Your Document Review Progress</p>
         </div>
         
@@ -606,7 +606,7 @@ class ExpertReviewEmailService:
             <p>We wanted to update you on the status of your document review.</p>
             
             <div class="status-update">
-                <h3>📍 Status Update</h3>
+                <h3>Status Update</h3>
                 <p><strong>Review ID:</strong> {{ review_id }}</p>
                 <p><strong>New Status:</strong> {{ status }}</p>
                 <p><strong>Update:</strong> {{ status_message }}</p>
@@ -616,7 +616,7 @@ class ExpertReviewEmailService:
             </div>
             
             <div class="tracking-section">
-                <h3>🔍 Track Your Review</h3>
+                <h3>Track Your Review</h3>
                 <p>For real-time updates and detailed status information:</p>
                 <a href="{{ tracking_url }}" class="tracking-link">View Review Status</a>
             </div>
@@ -643,12 +643,12 @@ class ExpertReviewEmailService:
 DOCUMENT QUEUED FOR EXPERT REVIEW
 =================================
 
-Hello,
+Dear Client,
 
-Thank you for using LegalSaathi. Due to the complexity of your document 
-(AI confidence: {kwargs['confidence_score']}%), we've queued it for review 
-by one of our qualified legal experts to ensure you receive the most 
-accurate analysis possible.
+Thank you for choosing LegalSaathi for your document analysis needs. Due to 
+the complexity of your document, we have assigned it to one of our qualified 
+legal experts for professional review to ensure you receive the most accurate 
+and comprehensive analysis possible.
 
 EXPERT REVIEW IN PROGRESS
 Your document will be reviewed by a certified legal professional
@@ -658,7 +658,7 @@ REVIEW DETAILS
 Review ID: {kwargs['review_id']}
 Estimated Review Time: {kwargs['estimated_time']}
 Status: Queued for Expert Review
-Priority: High (Low AI Confidence)
+Priority: Professional Review Required
 
 WHAT HAPPENS NEXT
 =================
@@ -674,26 +674,26 @@ Track Review Status: {kwargs['tracking_url']}
 
 WHY EXPERT REVIEW?
 ==================
-• Higher Accuracy: Human experts catch nuances AI might miss
+• Higher Accuracy: Human experts catch nuances that automated systems might miss
 • Complex Analysis: Professional interpretation of legal language
 • Quality Assurance: Double-checked results you can trust
 • Expert Certification: Analysis backed by legal professionals
 
-You'll receive your comprehensive expert-reviewed analysis via email once 
-the review is complete. No need to check back - we'll notify you immediately 
-when it's ready.
+You will receive your comprehensive expert-reviewed analysis via email once 
+the review is complete. We will notify you immediately when your professional 
+analysis is ready.
 
-Best regards,
-LegalSaathi Expert Review Team
+Sincerely,
+The LegalSaathi Expert Review Team
 
 ---
 LegalSaathi Document Advisor
-AI-Powered Legal Analysis with Human Expert Oversight
+Professional Legal Analysis with Expert Human Oversight
 
 DISCLAIMER: Expert reviews are conducted by qualified legal professionals. 
 This service provides legal analysis for informational purposes and does not 
-constitute attorney-client relationship or legal advice. Consult with a 
-licensed attorney for specific legal matters.
+constitute an attorney-client relationship or legal advice. Please consult with 
+a licensed attorney for specific legal matters.
         """.strip()
     
     def _generate_expert_results_text(self, **kwargs) -> str:
@@ -702,14 +702,15 @@ licensed attorney for specific legal matters.
 EXPERT LEGAL ANALYSIS COMPLETE
 ==============================
 
-Excellent news!
+Dear Client,
 
-Your legal document analysis has been completed by our expert legal team. 
-The comprehensive review is now ready and attached to this email.
+We are pleased to inform you that your legal document analysis has been 
+completed by our expert legal team. The comprehensive professional review 
+is now ready and attached to this email.
 
 EXPERT CERTIFIED ANALYSIS
 Reviewed and approved by qualified legal professionals
-✓ EXPERT VERIFIED
+EXPERT VERIFIED
 
 REVIEW SUMMARY
 ==============
@@ -743,21 +744,21 @@ HELP US IMPROVE
 Your feedback helps us provide better expert review services.
 Rate This Review: {kwargs['feedback_url']}
 
-If you have any questions about this expert analysis or need further 
-clarification on any aspect of the review, please don't hesitate to 
-contact our support team.
+Should you have any questions regarding this expert analysis or require 
+further clarification on any aspect of the review, please feel free to 
+contact our professional support team.
 
-Thank you for choosing LegalSaathi's expert review service!
+Thank you for choosing LegalSaathi's expert review service.
 
-Best regards,
-LegalSaathi Expert Review Team
+Sincerely,
+The LegalSaathi Expert Review Team
 
 ---
 LegalSaathi Document Advisor
-AI-Powered Legal Analysis with Expert Human Oversight
+Professional Legal Analysis with Expert Human Oversight
 
 DISCLAIMER: This expert analysis is provided by qualified legal professionals 
-for informational purposes and does not constitute attorney-client relationship 
+for informational purposes and does not constitute an attorney-client relationship 
 or legal advice. For specific legal matters requiring professional representation, 
 please consult with a licensed attorney in your jurisdiction.
         """.strip()
@@ -770,9 +771,9 @@ please consult with a licensed attorney in your jurisdiction.
 REVIEW STATUS UPDATE
 ===================
 
-Hello,
+Dear Client,
 
-We wanted to update you on the status of your document review.
+We would like to update you on the status of your document review.
 
 STATUS UPDATE
 =============
@@ -785,13 +786,13 @@ TRACK YOUR REVIEW
 For real-time updates and detailed status information:
 {kwargs['tracking_url']}
 
-We'll continue to keep you updated as your review progresses. You'll receive 
+We will continue to keep you updated as your review progresses. You will receive 
 another notification when your expert analysis is complete.
 
-Best regards,
-LegalSaathi Expert Review Team
+Sincerely,
+The LegalSaathi Expert Review Team
 
 ---
 LegalSaathi Document Advisor
-AI-Powered Legal Analysis with Expert Human Oversight
+Professional Legal Analysis with Expert Human Oversight
         """.strip()

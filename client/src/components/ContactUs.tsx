@@ -50,7 +50,7 @@ export function ContactUs({ onClose }: ContactUsProps) {
       role: "Lead Developer & Project Manager",
       email: "rohan.singh@legalsaathi.com",
       linkedin: "https://linkedin.com/in/rohan-singh",
-      phone: "+91-XXXX-XXXX-XX",
+      phone: "+91-9968054999",
       github: "https://github.com/rohan-singh"
     },
     {
@@ -58,7 +58,7 @@ export function ContactUs({ onClose }: ContactUsProps) {
       role: "AI/ML Engineer",
       email: "shubh.sharma@legalsaathi.com",
       linkedin: "https://linkedin.com/in/shubh-sharma",
-      phone: "+91-XXXX-XXXX-XX",
+      phone: "+91-9968054999",
       github: "https://github.com/shubh-sharma"
     },
     {
@@ -66,7 +66,7 @@ export function ContactUs({ onClose }: ContactUsProps) {
       role: "Frontend Developer & UX Designer",
       email: "swez.bhardwaj@legalsaathi.com",
       linkedin: "https://linkedin.com/in/swez-bhardwaj",
-      phone: "+91-XXXX-XXXX-XX",
+      phone: "+91-9968054999",
       github: "https://github.com/swez-bhardwaj"
     },
     {
@@ -74,7 +74,7 @@ export function ContactUs({ onClose }: ContactUsProps) {
       role: "Backend Developer & DevOps Engineer",
       email: "harsh.mishra@legalsaathi.com",
       linkedin: "https://linkedin.com/in/harsh-mishra",
-      phone: "+91-XXXX-XXXX-XX",
+      phone: "+91-9968054999",
       github: "https://github.com/harsh-mishra"
     }
   ];
@@ -293,7 +293,7 @@ export function ContactUs({ onClose }: ContactUsProps) {
                   </div>
                   <div>
                     <p className="text-slate-300 text-sm">General Inquiries</p>
-                    <p className="text-white font-medium">contact@legalsaathi.com</p>
+                    <p className="text-white font-medium">legalsaathiadvisor@gmail.com</p>
                   </div>
                 </div>
                 
@@ -303,7 +303,7 @@ export function ContactUs({ onClose }: ContactUsProps) {
                   </div>
                   <div>
                     <p className="text-slate-300 text-sm">Support Hotline</p>
-                    <p className="text-white font-medium">+91-XXXX-XXXX-XX</p>
+                    <p className="text-white font-medium">+91-9968054999</p>
                   </div>
                 </div>
                 

@@ -363,12 +363,6 @@ function App() {
               {currentView === 'home' ? (
                 <>
                   <HeroSection />
-                  <ProductSection
-                    onNavigateToDocumentSummary={handleNavigateToDocumentSummary}
-                    onNavigateToRiskAssessment={handleNavigateToRiskAssessment}
-                    onNavigateToClauseAnalysis={handleNavigateToClauseAnalysis}
-                    onNavigateToMultipleImages={handleNavigateToMultipleImages}
-                  />
                   <ErrorBoundary fallback={
                     <div className="py-20 text-center">
                       <p className="text-red-400">Document upload component failed to load</p>
@@ -381,6 +375,12 @@ function App() {
                       <DocumentUpload onSubmit={handleAnalysisSubmit} />
                     </ProtectedRoute>
                   </ErrorBoundary>
+                  <ProductSection
+                    onNavigateToDocumentSummary={handleNavigateToDocumentSummary}
+                    onNavigateToRiskAssessment={handleNavigateToRiskAssessment}
+                    onNavigateToClauseAnalysis={handleNavigateToClauseAnalysis}
+                    onNavigateToMultipleImages={handleNavigateToMultipleImages}
+                  />
                 </>
               ) : currentView === 'profile' ? (
                 <div className="min-h-screen bg-slate-900 flex items-center justify-center pt-24 pb-8 px-4">
