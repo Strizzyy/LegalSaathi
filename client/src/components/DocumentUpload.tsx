@@ -15,6 +15,7 @@ import { VoiceInput } from './VoiceInput';
 import UniversalDropZone from './UniversalDropZone';
 import { MultiFileDropZone } from './MultiFileDropZone';
 import { useBackendReadiness } from '../hooks/useBackendReadiness';
+import { TranslationModal } from './TranslationModal';
 
 interface DocumentUploadProps {
   onSubmit: (formData: FormData) => void;
@@ -31,6 +32,7 @@ export const DocumentUpload = React.memo(function DocumentUpload({ onSubmit }: D
 
   const [charCount, setCharCount] = useState(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [showTranslationModal, setShowTranslationModal] = useState(false);
 
   // Backend readiness state
   const { isReady: isBackendReady, isChecking: isBackendChecking, waitForBackend } = useBackendReadiness();
@@ -409,6 +411,13 @@ CONFIDENTIALITY TERMS:
                   
                   <button
                     type="button"
+                    onClick={() => {
+                      if (!documentText.trim()) {
+                        notificationService.error('Please enter some text to translate');
+                        return;
+                      }
+                      setShowTranslationModal(true);
+                    }}
                     className="group flex items-center bg-gradient-to-r from-purple-500/20 to-pink-500/20 backdrop-blur-sm px-6 py-3 rounded-2xl border border-purple-500/30 hover:border-purple-400/50 hover:from-purple-500/30 hover:to-pink-500/30 transition-all duration-300 text-purple-300 hover:text-purple-200 shadow-lg hover:shadow-purple-500/25"
                     title="Translate document to different languages"
                   >
@@ -672,6 +681,14 @@ CONFIDENTIALITY TERMS:
           </motion.div>
         </motion.div>
       </div>
+
+      {/* Translation Modal */}
+      <TranslationModal
+        isOpen={showTranslationModal}
+        onClose={() => setShowTranslationModal(false)}
+        originalText={documentText}
+        title="Document Text"
+      />
     </section>
   );
 });
